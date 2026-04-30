@@ -62,6 +62,30 @@ $footer['links'] = [
         'external' => TRUE,
     ],
     [
+        'text' => 'Chat',
+        'icon' => 'mdi-telegram',
+        'url' => 'https://t.me/tonbankcard_chat',
+        'external' => TRUE,
+    ],
+    [
+        'text' => 'Chat RU',
+        'icon' => 'mdi-telegram',
+        'url' => 'https://t.me/tonbankcard_chat_ru',
+        'external' => TRUE,
+    ],
+    [
+        'text' => 'X',
+        'icon' => 'mdi-twitter',
+        'url' => 'https://twitter.com/tonbankcard',
+        'external' => TRUE,
+    ],
+    [
+        'text' => 'VK',
+        'icon' => 'mdi-vk',
+        'url' => 'https://vk.com/tonbankcard',
+        'external' => TRUE,
+    ],
+    [
         'text' => 'YouTube',
         'icon' => 'mdi-youtube',
         'url' => 'https://www.youtube.com/@tonbankcard',
@@ -94,5 +118,4 @@ $footer['links'] = [
 |
 */
 $footer['copyrights'] = '&copy; 2026 TONBANKCARD Crypto Tracker. Market data and third-party widgets are provided for informational use only.';
-
 

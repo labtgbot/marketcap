@@ -87,9 +87,27 @@ $navigation['items'] = [
                 'external' => TRUE,
             ],
             [
-                'text' => 'Support Bot',
-                'icon' => 'mdi-robot',
-                'url' => 'https://t.me/tonbankcard_bot',
+                'text' => 'Chat',
+                'icon' => 'mdi-telegram',
+                'url' => 'https://t.me/tonbankcard_chat',
+                'external' => TRUE,
+            ],
+            [
+                'text' => 'Chat RU',
+                'icon' => 'mdi-telegram',
+                'url' => 'https://t.me/tonbankcard_chat_ru',
+                'external' => TRUE,
+            ],
+            [
+                'text' => 'X',
+                'icon' => 'mdi-twitter',
+                'url' => 'https://twitter.com/tonbankcard',
+                'external' => TRUE,
+            ],
+            [
+                'text' => 'VK',
+                'icon' => 'mdi-vk',
+                'url' => 'https://vk.com/tonbankcard',
                 'external' => TRUE,
             ],
             [

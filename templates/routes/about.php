@@ -52,6 +52,37 @@ $route_about['localization'] = [
     ],
 ];
 
+$route_about['official_links'] = [
+    [
+        'label' => 'Channel',
+        'url'   => 'https://t.me/tonbankcard',
+    ],
+    [
+        'label' => 'Channel RU',
+        'url'   => 'https://t.me/tonbankcard_ru',
+    ],
+    [
+        'label' => 'Chat',
+        'url'   => 'https://t.me/tonbankcard_chat',
+    ],
+    [
+        'label' => 'Chat RU',
+        'url'   => 'https://t.me/tonbankcard_chat_ru',
+    ],
+    [
+        'label' => 'X',
+        'url'   => 'https://twitter.com/tonbankcard',
+    ],
+    [
+        'label' => 'VK',
+        'url'   => 'https://vk.com/tonbankcard',
+    ],
+    [
+        'label' => 'YouTube',
+        'url'   => 'https://www.youtube.com/@tonbankcard',
+    ],
+];
+
 ?>
 <v-container tag="section" id="about" class="mt-8 mb-16 pa-4 pa-sm-6">
 
@@ -97,6 +128,21 @@ $route_about['localization'] = [
                 <v-col cols="12" sm="6">
                     <strong><?php echo esc_html( $locale['language'] ); ?></strong>
                     <p><?php echo esc_html( $locale['status'] ); ?></p>
+                </v-col>
+            <?php endforeach; ?>
+        </v-row>
+    </div>
+
+    <div id="about-official-links" class="mt-10">
+        <h3 class="text-h6 text-sm-h5 mb-4">
+            <?php echo esc_html( 'Official channels' ); ?>
+        </h3>
+        <v-row>
+            <?php foreach ( $route_about['official_links'] as $link ) : ?>
+                <v-col cols="12" sm="6" md="4">
+                    <a href="<?php echo esc_url( $link['url'] ); ?>" target="_blank" rel="noopener">
+                        <?php echo esc_html( $link['label'] ); ?>
+                    </a>
                 </v-col>
             <?php endforeach; ?>
         </v-row>

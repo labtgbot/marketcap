@@ -30,6 +30,8 @@ $frontend_options['privacy-policy']['title'] = __( 'Privacy Policy' );
 $route_privacy_policy['name'] = $site['name'];
 $route_privacy_policy['host'] = parse_url( site_url(), PHP_URL_HOST );
 $route_privacy_policy['cookies_policy_url'] = empty( $routes['cookies-policy']['enabled'] ) ? '' : site_url( $routes['cookies-policy']['path'] );
+$route_privacy_policy['official_privacy_policy_url'] = 'https://tonbankcard.com/doc/Privacy_Policy_TONBANKCARD_en.pdf';
+$route_privacy_policy['official_privacy_policy_ru_url'] = 'https://tonbankcard.com/doc/Privacy_Policy_TONBANKCARD_ru.pdf';
 
 ?>
 <v-container tag="section" id="privacy-policy" class="mt-8 mb-16 pa-4 pa-sm-6">
@@ -40,6 +42,13 @@ $route_privacy_policy['cookies_policy_url'] = empty( $routes['cookies-policy']['
     <p>
         <?php echo esc_html( "This Privacy Policy explains how {$route_privacy_policy['name']} Crypto Tracker handles information for the public website at {$route_privacy_policy['host']} and planned Telegram Mini App features." ); ?>
         <?php echo esc_html( 'The current product baseline is a market-data website with browser-side preferences. V2 feature flags will add Telegram sessions, watchlists, alerts, AI summaries, exchange-widget configuration, and future wallet-aware surfaces only when those workflows are enabled.' ); ?>
+    </p>
+    <p>
+        <?php echo esc_html( 'Official TONBANKCARD privacy documents are available in ' ); ?>
+        <a href="<?php echo esc_url( $route_privacy_policy['official_privacy_policy_url'] ); ?>" target="_blank" rel="noopener"><?php echo esc_html( 'English' ); ?></a>
+        <?php echo esc_html( ' and ' ); ?>
+        <a href="<?php echo esc_url( $route_privacy_policy['official_privacy_policy_ru_url'] ); ?>" target="_blank" rel="noopener"><?php echo esc_html( 'Russian' ); ?></a>
+        <?php echo esc_html( '. This page summarizes the website and planned marketcap application data boundaries for reviewers.' ); ?>
     </p>
 
     <div class="mt-12">
