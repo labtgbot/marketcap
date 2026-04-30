@@ -41,7 +41,7 @@ $navigation['items'] = [
     ],
     [
         'text' => 'Markets',
-        'icon' => 'mdi-chart-line',
+        'icon' => 'mdi-table-large',
         'route' => 'markets',
     ],
     [

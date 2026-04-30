@@ -50,7 +50,7 @@ $route_ton_sections = [
     </p>
     <v-btn color="primary" depressed :to="{name:'currencies'}">
         <v-icon left>mdi-pulse</v-icon>
-        <?php echo esc_html( 'Market Pulse' ); ?>
+        <?php echo esc_html( 'Open Market Pulse' ); ?>
     </v-btn>
     <v-btn text <?php to_attr( 'markets' ); ?>>
         <v-icon left>mdi-chart-line</v-icon>

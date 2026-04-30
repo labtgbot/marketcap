@@ -50,16 +50,6 @@ $routes['coins'] = [
     'template' => 'currency',
 ];
 
-$routes['ton'] = [
-    'path' => '/ton',
-    'enabled' => TRUE,
-];
-
-$routes['watchlist'] = [
-    'path' => '/watchlist',
-    'enabled' => TRUE,
-];
-
 $routes['exchanges'] = [
     'path' => '/exchanges',
     // always enabled
@@ -82,6 +72,16 @@ $routes['finance-products'] = [
 
 $routes['derivatives'] = [
     'path' => '/derivatives',
+    'enabled' => TRUE,
+];
+
+$routes['ton'] = [
+    'path' => '/ton',
+    'enabled' => TRUE,
+];
+
+$routes['watchlist'] = [
+    'path' => '/watchlist',
     'enabled' => TRUE,
 ];
 
