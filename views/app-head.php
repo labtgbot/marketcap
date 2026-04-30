@@ -62,7 +62,7 @@ $linked_data = tonbankcard_public_linked_data( $public_meta );
          */
         if ( ! empty( $site['theme_color'] ) ) {
             ?>
-            <meta id="tbc-theme-color" content="<?php echo esc_attr( $site['theme_color'] ); ?>" name="theme-color" />
+            <meta id="tbc-theme-color" name="theme-color" content="<?php echo esc_attr( $site['theme_color'] ); ?>" />
             <?php
         }
 
