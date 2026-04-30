@@ -1,5 +1,5 @@
 TONBANKCARD Crypto Tracker
-Based on gecko-client (Apache License 2.0)
+Based on Gecko Client by RunCoders.
 
 Modifications by TONBANKCARD Team, 2026:
 - AI sentiment analysis engine
@@ -7,4 +7,12 @@ Modifications by TONBANKCARD Team, 2026:
 - Upstash Redis caching layer
 - Custom UI/UX enhancements
 
-Original copyright notices must not be removed.
+Original Gecko Client source files identify the Envato Market Regular License
+(https://1.envato.market/regular-license) and Copyright (c) 2021 RunCoders
+(https://runcoders.net).
+
+Vendored JavaScript, CSS, and font packages retain their own copyright and
+license notices. See docs/legal-license-inventory.md for the current inventory.
+
+Original copyright notices must not be removed from source files, assets,
+vendored packages, or generated bundles.
