@@ -47,6 +47,12 @@ $api = [
         'enabled' => tonbankcard_env_bool( 'TONBANKCARD_API_AUDIT_LOG', FALSE ),
         'sink'    => 'error_log',
     ],
+    'telegram_session' => [
+        'init_data_max_age_seconds'     => 86400,
+        'auth_date_future_skew_seconds' => 60,
+        'session_ttl_seconds'           => 2592000,
+        'local_session_store_path'      => (string) tonbankcard_env( 'TONBANKCARD_LOCAL_SESSION_STORE', sys_get_temp_dir() . '/tonbankcard-marketcap-sessions.json' ),
+    ],
     'readiness'  => [
         'active_checks'   => tonbankcard_env_bool( 'TONBANKCARD_API_ACTIVE_READINESS', FALSE ),
         'timeout_seconds' => 2,

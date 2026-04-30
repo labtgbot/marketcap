@@ -14,6 +14,11 @@ The initial migration lives in:
 - `database/migrations/0001_v2_core_schema.up.sql`
 - `database/migrations/0001_v2_core_schema.down.sql`
 
+Telegram session context added for issue #13 lives in:
+
+- `database/migrations/0002_telegram_session_context.up.sql`
+- `database/migrations/0002_telegram_session_context.down.sql`
+
 ## Data Minimization
 
 - Store raw Telegram identity only where the application needs it for trusted
@@ -42,7 +47,7 @@ The initial migration lives in:
 | --- | --- | --- |
 | `schema_migrations` | Migration ledger used by `database/migrate.php`. | Stores migration checksums only. |
 | `users` | Internal user row with Telegram user identity after server validation. | Keeps raw Telegram numeric id because bot delivery and deletion workflows need it. |
-| `user_sessions` | Anonymous, Telegram, bot, and admin session records. | Uses hashes for session tokens, Telegram `initData`, start params, chat instances, IP, and user agent. |
+| `user_sessions` | Anonymous, Telegram, bot, and admin session records. | Uses hashes for session tokens, Telegram `initData`, start params, chat instances, IP, and user agent. Stores signed Telegram chat type when present. |
 | `watchlists` | Named user watchlists, starting with one default personal list. | Tied to internal user id; anonymous web lists remain browser-local for MVP. |
 | `watchlist_entries` | Coin entries in user watchlists. | Stores CoinGecko-style public coin ids and optional symbols only. |
 | `alert_rules` | User alert rules for price crosses, percent moves, volume spikes, and market cap thresholds. | Exact thresholds stay server-side and are excluded from analytics payloads. |
