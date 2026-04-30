@@ -377,27 +377,11 @@ production provider controls are enabled.
 
 ## Analytics Events
 
-MVP implementation tasks should use this event taxonomy as the first baseline.
-
-| Event | Required properties |
-| --- | --- |
-| `market_pulse_viewed` | surface, freshness_age, telegram_context |
-| `search_opened` | surface, trigger |
-| `search_result_selected` | result_type, symbol_or_id, rank, surface |
-| `coin_detail_viewed` | coin_id, symbol, source_route, freshness_age |
-| `watchlist_added` | coin_id, surface, storage_mode |
-| `watchlist_removed` | coin_id, surface, storage_mode |
-| `alert_created` | coin_id, trigger_type, delivery_channel |
-| `alert_delivered` | alert_id, trigger_type, delivery_status |
-| `ai_card_viewed` | card_type, provider, model, prompt_version, freshness_age |
-| `swap_widget_opened` | coin_id, from_asset, to_asset, widget_supported |
-| `share_started` | card_type, route_type, surface |
-| `share_opened` | payload_type, campaign, inviter_present |
-| `referral_attributed` | campaign, inviter_id_hash, landing_route |
-| `admin_setting_changed` | setting_group, actor_id, audit_id |
-
-Sensitive values should be hashed or omitted according to the analytics and
-privacy baseline in roadmap issue #8.
+MVP implementation tasks should use
+`docs/v2-analytics-privacy-metrics.md` as the accepted event taxonomy and
+privacy baseline. That document defines event names, allowed properties,
+identity rules, retention windows, client-log exclusions, KPI definitions, and
+dashboard requirements for roadmap issue #10.
 
 ## Open Decisions
 
