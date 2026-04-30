@@ -24,6 +24,8 @@ Initial routes:
 | `GET` | `/api/health` | Liveness response with app boot, configuration, database, Redis, and upstream provider checks. |
 | `GET` | `/api/metrics` | Redis-backed cache and rate-limit counters. |
 | `GET` | `/api/ready` | Readiness response. Returns `503` when required configuration or required dependency checks fail. |
+| `GET` | `/api/ai` | AI provider metadata without secrets or raw prompts. |
+| `POST` | `/api/ai/insight` | Server-side AI insight execution with structured validation and safe fallback behavior. |
 | `POST` | `/api/observability/client-error` | Accepts allowlisted browser boot, Vue, unhandled promise, and API error reports for operational logging. |
 | `POST` | `/api/telegram/session` | Validates raw Telegram Mini App `initData` and creates or refreshes a server session. |
 | `OPTIONS` | `/api/*` | CORS preflight response for configured website and Mini App origins. |
@@ -127,6 +129,11 @@ watchlist, alert, and admin issues that follow this routing layer.
 Issue #13 adds `/api/telegram/session` on top of this routing layer. See
 `docs/v2-telegram-session.md` for the Telegram-specific validation, storage,
 and local browser fallback contract.
+
+Issue #17 adds `/api/ai/insight` on top of this routing layer. See
+`docs/v2-ai-provider-foundation.md` for the Groq-first provider abstraction,
+structured output validation, safety rules, cost counters, and fallback
+contract.
 
 Issue #18 adds `/api/observability/client-error` and server-side operational
 logging. See `docs/v2-observability-operational-logging.md` for request ID
