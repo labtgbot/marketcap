@@ -19,6 +19,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 
 $public_meta = tonbankcard_public_route_meta();
 $linked_data = tonbankcard_public_linked_data( $public_meta );
+$public_image_url = empty( $public_meta['image'] ) ? '' : get_file_url_for_display( $public_meta['image'] );
 
 ?>
 <head>
@@ -26,9 +27,13 @@ $linked_data = tonbankcard_public_linked_data( $public_meta );
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="<?php echo esc_attr( $public_meta['robots'] ); ?>" />
     <link rel="canonical" href="<?php echo esc_url( $public_meta['canonical_url'] ); ?>" />
+    <link rel="alternate" hreflang="<?php echo empty( $site['lang'] ) ? 'en' : esc_attr( $site['lang'] ); ?>" href="<?php echo esc_url( $public_meta['canonical_url'] ); ?>" />
+    <link rel="alternate" hreflang="x-default" href="<?php echo esc_url( $public_meta['canonical_url'] ); ?>" />
     <meta property="og:type" content="<?php echo esc_attr( $public_meta['og_type'] ); ?>" />
     <meta property="og:url" content="<?php echo esc_url( $public_meta['canonical_url'] ); ?>" />
+    <meta property="og:locale" content="en_US" />
 
     <?php
 
@@ -44,6 +49,7 @@ $linked_data = tonbankcard_public_linked_data( $public_meta );
          */
         ?>
         <title><?php echo esc_html( $public_meta['full_title'] ); ?></title>
+        <meta name="application-name" content="<?php echo esc_attr( $site['name'] ); ?>" />
         <meta name="twitter:title" content="<?php echo esc_attr( $public_meta['full_title'] ); ?>" />
         <meta property="og:title" content="<?php echo esc_attr( $public_meta['full_title'] ); ?>" />
         <?php
@@ -72,6 +78,7 @@ $linked_data = tonbankcard_public_linked_data( $public_meta );
             <meta name="mobile-web-app-capable" content="yes" />
             <meta name="apple-mobile-web-app-capable" content="yes" />
             <meta name="apple-mobile-web-app-title" content="<?php echo esc_attr( $site['name'] ); ?>" />
+            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
             <?php
         }
 
@@ -167,9 +174,15 @@ $linked_data = tonbankcard_public_linked_data( $public_meta );
         /*
          * See "OPEN GRAPH IMAGE" in "config/site.php"
          */
-        if ( ! empty( $public_meta['image'] ) ) {
+        if ( ! empty( $public_image_url ) ) {
             ?>
-            <meta property="og:image" content="<?php echo esc_url( get_file_url_for_display( $public_meta['image'] ) ); ?>" />
+            <meta property="og:image" content="<?php echo esc_url( $public_image_url ); ?>" />
+            <?php if ( 0 === strpos( $public_image_url, 'https://' ) ) : ?>
+            <meta property="og:image:secure_url" content="<?php echo esc_url( $public_image_url ); ?>" />
+            <?php endif; ?>
+            <meta property="og:image:width" content="<?php echo esc_attr( $public_meta['image_width'] ); ?>" />
+            <meta property="og:image:height" content="<?php echo esc_attr( $public_meta['image_height'] ); ?>" />
+            <meta property="og:image:alt" content="<?php echo esc_attr( $public_meta['image_alt'] ); ?>" />
             <?php
         }
 
@@ -204,9 +217,10 @@ $linked_data = tonbankcard_public_linked_data( $public_meta );
          * See "TWITTER IMAGE" in "config/site.php"
          */
         if ( ! empty( $site['twitter_image'] ) || ! empty( $public_meta['image'] ) ) {
-            $twitter_image = empty( $site['twitter_image'] ) ? $public_meta['image'] : $site['twitter_image'];
+            $twitter_image = empty( $site['twitter_image'] ) ? $public_image_url : get_file_url_for_display( $site['twitter_image'] );
             ?>
-            <meta name="twitter:image" content="<?php echo esc_url( get_file_url_for_display( $twitter_image ) ); ?>" />
+            <meta name="twitter:image" content="<?php echo esc_url( $twitter_image ); ?>" />
+            <meta name="twitter:image:alt" content="<?php echo esc_attr( $public_meta['image_alt'] ); ?>" />
             <?php
         }
 

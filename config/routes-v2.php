@@ -13,7 +13,9 @@ $routes_v2['public'] = [
         'title'       => 'Market Overview',
         'description' => 'Track live cryptocurrency markets, TON ecosystem context, trending assets, exchanges, and shareable market links from TONBANKCARD Crypto Tracker.',
         'og_type'     => 'website',
-        'schema_type' => 'WebSite',
+        'schema_type' => 'CollectionPage',
+        'sitemap_changefreq' => 'hourly',
+        'sitemap_priority'   => '1.0',
     ],
     'markets' => [
         'path'        => '/markets',
@@ -21,6 +23,8 @@ $routes_v2['public'] = [
         'description' => 'Browse cryptocurrency prices, market capitalization, volume, rank, and recent movement from the TONBANKCARD public market table.',
         'og_type'     => 'website',
         'schema_type' => 'CollectionPage',
+        'sitemap_changefreq' => 'hourly',
+        'sitemap_priority'   => '0.9',
     ],
     'coins' => [
         'path'                 => '/coins/:id',
@@ -28,13 +32,22 @@ $routes_v2['public'] = [
         'description_template' => 'Track %s price, chart history, market capitalization, volume, rank, converter tools, exchange markets, and shareable market context.',
         'og_type'              => 'article',
         'schema_type'          => 'FinancialProduct',
+        'sitemap_changefreq'   => 'hourly',
+        'sitemap_priority'     => '0.8',
+        'sitemap_params'       => [
+            [ 'id' => 'bitcoin' ],
+            [ 'id' => 'ethereum' ],
+            [ 'id' => 'toncoin' ],
+        ],
     ],
     'currency' => [
         'path'                 => '/currency/:id',
+        'canonical_path'       => '/coins/:id',
         'title_template'       => '%s Price, Chart, and Market Data',
         'description_template' => 'Track %s price, chart history, market capitalization, volume, rank, converter tools, exchange markets, and shareable market context.',
         'og_type'              => 'article',
         'schema_type'          => 'FinancialProduct',
+        'sitemap'              => FALSE,
     ],
     'ton' => [
         'path'        => '/ton',
@@ -42,6 +55,8 @@ $routes_v2['public'] = [
         'description' => 'Explore TON ecosystem market context, Toncoin, TON assets, Telegram-native growth loops, and upcoming TONBANKCARD V2 ecosystem coverage.',
         'og_type'     => 'website',
         'schema_type' => 'CollectionPage',
+        'sitemap_changefreq' => 'daily',
+        'sitemap_priority'   => '0.8',
     ],
     'exchanges' => [
         'path'        => '/exchanges',
@@ -49,6 +64,8 @@ $routes_v2['public'] = [
         'description' => 'Compare cryptocurrency exchanges by trust score, volume, country, launch year, and market availability through TONBANKCARD Crypto Tracker.',
         'og_type'     => 'website',
         'schema_type' => 'CollectionPage',
+        'sitemap_changefreq' => 'daily',
+        'sitemap_priority'   => '0.8',
     ],
     'exchange' => [
         'path'                 => '/exchange/:id',
@@ -56,6 +73,34 @@ $routes_v2['public'] = [
         'description_template' => 'Review %s exchange volume, trust score, normalized liquidity, chart context, and market availability.',
         'og_type'              => 'article',
         'schema_type'          => 'WebPage',
+        'sitemap'              => FALSE,
+    ],
+    'derivatives' => [
+        'path'        => '/derivatives',
+        'title'       => 'Crypto Derivatives',
+        'description' => 'Track cryptocurrency derivatives markets, futures contracts, funding rates, open interest, basis, spreads, and 24-hour volume.',
+        'og_type'     => 'website',
+        'schema_type' => 'CollectionPage',
+        'sitemap_changefreq' => 'daily',
+        'sitemap_priority'   => '0.7',
+    ],
+    'finance-platforms' => [
+        'path'        => '/finance-platforms',
+        'title'       => 'Crypto Finance Platforms',
+        'description' => 'Compare decentralized finance platforms by category, asset coverage, lending markets, and public market context.',
+        'og_type'     => 'website',
+        'schema_type' => 'CollectionPage',
+        'sitemap_changefreq' => 'weekly',
+        'sitemap_priority'   => '0.6',
+    ],
+    'finance-products' => [
+        'path'        => '/finance-products',
+        'title'       => 'Crypto Finance Products',
+        'description' => 'Review public crypto finance products, rates, supported platforms, supply markets, borrow markets, and availability windows.',
+        'og_type'     => 'website',
+        'schema_type' => 'CollectionPage',
+        'sitemap_changefreq' => 'weekly',
+        'sitemap_priority'   => '0.6',
     ],
     'screener' => [
         'path'        => '/screener',
@@ -63,6 +108,8 @@ $routes_v2['public'] = [
         'description' => 'Prepare market filters for market cap, movement, volume, category, TON tags, and sentiment as the TONBANKCARD V2 screener evolves.',
         'og_type'     => 'website',
         'schema_type' => 'SearchResultsPage',
+        'sitemap_changefreq' => 'daily',
+        'sitemap_priority'   => '0.7',
     ],
     'about' => [
         'path'        => '/about',
@@ -70,6 +117,8 @@ $routes_v2['public'] = [
         'description' => 'Learn how TONBANKCARD Crypto Tracker connects public market pages with Telegram-native watchlists, alerts, sharing, and responsible intelligence.',
         'og_type'     => 'website',
         'schema_type' => 'AboutPage',
+        'sitemap_changefreq' => 'monthly',
+        'sitemap_priority'   => '0.5',
     ],
     'support' => [
         'path'        => '/support',
@@ -77,6 +126,8 @@ $routes_v2['public'] = [
         'description' => 'Find TONBANKCARD support, official channels, bot help, issue reporting guidance, and safety boundaries for market data and exchange widgets.',
         'og_type'     => 'website',
         'schema_type' => 'ContactPage',
+        'sitemap_changefreq' => 'monthly',
+        'sitemap_priority'   => '0.5',
     ],
     'terms' => [
         'path'        => '/terms',
@@ -84,6 +135,8 @@ $routes_v2['public'] = [
         'description' => 'Read TONBANKCARD terms and risk disclosures for market data, AI summaries, alerts, swap widgets, and third-party providers.',
         'og_type'     => 'website',
         'schema_type' => 'WebPage',
+        'sitemap_changefreq' => 'monthly',
+        'sitemap_priority'   => '0.4',
     ],
     'privacy-policy' => [
         'path'        => '/privacy-policy',
@@ -91,6 +144,8 @@ $routes_v2['public'] = [
         'description' => 'Review TONBANKCARD privacy coverage for Telegram data, analytics, AI features, alerts, wallet context, and support requests.',
         'og_type'     => 'website',
         'schema_type' => 'WebPage',
+        'sitemap_changefreq' => 'monthly',
+        'sitemap_priority'   => '0.4',
     ],
     'cookies-policy' => [
         'path'        => '/cookies-policy',
@@ -98,5 +153,7 @@ $routes_v2['public'] = [
         'description' => 'Review how TONBANKCARD uses cookies, local storage, browser storage, and third-party provider storage for the public website and Mini App.',
         'og_type'     => 'website',
         'schema_type' => 'WebPage',
+        'sitemap_changefreq' => 'monthly',
+        'sitemap_priority'   => '0.4',
     ],
 ];

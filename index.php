@@ -121,6 +121,8 @@ if ( ! empty( $invalid_configs ) ) {
     die;
 }
 
+tonbankcard_dispatch_public_seo_assets();
+
 /*
 | -------------------------------------------------------------------------
 | GLOBAL VARIABLES
