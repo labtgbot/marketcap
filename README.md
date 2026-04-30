@@ -27,6 +27,7 @@ Open these browser URLs while the server is running:
 - Home: http://127.0.0.1:8888/
 - Coin detail: http://127.0.0.1:8888/currency/bitcoin
 - Exchanges: http://127.0.0.1:8888/exchanges
+- API health: http://127.0.0.1:8888/api/health
 - Search: focus the top search field on the home page and search for a coin or exchange.
 
 Copy `.env.example` to `.env` only when you need local overrides. A fresh
@@ -56,7 +57,9 @@ npm run test:workflow
 npm run lint:php
 npm run test:content
 npm run test:architecture
+npm run test:analytics
 npm run test:database
+npm run test:api
 npm run validate:bundle
 npm run test:smoke
 ```
@@ -97,3 +100,5 @@ See [docs/runtime-configuration.md](docs/runtime-configuration.md) and [.env.exa
 See [docs/v2-analytics-privacy-metrics.md](docs/v2-analytics-privacy-metrics.md) for the analytics event taxonomy, privacy rules, KPI definitions, retention windows, and dashboard requirements from issue #10.
 
 See [docs/v2-database-schema-and-migrations.md](docs/v2-database-schema-and-migrations.md) for the MySQL/MariaDB V2 schema, migration runner conventions, indexes, retention policy, and backup/restore expectations from issue #11.
+
+See [docs/v2-api-routing-layer.md](docs/v2-api-routing-layer.md) for the `/api/*` JSON envelope, health and readiness checks, CORS policy, middleware hooks, and backend test conventions from issue #12.
