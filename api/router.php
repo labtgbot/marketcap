@@ -10,6 +10,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 
 require_once __DIR__ . '/cache.php';
 require_once __DIR__ . '/market.php';
+require_once __DIR__ . '/ai.php';
 require_once __DIR__ . '/search.php';
 
 /**
@@ -193,6 +194,8 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
                     '/api/health',
                     '/api/metrics',
                     '/api/ready',
+                    '/api/ai',
+                    '/api/ai/insight',
                     '/api/search',
                     '/api/search/refresh',
                     '/api/market',
@@ -256,6 +259,10 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
             $request_id,
             $headers
         );
+    }
+
+    if ( tonbankcard_api_ai_is_request( $path ) ) {
+        return tonbankcard_api_ai_handle( $request, $runtime, $config, $request_id, $headers );
     }
 
     if ( tonbankcard_api_search_is_request( $path ) ) {
@@ -1563,13 +1570,7 @@ function tonbankcard_api_upstream_provider_check( array $runtime, array $config 
             'available'  => null,
             'message'    => ! empty( $providers['coingecko']['api_key_configured'] ) ? 'CoinGecko API key is configured server-side for the market data gateway.' : 'CoinGecko gateway uses keyless public Demo API access until a server-side key is configured.',
         ],
-        'groq'      => [
-            'status'     => ! empty( $providers['groq']['api_key_configured'] ) ? 'configured' : ( ! empty( $features['ai'] ) ? 'fail' : 'not_configured' ),
-            'required'   => ! empty( $features['ai'] ),
-            'configured' => ! empty( $providers['groq']['api_key_configured'] ),
-            'available'  => null,
-            'message'    => ! empty( $features['ai'] ) ? 'Groq API key is required when AI features are enabled.' : 'Groq is optional while AI features are disabled.',
-        ],
+        'groq'      => tonbankcard_api_ai_provider_health_check( $runtime, $config ),
         'changenow' => [
             'status'     => ! empty( $providers['changenow']['link_id'] ) ? 'configured' : ( ! empty( $features['changenow'] ) ? 'fail' : 'not_configured' ),
             'required'   => ! empty( $features['changenow'] ),

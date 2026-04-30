@@ -64,6 +64,7 @@ npm run test:market-gateway
 npm run test:search-api
 npm run test:cache-rate-limit
 npm run test:telegram-session
+npm run test:ai-provider
 npm run test:design-system
 npm run validate:bundle
 npm run test:smoke
@@ -115,5 +116,7 @@ See [docs/v2-smart-search-api.md](docs/v2-smart-search-api.md) for the `/api/sea
 See [docs/v2-cache-rate-limit-coalescing.md](docs/v2-cache-rate-limit-coalescing.md) for the Upstash Redis cache TTLs, stale fallback behavior, request coalescing, rate-limit policies, and metrics from issue #15.
 
 See [docs/v2-telegram-session.md](docs/v2-telegram-session.md) for the `/api/telegram/session` initData validation, session storage, local browser fallback, and regression coverage from issue #13.
+
+See [docs/v2-ai-provider-foundation.md](docs/v2-ai-provider-foundation.md) for the configurable Groq-first AI provider layer, structured insight validation, safety rules, and fallback behavior from issue #17.
 
 See [docs/v2-responsive-design-system.md](docs/v2-responsive-design-system.md) for the responsive TONBANKCARD design tokens, Telegram theme behavior, safe-area rules, accessibility states, and dense desktop/mobile UI guidance from issue #19.
