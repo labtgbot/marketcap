@@ -85,6 +85,11 @@ $gecko_client['runtime'] = [
     'telegram' => [
         'botUsername' => $runtime['telegram']['bot_username'],
     ],
+    'observability' => [
+        'clientErrorReporting' => ! empty( $runtime['observability']['client_error_reporting'] ),
+        'clientErrorEndpoint'  => site_url( 'api/observability/client-error' ),
+        'verboseTracing'       => ! empty( $runtime['observability']['verbose_tracing'] ),
+    ],
     'features' => $runtime['feature_flags'],
 ];
 // Website Data
