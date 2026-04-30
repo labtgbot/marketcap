@@ -108,3 +108,5 @@ See [docs/v2-api-routing-layer.md](docs/v2-api-routing-layer.md) for the `/api/*
 See [docs/v2-market-data-gateway.md](docs/v2-market-data-gateway.md) for the `/api/market/*` CoinGecko gateway, Demo/Pro key handling, provider error normalization, and freshness metadata from issue #14.
 
 See [docs/v2-telegram-session.md](docs/v2-telegram-session.md) for the `/api/telegram/session` initData validation, session storage, local browser fallback, and regression coverage from issue #13.
+
+See [docs/v2-observability-operational-logging.md](docs/v2-observability-operational-logging.md) for request ID tracing, frontend/API/provider error logging, verbose tracing flags, and operational health queries from issue #18.

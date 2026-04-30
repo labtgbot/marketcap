@@ -93,9 +93,24 @@ function tonbankcard_api_market_handle( array $request, array $runtime, array $c
     $provider = tonbankcard_api_market_provider_config( $runtime, $config );
     $query    = tonbankcard_api_market_sanitize_query( isset( $request['query'] ) ? $request['query'] : [] );
     $fetched_at = time();
+    $provider_started_at = microtime( TRUE );
+    tonbankcard_observability_log(
+        $runtime,
+        $config,
+        'debug',
+        'market.provider_request',
+        [
+            'request_id'    => $request_id,
+            'provider'      => $provider['name'],
+            'provider_plan' => $provider['plan'],
+            'gateway_path'  => $route['gateway_path'],
+            'upstream_path' => $route['upstream_path'],
+            'query_keys'    => array_values( array_keys( $query ) ),
+        ]
+    );
     $upstream_response = tonbankcard_api_market_fetch( $route['upstream_path'], $query, $provider, $config );
 
-    return tonbankcard_api_market_response(
+    $response = tonbankcard_api_market_response(
         $upstream_response,
         $route,
         $provider,
@@ -103,6 +118,18 @@ function tonbankcard_api_market_handle( array $request, array $runtime, array $c
         $headers,
         $fetched_at
     );
+    tonbankcard_api_market_log_provider_response(
+        $upstream_response,
+        $route,
+        $provider,
+        $request_id,
+        $response,
+        $runtime,
+        $config,
+        max( 0, (int) round( ( microtime( TRUE ) - $provider_started_at ) * 1000 ) )
+    );
+
+    return $response;
 }
 
 /**
@@ -561,6 +588,48 @@ function tonbankcard_api_market_response( array $upstream_response, array $route
         $headers,
         200,
         tonbankcard_api_market_response_meta( $route, $provider, $data, $status, $fetched_at )
+    );
+}
+
+/**
+ * Logs the provider response using safe trace context.
+ *
+ * @param array $upstream_response
+ * @param array $route
+ * @param array $provider
+ * @param string $request_id
+ * @param array $response
+ * @param array $runtime
+ * @param array $config
+ * @param int $duration_ms
+ * @return void
+ */
+function tonbankcard_api_market_log_provider_response( array $upstream_response, array $route, array $provider, string $request_id, array $response, array $runtime, array $config, int $duration_ms ) {
+    $status = isset( $response['status'] ) ? (int) $response['status'] : 500;
+    $upstream_status = isset( $upstream_response['status'] ) ? (int) $upstream_response['status'] : 0;
+    $provider_error = isset( $upstream_response['error'] ) ? (string) $upstream_response['error'] : null;
+    $error_code = function_exists( 'tonbankcard_api_response_error_code' ) ? tonbankcard_api_response_error_code( $response ) : null;
+    $provider_headers = tonbankcard_api_market_normalize_headers( isset( $upstream_response['headers'] ) && is_array( $upstream_response['headers'] ) ? $upstream_response['headers'] : [] );
+    $level = 500 <= $status ? 'error' : ( 400 <= $status ? 'warning' : 'info' );
+
+    tonbankcard_observability_log(
+        $runtime,
+        $config,
+        $level,
+        'market.provider_response',
+        [
+            'request_id'          => $request_id,
+            'provider'            => $provider['name'],
+            'provider_plan'       => $provider['plan'],
+            'gateway_path'        => $route['gateway_path'],
+            'upstream_path'       => $route['upstream_path'],
+            'status'              => $status,
+            'upstream_status'     => $upstream_status,
+            'provider_error'      => $provider_error,
+            'error_code'          => $error_code,
+            'retry_after_present' => isset( $provider_headers['retry-after'] ),
+            'duration_ms'         => $duration_ms,
+        ]
     );
 }
 

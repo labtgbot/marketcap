@@ -10,10 +10,11 @@
     "test:api": "sh tests/api-routing-check.sh",
     "test:market-gateway": "sh tests/market-gateway-check.sh",
     "test:telegram-session": "sh tests/telegram-session-check.sh",
+    "test:observability": "sh tests/observability-check.sh",
     "validate:bundle": "node tests/generated-bundle-check.js",
     "test:workflow": "sh tests/development-workflow-check.sh",
     "test:smoke": "node tests/browser-smoke.js",
-    "test": "npm run test:workflow && npm run lint:php && npm run test:content && npm run test:architecture && npm run test:analytics && npm run test:database && npm run test:api && npm run test:market-gateway && npm run test:telegram-session && npm run validate:bundle && npm run test:smoke"
+    "test": "npm run test:workflow && npm run lint:php && npm run test:content && npm run test:architecture && npm run test:analytics && npm run test:database && npm run test:api && npm run test:market-gateway && npm run test:telegram-session && npm run test:observability && npm run validate:bundle && npm run test:smoke"
   },
   "devDependencies": {
     "playwright": "^1.59.1",

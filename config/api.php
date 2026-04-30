@@ -47,6 +47,12 @@ $api = [
         'enabled' => tonbankcard_env_bool( 'TONBANKCARD_API_AUDIT_LOG', FALSE ),
         'sink'    => 'error_log',
     ],
+    'observability' => [
+        'log_level'              => $api_runtime['observability']['log_level'],
+        'verbose_tracing'        => (bool) $api_runtime['observability']['verbose_tracing'],
+        'client_error_reporting' => (bool) $api_runtime['observability']['client_error_reporting'],
+        'sink'                   => $api_runtime['observability']['sink'],
+    ],
     'telegram_session' => [
         'init_data_max_age_seconds'     => 86400,
         'auth_date_future_skew_seconds' => 60,
