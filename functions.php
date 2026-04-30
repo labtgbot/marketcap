@@ -519,7 +519,7 @@ function validate_runtime_config() {
         'TONBANKCARD_FEATURE_PREMIUM',
     ];
 
-    foreach ( $feature_flags as $flag ) {
+    foreach ( array_merge( $feature_flags, [ 'TONBANKCARD_VERBOSE_TRACING', 'TONBANKCARD_CLIENT_ERROR_REPORTING' ] ) as $flag ) {
         if ( ! tonbankcard_env_bool_is_valid( $flag ) ) {
             $invalid[] = tonbankcard_env_error(
                 $flag,
@@ -527,6 +527,15 @@ function validate_runtime_config() {
                 "'false'"
             );
         }
+    }
+
+    $observability_log_level = strtolower( trim( (string) tonbankcard_env( 'TONBANKCARD_OBSERVABILITY_LOG_LEVEL', 'warning' ) ) );
+    if ( ! in_array( $observability_log_level, [ 'debug', 'info', 'warning', 'warn', 'error', 'critical', 'off' ], TRUE ) ) {
+        $invalid[] = tonbankcard_env_error(
+            'TONBANKCARD_OBSERVABILITY_LOG_LEVEL',
+            "Enter 'debug', 'info', 'warning', 'error', 'critical', or 'off'.",
+            "'warning'"
+        );
     }
 
     $coingecko_plan = strtolower( trim( (string) tonbankcard_env( 'COINGECKO_API_PLAN', 'demo' ) ) );
