@@ -61,6 +61,7 @@ npm run test:analytics
 npm run test:database
 npm run test:api
 npm run test:market-gateway
+npm run test:telegram-session
 npm run validate:bundle
 npm run test:smoke
 ```
@@ -105,3 +106,5 @@ See [docs/v2-database-schema-and-migrations.md](docs/v2-database-schema-and-migr
 See [docs/v2-api-routing-layer.md](docs/v2-api-routing-layer.md) for the `/api/*` JSON envelope, health and readiness checks, CORS policy, middleware hooks, and backend test conventions from issue #12.
 
 See [docs/v2-market-data-gateway.md](docs/v2-market-data-gateway.md) for the `/api/market/*` CoinGecko gateway, Demo/Pro key handling, provider error normalization, and freshness metadata from issue #14.
+
+See [docs/v2-telegram-session.md](docs/v2-telegram-session.md) for the `/api/telegram/session` initData validation, session storage, local browser fallback, and regression coverage from issue #13.

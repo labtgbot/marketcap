@@ -45,6 +45,11 @@ are stripped.
 
 ## Authentication
 
+The default configuration works without a CoinGecko API key. With
+`COINGECKO_API_KEY` empty, the gateway uses the public CoinGecko `/api/v3`
+root, sends no authentication header, and preserves the original V1 no-key data
+loading behavior. Add a key only when the public quota is not enough.
+
 `COINGECKO_API_PLAN` controls upstream selection:
 
 | Plan | Root URL | Header |
@@ -138,11 +143,12 @@ through:
 npm run test:market-gateway
 ```
 
-The check verifies route documentation, browser source rewiring, Demo and Pro
-header behavior, secret redaction, rate-limit normalization, timeout
-normalization, invalid-symbol normalization, and freshness metadata. The browser
-smoke test also stubs `/api/market/*` and fails if the app makes direct data
-requests to `api.coingecko.com`, `pro-api.coingecko.com`, or `localstorage.one`.
+The check verifies route documentation, browser source rewiring, default no-key
+behavior, Demo and Pro header behavior, secret redaction, rate-limit
+normalization, timeout normalization, invalid-symbol normalization, and freshness
+metadata. The browser smoke test also stubs `/api/market/*` and fails if the app
+makes direct data requests to `api.coingecko.com`, `pro-api.coingecko.com`, or
+`localstorage.one`.
 
 ## References
 

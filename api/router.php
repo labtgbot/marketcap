@@ -172,12 +172,21 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
                     '/api/ready',
                     '/api/market',
                     '/api/market/*',
+                    '/api/telegram/session',
                 ],
                 'middleware' => $context['hooks'],
             ],
             $request_id,
             $headers
         );
+    }
+
+    if ( '/api/telegram/session' === $path ) {
+        if ( 'POST' !== $request['method'] ) {
+            return tonbankcard_api_method_not_allowed_response( [ 'POST', 'OPTIONS' ], $request_id, $headers );
+        }
+
+        return tonbankcard_api_telegram_session_response( $request, $runtime, $config, $request_id, $headers );
     }
 
     if ( '/api/health' === $path ) {
@@ -452,6 +461,811 @@ function tonbankcard_api_session_context( array $request ) {
         'state'  => 'anonymous',
         'source' => null,
     ];
+}
+
+/**
+ * Handles Telegram Mini App initData validation and session creation.
+ *
+ * @param array $request
+ * @param array $runtime
+ * @param array $config
+ * @param string $request_id
+ * @param array $headers
+ * @return array
+ */
+function tonbankcard_api_telegram_session_response( array $request, array $runtime, array $config, string $request_id, array $headers ) {
+    $settings = tonbankcard_api_telegram_session_settings( $config );
+    $payload  = tonbankcard_api_json_body( $request );
+    $init_data = tonbankcard_api_telegram_init_data_from_request( $request, $payload );
+
+    if ( '' === $init_data ) {
+        if ( tonbankcard_api_local_browser_fallback_allowed( $runtime ) ) {
+            return tonbankcard_api_local_browser_session_response( $request, $runtime, $config, $settings, $request_id, $headers );
+        }
+
+        return tonbankcard_api_error_response(
+            400,
+            'missing_init_data',
+            'Telegram initData is required for this session endpoint.',
+            [ 'field' => 'initData' ],
+            $request_id,
+            $headers
+        );
+    }
+
+    if ( strlen( $init_data ) > 8192 ) {
+        return tonbankcard_api_error_response(
+            400,
+            'init_data_too_large',
+            'Telegram initData is larger than the accepted limit.',
+            [ 'max_bytes' => 8192 ],
+            $request_id,
+            $headers
+        );
+    }
+
+    $bot_token = isset( $runtime['telegram']['bot_token'] ) ? trim( (string) $runtime['telegram']['bot_token'] ) : '';
+    if ( '' === $bot_token ) {
+        return tonbankcard_api_error_response(
+            503,
+            'telegram_bot_token_missing',
+            'Telegram session validation is not configured.',
+            [ 'config' => 'TONBANKCARD_BOT_TOKEN' ],
+            $request_id,
+            $headers
+        );
+    }
+
+    $validation = tonbankcard_api_validate_telegram_init_data( $init_data, $bot_token, $settings );
+    if ( empty( $validation['ok'] ) ) {
+        return tonbankcard_api_error_response(
+            isset( $validation['status'] ) ? (int) $validation['status'] : 400,
+            isset( $validation['code'] ) ? $validation['code'] : 'invalid_telegram_init_data',
+            isset( $validation['message'] ) ? $validation['message'] : 'Telegram initData could not be validated.',
+            isset( $validation['details'] ) && is_array( $validation['details'] ) ? $validation['details'] : [],
+            $request_id,
+            $headers
+        );
+    }
+
+    $session = tonbankcard_api_build_telegram_session_record( $validation['data'], $init_data, $request, $settings );
+    $stored = tonbankcard_api_store_session_record( $session, $runtime, $config );
+    if ( empty( $stored['ok'] ) ) {
+        return tonbankcard_api_error_response(
+            503,
+            'session_store_unavailable',
+            'The validated Telegram session could not be stored.',
+            [ 'storage' => isset( $stored['storage'] ) ? $stored['storage'] : 'database' ],
+            $request_id,
+            $headers
+        );
+    }
+
+    $headers['Set-Cookie'] = tonbankcard_api_session_cookie_header( $session, $runtime, $settings );
+
+    return tonbankcard_api_success_response(
+        tonbankcard_api_session_response_payload( $session ),
+        $request_id,
+        $headers
+    );
+}
+
+/**
+ * Creates an anonymous local-development session when Telegram is unavailable.
+ *
+ * @param array $request
+ * @param array $runtime
+ * @param array $config
+ * @param array $settings
+ * @param string $request_id
+ * @param array $headers
+ * @return array
+ */
+function tonbankcard_api_local_browser_session_response( array $request, array $runtime, array $config, array $settings, string $request_id, array $headers ) {
+    $session = tonbankcard_api_build_anonymous_session_record( $request, $settings );
+    $stored = tonbankcard_api_store_session_record( $session, $runtime, $config );
+    if ( empty( $stored['ok'] ) ) {
+        return tonbankcard_api_error_response(
+            503,
+            'session_store_unavailable',
+            'The local browser session could not be stored.',
+            [ 'storage' => isset( $stored['storage'] ) ? $stored['storage'] : 'local_file' ],
+            $request_id,
+            $headers
+        );
+    }
+
+    $headers['Set-Cookie'] = tonbankcard_api_session_cookie_header( $session, $runtime, $settings );
+
+    return tonbankcard_api_success_response(
+        tonbankcard_api_session_response_payload( $session ),
+        $request_id,
+        $headers
+    );
+}
+
+/**
+ * Returns Telegram session settings with safe defaults.
+ *
+ * @param array $config
+ * @return array
+ */
+function tonbankcard_api_telegram_session_settings( array $config ) {
+    $settings = isset( $config['telegram_session'] ) && is_array( $config['telegram_session'] ) ? $config['telegram_session'] : [];
+
+    return [
+        'init_data_max_age_seconds'     => isset( $settings['init_data_max_age_seconds'] ) ? max( 60, (int) $settings['init_data_max_age_seconds'] ) : 86400,
+        'auth_date_future_skew_seconds' => isset( $settings['auth_date_future_skew_seconds'] ) ? max( 0, (int) $settings['auth_date_future_skew_seconds'] ) : 60,
+        'session_ttl_seconds'           => isset( $settings['session_ttl_seconds'] ) ? max( 300, (int) $settings['session_ttl_seconds'] ) : 2592000,
+        'local_session_store_path'      => ! empty( $settings['local_session_store_path'] ) ? (string) $settings['local_session_store_path'] : sys_get_temp_dir() . '/tonbankcard-marketcap-sessions.json',
+    ];
+}
+
+/**
+ * Decodes an already validated JSON request body.
+ *
+ * @param array $request
+ * @return array
+ */
+function tonbankcard_api_json_body( array $request ) {
+    if ( '' === trim( isset( $request['body'] ) ? $request['body'] : '' ) ) {
+        return [];
+    }
+
+    $payload = json_decode( $request['body'], TRUE );
+    return is_array( $payload ) ? $payload : [];
+}
+
+/**
+ * Reads raw Telegram initData from JSON body or the allowed request header.
+ *
+ * @param array $request
+ * @param array $payload
+ * @return string
+ */
+function tonbankcard_api_telegram_init_data_from_request( array $request, array $payload ) {
+    if ( isset( $payload['initData'] ) && is_string( $payload['initData'] ) ) {
+        return trim( $payload['initData'] );
+    }
+
+    if ( isset( $payload['init_data'] ) && is_string( $payload['init_data'] ) ) {
+        return trim( $payload['init_data'] );
+    }
+
+    if ( isset( $request['headers']['x-telegram-init-data'] ) ) {
+        return trim( (string) $request['headers']['x-telegram-init-data'] );
+    }
+
+    return '';
+}
+
+/**
+ * Returns TRUE when anonymous browser fallback is allowed.
+ *
+ * @param array $runtime
+ * @return bool
+ */
+function tonbankcard_api_local_browser_fallback_allowed( array $runtime ) {
+    return isset( $runtime['profile'] ) && 'local' === $runtime['profile'];
+}
+
+/**
+ * Validates Telegram Mini App initData using the bot-token-derived secret.
+ *
+ * @param string $init_data
+ * @param string $bot_token
+ * @param array $settings
+ * @return array
+ */
+function tonbankcard_api_validate_telegram_init_data( string $init_data, string $bot_token, array $settings ) {
+    $parsed = tonbankcard_api_parse_telegram_init_data( $init_data );
+    if ( empty( $parsed['ok'] ) ) {
+        return $parsed;
+    }
+
+    $fields = $parsed['fields'];
+    if ( empty( $fields['hash'] ) ) {
+        return tonbankcard_api_telegram_validation_error( 400, 'missing_telegram_hash', 'Telegram initData is missing its hash field.', [ 'field' => 'hash' ] );
+    }
+
+    $received_hash = strtolower( $fields['hash'] );
+    if ( ! preg_match( '/^[a-f0-9]{64}$/', $received_hash ) ) {
+        return tonbankcard_api_telegram_validation_error( 400, 'invalid_telegram_hash', 'Telegram initData hash is malformed.', [ 'field' => 'hash' ] );
+    }
+
+    $check_fields = $fields;
+    unset( $check_fields['hash'] );
+    ksort( $check_fields, SORT_STRING );
+
+    $data_check_parts = [];
+    foreach ( $check_fields as $key => $value ) {
+        $data_check_parts[] = $key . '=' . $value;
+    }
+    $data_check_string = implode( "\n", $data_check_parts );
+    $secret_key = hash_hmac( 'sha256', $bot_token, 'WebAppData', TRUE );
+    $calculated_hash = hash_hmac( 'sha256', $data_check_string, $secret_key );
+
+    if ( ! hash_equals( $calculated_hash, $received_hash ) ) {
+        return tonbankcard_api_telegram_validation_error( 401, 'invalid_telegram_init_data', 'Telegram initData signature did not match.', [] );
+    }
+
+    if ( empty( $fields['auth_date'] ) || ! ctype_digit( $fields['auth_date'] ) ) {
+        return tonbankcard_api_telegram_validation_error( 400, 'missing_auth_date', 'Telegram initData is missing a valid auth_date.', [ 'field' => 'auth_date' ] );
+    }
+
+    $auth_date = (int) $fields['auth_date'];
+    $now = time();
+    if ( $auth_date < $now - $settings['init_data_max_age_seconds'] ) {
+        return tonbankcard_api_telegram_validation_error( 401, 'expired_telegram_init_data', 'Telegram initData is stale and must be refreshed.', [ 'max_age_seconds' => $settings['init_data_max_age_seconds'] ] );
+    }
+
+    if ( $auth_date > $now + $settings['auth_date_future_skew_seconds'] ) {
+        return tonbankcard_api_telegram_validation_error( 401, 'invalid_telegram_init_data', 'Telegram initData auth_date is too far in the future.', [ 'field' => 'auth_date' ] );
+    }
+
+    if ( empty( $fields['user'] ) ) {
+        return tonbankcard_api_telegram_validation_error( 400, 'missing_telegram_user', 'Telegram initData is missing the user object required for session creation.', [ 'field' => 'user' ] );
+    }
+
+    $user = json_decode( $fields['user'], TRUE );
+    if ( ! is_array( $user ) ) {
+        return tonbankcard_api_telegram_validation_error( 400, 'invalid_telegram_user', 'Telegram initData user object is not valid JSON.', [ 'field' => 'user' ] );
+    }
+
+    $telegram_user_id = isset( $user['id'] ) ? (string) $user['id'] : '';
+    if ( ! preg_match( '/^[1-9][0-9]{0,19}$/', $telegram_user_id ) ) {
+        return tonbankcard_api_telegram_validation_error( 400, 'missing_telegram_user_id', 'Telegram initData user object is missing a valid id.', [ 'field' => 'user.id' ] );
+    }
+
+    $language_code = null;
+    if ( isset( $user['language_code'] ) && is_string( $user['language_code'] ) && preg_match( '/^[A-Za-z0-9_-]{1,16}$/', $user['language_code'] ) ) {
+        $language_code = $user['language_code'];
+    }
+
+    $start_param = isset( $fields['start_param'] ) && '' !== $fields['start_param'] ? substr( $fields['start_param'], 0, 512 ) : null;
+    $chat_type = isset( $fields['chat_type'] ) && preg_match( '/^[A-Za-z0-9_-]{1,32}$/', $fields['chat_type'] ) ? $fields['chat_type'] : null;
+    $chat_instance = isset( $fields['chat_instance'] ) && '' !== $fields['chat_instance'] ? $fields['chat_instance'] : null;
+
+    return [
+        'ok'   => TRUE,
+        'data' => [
+            'fields'               => $fields,
+            'auth_date'            => $auth_date,
+            'telegram_user_id'     => $telegram_user_id,
+            'telegram_language_code' => $language_code,
+            'telegram_is_premium'  => ! empty( $user['is_premium'] ),
+            'start_param'          => $start_param,
+            'chat_type'            => $chat_type,
+            'chat_instance'        => $chat_instance,
+        ],
+    ];
+}
+
+/**
+ * Parses Telegram initData query string without trusting PHP superglobals.
+ *
+ * @param string $init_data
+ * @return array
+ */
+function tonbankcard_api_parse_telegram_init_data( string $init_data ) {
+    $fields = [];
+    foreach ( explode( '&', $init_data ) as $part ) {
+        if ( '' === $part ) {
+            continue;
+        }
+
+        $separator = strpos( $part, '=' );
+        if ( FALSE === $separator ) {
+            return tonbankcard_api_telegram_validation_error( 400, 'malformed_init_data', 'Telegram initData contains a malformed field.', [] );
+        }
+
+        $key = urldecode( substr( $part, 0, $separator ) );
+        $value = urldecode( substr( $part, $separator + 1 ) );
+        if ( '' === $key || preg_match( '/[\[\]\r\n=]/', $key ) ) {
+            return tonbankcard_api_telegram_validation_error( 400, 'malformed_init_data', 'Telegram initData contains an unsafe field name.', [] );
+        }
+
+        if ( array_key_exists( $key, $fields ) ) {
+            return tonbankcard_api_telegram_validation_error( 400, 'duplicate_init_data_field', 'Telegram initData contains a duplicate field.', [ 'field' => $key ] );
+        }
+
+        $fields[ $key ] = $value;
+    }
+
+    return [
+        'ok'     => TRUE,
+        'fields' => $fields,
+    ];
+}
+
+/**
+ * Builds a typed validation error result.
+ *
+ * @param int $status
+ * @param string $code
+ * @param string $message
+ * @param array $details
+ * @return array
+ */
+function tonbankcard_api_telegram_validation_error( int $status, string $code, string $message, array $details ) {
+    return [
+        'ok'      => FALSE,
+        'status'  => $status,
+        'code'    => $code,
+        'message' => $message,
+        'details' => $details,
+    ];
+}
+
+/**
+ * Builds a trusted Telegram session record.
+ *
+ * @param array $validated
+ * @param string $init_data
+ * @param array $request
+ * @param array $settings
+ * @return array
+ */
+function tonbankcard_api_build_telegram_session_record( array $validated, string $init_data, array $request, array $settings ) {
+    $token = tonbankcard_api_session_token_from_request( $request );
+    if ( null === $token ) {
+        $token = tonbankcard_api_new_session_token();
+    }
+
+    $expires_at = time() + $settings['session_ttl_seconds'];
+
+    return [
+        'session_token'          => $token,
+        'session_token_hash'     => hash( 'sha256', $token ),
+        'telegram_init_data_hash' => hash( 'sha256', $init_data ),
+        'surface'                => 'telegram_mini_app',
+        'trust_state'            => 'telegram_validated',
+        'source'                 => 'telegram_init_data',
+        'telegram_user_id'       => $validated['telegram_user_id'],
+        'telegram_language_code' => $validated['telegram_language_code'],
+        'telegram_is_premium'    => (bool) $validated['telegram_is_premium'],
+        'start_param'            => $validated['start_param'],
+        'start_param_hash'       => tonbankcard_api_optional_hash( $validated['start_param'] ),
+        'chat_type'              => $validated['chat_type'],
+        'chat_instance_present'  => null !== $validated['chat_instance'],
+        'chat_instance_hash'     => tonbankcard_api_optional_hash( $validated['chat_instance'] ),
+        'ip_hash'                => tonbankcard_api_optional_hash( tonbankcard_api_request_ip( $request ) ),
+        'user_agent_hash'        => tonbankcard_api_optional_hash( isset( $request['headers']['user-agent'] ) ? $request['headers']['user-agent'] : null ),
+        'expires_at_timestamp'   => $expires_at,
+        'expires_at_mysql'       => tonbankcard_api_mysql_datetime( $expires_at ),
+        'expires_at_iso'         => tonbankcard_api_iso_datetime( $expires_at ),
+    ];
+}
+
+/**
+ * Builds an anonymous local browser session record.
+ *
+ * @param array $request
+ * @param array $settings
+ * @return array
+ */
+function tonbankcard_api_build_anonymous_session_record( array $request, array $settings ) {
+    $token = tonbankcard_api_session_token_from_request( $request );
+    if ( null === $token ) {
+        $token = tonbankcard_api_new_session_token();
+    }
+
+    $expires_at = time() + $settings['session_ttl_seconds'];
+
+    return [
+        'session_token'          => $token,
+        'session_token_hash'     => hash( 'sha256', $token ),
+        'telegram_init_data_hash' => null,
+        'surface'                => 'public_web',
+        'trust_state'            => 'anonymous',
+        'source'                 => 'local_browser',
+        'telegram_user_id'       => null,
+        'telegram_language_code' => null,
+        'telegram_is_premium'    => FALSE,
+        'start_param'            => null,
+        'start_param_hash'       => null,
+        'chat_type'              => null,
+        'chat_instance_present'  => FALSE,
+        'chat_instance_hash'     => null,
+        'ip_hash'                => tonbankcard_api_optional_hash( tonbankcard_api_request_ip( $request ) ),
+        'user_agent_hash'        => tonbankcard_api_optional_hash( isset( $request['headers']['user-agent'] ) ? $request['headers']['user-agent'] : null ),
+        'expires_at_timestamp'   => $expires_at,
+        'expires_at_mysql'       => tonbankcard_api_mysql_datetime( $expires_at ),
+        'expires_at_iso'         => tonbankcard_api_iso_datetime( $expires_at ),
+    ];
+}
+
+/**
+ * Stores a session in MySQL/MariaDB when configured or in a local file fallback.
+ *
+ * @param array $session
+ * @param array $runtime
+ * @param array $config
+ * @return array
+ */
+function tonbankcard_api_store_session_record( array $session, array $runtime, array $config ) {
+    $database_error = null;
+    $pdo = tonbankcard_api_session_database_connection( $runtime, $database_error );
+    if ( null !== $pdo ) {
+        try {
+            tonbankcard_api_store_database_session_record( $pdo, $session );
+            return [
+                'ok'      => TRUE,
+                'storage' => 'database',
+            ];
+        } catch ( Throwable $error ) {
+            $database_error = 'Session database write failed.';
+        }
+    }
+
+    if ( tonbankcard_api_local_browser_fallback_allowed( $runtime ) ) {
+        return tonbankcard_api_store_local_session_record( $session, tonbankcard_api_telegram_session_settings( $config ) );
+    }
+
+    return [
+        'ok'      => FALSE,
+        'storage' => 'database',
+        'error'   => $database_error,
+    ];
+}
+
+/**
+ * Opens the configured session database connection.
+ *
+ * @param array $runtime
+ * @param string|null $error
+ * @return PDO|null
+ */
+function tonbankcard_api_session_database_connection( array $runtime, &$error = null ) {
+    if ( ! class_exists( 'PDO' ) ) {
+        $error = 'PDO is not available.';
+        return null;
+    }
+
+    $mysql = isset( $runtime['providers']['mysql'] ) && is_array( $runtime['providers']['mysql'] ) ? $runtime['providers']['mysql'] : [];
+    if ( empty( $mysql['dsn'] ) || empty( $mysql['user'] ) ) {
+        $error = 'Session database is not configured.';
+        return null;
+    }
+
+    try {
+        return new PDO(
+            $mysql['dsn'],
+            $mysql['user'],
+            isset( $mysql['password'] ) ? $mysql['password'] : '',
+            [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            ]
+        );
+    } catch ( Throwable $exception ) {
+        $error = 'Session database connection failed.';
+        return null;
+    }
+}
+
+/**
+ * Persists a session record into the V2 database schema.
+ *
+ * @param PDO $pdo
+ * @param array $session
+ * @return void
+ */
+function tonbankcard_api_store_database_session_record( PDO $pdo, array $session ) {
+    $now = tonbankcard_api_mysql_datetime( time() );
+    $user_id = null;
+
+    $pdo->beginTransaction();
+    try {
+        if ( null !== $session['telegram_user_id'] ) {
+            $upsert_user = $pdo->prepare(
+                'INSERT INTO users (telegram_user_id, telegram_language_code, telegram_is_premium, last_seen_at)
+                 VALUES (:telegram_user_id, :telegram_language_code, :telegram_is_premium, :last_seen_at)
+                 ON DUPLICATE KEY UPDATE
+                    telegram_language_code = :update_telegram_language_code,
+                    telegram_is_premium = :update_telegram_is_premium,
+                    last_seen_at = :update_last_seen_at'
+            );
+            $upsert_user->execute(
+                [
+                    ':telegram_user_id'               => $session['telegram_user_id'],
+                    ':telegram_language_code'         => $session['telegram_language_code'],
+                    ':telegram_is_premium'            => $session['telegram_is_premium'] ? 1 : 0,
+                    ':last_seen_at'                   => $now,
+                    ':update_telegram_language_code'  => $session['telegram_language_code'],
+                    ':update_telegram_is_premium'     => $session['telegram_is_premium'] ? 1 : 0,
+                    ':update_last_seen_at'            => $now,
+                ]
+            );
+
+            $select_user = $pdo->prepare( 'SELECT id FROM users WHERE telegram_user_id = :telegram_user_id LIMIT 1' );
+            $select_user->execute( [ ':telegram_user_id' => $session['telegram_user_id'] ] );
+            $row = $select_user->fetch();
+            if ( ! is_array( $row ) || empty( $row['id'] ) ) {
+                throw new RuntimeException( 'Telegram user row was not persisted.' );
+            }
+            $user_id = $row['id'];
+        }
+
+        $upsert_session = $pdo->prepare(
+            'INSERT INTO user_sessions (
+                user_id,
+                session_token_hash,
+                telegram_init_data_hash,
+                surface,
+                trust_state,
+                start_param_hash,
+                chat_instance_hash,
+                telegram_chat_type,
+                ip_hash,
+                user_agent_hash,
+                last_seen_at,
+                expires_at,
+                revoked_at
+             )
+             VALUES (
+                :user_id,
+                :session_token_hash,
+                :telegram_init_data_hash,
+                :surface,
+                :trust_state,
+                :start_param_hash,
+                :chat_instance_hash,
+                :telegram_chat_type,
+                :ip_hash,
+                :user_agent_hash,
+                :last_seen_at,
+                :expires_at,
+                NULL
+             )
+             ON DUPLICATE KEY UPDATE
+                user_id = :update_user_id,
+                telegram_init_data_hash = :update_telegram_init_data_hash,
+                surface = :update_surface,
+                trust_state = :update_trust_state,
+                start_param_hash = :update_start_param_hash,
+                chat_instance_hash = :update_chat_instance_hash,
+                telegram_chat_type = :update_telegram_chat_type,
+                ip_hash = :update_ip_hash,
+                user_agent_hash = :update_user_agent_hash,
+                last_seen_at = :update_last_seen_at,
+                expires_at = :update_expires_at,
+                revoked_at = NULL'
+        );
+        $params = [
+            ':user_id'                         => $user_id,
+            ':session_token_hash'              => $session['session_token_hash'],
+            ':telegram_init_data_hash'         => $session['telegram_init_data_hash'],
+            ':surface'                         => $session['surface'],
+            ':trust_state'                     => $session['trust_state'],
+            ':start_param_hash'                => $session['start_param_hash'],
+            ':chat_instance_hash'              => $session['chat_instance_hash'],
+            ':telegram_chat_type'              => $session['chat_type'],
+            ':ip_hash'                         => $session['ip_hash'],
+            ':user_agent_hash'                 => $session['user_agent_hash'],
+            ':last_seen_at'                    => $now,
+            ':expires_at'                      => $session['expires_at_mysql'],
+            ':update_user_id'                  => $user_id,
+            ':update_telegram_init_data_hash'  => $session['telegram_init_data_hash'],
+            ':update_surface'                  => $session['surface'],
+            ':update_trust_state'              => $session['trust_state'],
+            ':update_start_param_hash'         => $session['start_param_hash'],
+            ':update_chat_instance_hash'       => $session['chat_instance_hash'],
+            ':update_telegram_chat_type'       => $session['chat_type'],
+            ':update_ip_hash'                  => $session['ip_hash'],
+            ':update_user_agent_hash'          => $session['user_agent_hash'],
+            ':update_last_seen_at'             => $now,
+            ':update_expires_at'               => $session['expires_at_mysql'],
+        ];
+        $upsert_session->execute( $params );
+
+        $pdo->commit();
+    } catch ( Throwable $error ) {
+        if ( $pdo->inTransaction() ) {
+            $pdo->rollBack();
+        }
+        throw $error;
+    }
+}
+
+/**
+ * Persists a local-only session record for development without a database.
+ *
+ * @param array $session
+ * @param array $settings
+ * @return array
+ */
+function tonbankcard_api_store_local_session_record( array $session, array $settings ) {
+    $path = $settings['local_session_store_path'];
+    $dir = dirname( $path );
+    if ( ! is_dir( $dir ) && ! mkdir( $dir, 0700, TRUE ) ) {
+        return [
+            'ok'      => FALSE,
+            'storage' => 'local_file',
+        ];
+    }
+
+    $store = [
+        'users'    => [],
+        'sessions' => [],
+    ];
+    if ( is_readable( $path ) ) {
+        $decoded = json_decode( (string) file_get_contents( $path ), TRUE );
+        if ( is_array( $decoded ) ) {
+            $store = array_merge( $store, $decoded );
+        }
+    }
+
+    if ( null !== $session['telegram_user_id'] ) {
+        $store['users'][ $session['telegram_user_id'] ] = [
+            'telegram_user_id'       => $session['telegram_user_id'],
+            'telegram_language_code' => $session['telegram_language_code'],
+            'telegram_is_premium'    => $session['telegram_is_premium'],
+            'last_seen_at'           => tonbankcard_api_iso_datetime( time() ),
+        ];
+    }
+
+    $stored_session = $session;
+    unset( $stored_session['session_token'] );
+    unset( $stored_session['start_param'] );
+    $store['sessions'][ $session['session_token_hash'] ] = $stored_session;
+
+    $written = file_put_contents( $path, json_encode( $store, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE ), LOCK_EX );
+    if ( FALSE === $written ) {
+        return [
+            'ok'      => FALSE,
+            'storage' => 'local_file',
+        ];
+    }
+    @chmod( $path, 0600 );
+
+    return [
+        'ok'      => TRUE,
+        'storage' => 'local_file',
+    ];
+}
+
+/**
+ * Builds the minimum session payload returned to the frontend.
+ *
+ * @param array $session
+ * @return array
+ */
+function tonbankcard_api_session_response_payload( array $session ) {
+    return [
+        'session' => [
+            'state'      => $session['trust_state'],
+            'source'     => $session['source'],
+            'surface'    => $session['surface'],
+            'expires_at' => $session['expires_at_iso'],
+        ],
+        'user'    => null === $session['telegram_user_id'] ? null : [
+            'telegram_user_id' => (string) $session['telegram_user_id'],
+            'language_code'    => $session['telegram_language_code'],
+            'is_premium'       => (bool) $session['telegram_is_premium'],
+        ],
+        'launch'  => [
+            'start_param'           => $session['start_param'],
+            'chat_type'             => $session['chat_type'],
+            'chat_instance_present' => (bool) $session['chat_instance_present'],
+        ],
+    ];
+}
+
+/**
+ * Returns a Set-Cookie header for the server session token.
+ *
+ * @param array $session
+ * @param array $runtime
+ * @param array $settings
+ * @return string
+ */
+function tonbankcard_api_session_cookie_header( array $session, array $runtime, array $settings ) {
+    $cookie = 'tonbankcard_session=' . rawurlencode( $session['session_token'] )
+        . '; Path=/'
+        . '; Max-Age=' . (int) $settings['session_ttl_seconds']
+        . '; Expires=' . gmdate( 'D, d M Y H:i:s', $session['expires_at_timestamp'] ) . ' GMT'
+        . '; HttpOnly'
+        . '; SameSite=Lax';
+
+    $active_url = isset( $runtime['urls']['active'] ) ? (string) $runtime['urls']['active'] : '';
+    if ( 0 === strpos( $active_url, 'https://' ) ) {
+        $cookie .= '; Secure';
+    }
+
+    return $cookie;
+}
+
+/**
+ * Reads an existing session token cookie when it matches the server format.
+ *
+ * @param array $request
+ * @return string|null
+ */
+function tonbankcard_api_session_token_from_request( array $request ) {
+    if ( empty( $request['headers']['cookie'] ) ) {
+        return null;
+    }
+
+    foreach ( explode( ';', $request['headers']['cookie'] ) as $cookie ) {
+        $parts = explode( '=', trim( $cookie ), 2 );
+        if ( 2 !== count( $parts ) ) {
+            continue;
+        }
+
+        if ( 'tonbankcard_session' !== $parts[0] ) {
+            continue;
+        }
+
+        $token = rawurldecode( $parts[1] );
+        if ( preg_match( '/^[A-Fa-f0-9]{64}$/', $token ) ) {
+            return strtolower( $token );
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Creates a new random session token.
+ *
+ * @return string
+ */
+function tonbankcard_api_new_session_token() {
+    try {
+        return bin2hex( random_bytes( 32 ) );
+    } catch ( Exception $exception ) {
+        return hash( 'sha256', uniqid( 'tonbankcard_session_', TRUE ) );
+    }
+}
+
+/**
+ * Hashes optional sensitive values for durable storage.
+ *
+ * @param string|null $value
+ * @return string|null
+ */
+function tonbankcard_api_optional_hash( $value ) {
+    if ( null === $value || '' === $value ) {
+        return null;
+    }
+
+    return hash( 'sha256', (string) $value );
+}
+
+/**
+ * Returns the best-effort request IP address.
+ *
+ * @param array $request
+ * @return string|null
+ */
+function tonbankcard_api_request_ip( array $request ) {
+    if ( ! empty( $request['headers']['x-forwarded-for'] ) ) {
+        $parts = explode( ',', $request['headers']['x-forwarded-for'] );
+        return trim( $parts[0] );
+    }
+
+    return isset( $request['headers']['x-real-ip'] ) ? trim( $request['headers']['x-real-ip'] ) : null;
+}
+
+/**
+ * Formats a UTC timestamp for MySQL DATETIME(6).
+ *
+ * @param int $timestamp
+ * @return string
+ */
+function tonbankcard_api_mysql_datetime( int $timestamp ) {
+    return gmdate( 'Y-m-d H:i:s', $timestamp ) . '.000000';
+}
+
+/**
+ * Formats a UTC timestamp for JSON responses.
+ *
+ * @param int $timestamp
+ * @return string
+ */
+function tonbankcard_api_iso_datetime( int $timestamp ) {
+    return gmdate( 'Y-m-d\TH:i:s\Z', $timestamp );
 }
 
 /**

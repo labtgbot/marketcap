@@ -63,10 +63,10 @@ Set explicit production feature flags with `true` or `false`:
 - `TONBANKCARD_FEATURE_GAMIFICATION`
 - `TONBANKCARD_FEATURE_PREMIUM`
 
-The V2 market data gateway uses `COINGECKO_API_PLAN` to select the upstream
-CoinGecko root URL and authentication header. `demo` uses the Public/Demo API
-root and sends `COINGECKO_API_KEY` as `x-cg-demo-api-key` when configured. `pro`
-uses the Pro API root and requires `COINGECKO_API_KEY`, sent as
+The V2 market data gateway works by default without a CoinGecko API key. With
+`COINGECKO_API_KEY` empty, `demo` uses the public CoinGecko API root and sends no
+authentication header. Set `COINGECKO_API_KEY` only when more quota is needed;
+`demo` sends it as `x-cg-demo-api-key` and `pro` uses the Pro API root with
 `x-cg-pro-api-key`. The key is inserted only by the PHP backend and is never
 included in `window.GeckoClient` or browser request parameters.
 

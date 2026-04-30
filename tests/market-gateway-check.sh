@@ -61,6 +61,7 @@ assert_contains "$doc" '^# TONBANKCARD V2 Market Data Gateway$' 'the market data
 assert_contains "$doc" 'Issue: \[#14\]' 'the issue reference'
 assert_contains "$doc" '/api/market/coins/markets' 'the coin markets endpoint'
 assert_contains "$doc" '/api/market/search/trending' 'the trending endpoint'
+assert_contains "$doc" 'without a CoinGecko API key' 'the default no-key behavior'
 assert_contains "$doc" 'x-cg-demo-api-key' 'Demo API key header behavior'
 assert_contains "$doc" 'x-cg-pro-api-key' 'Pro API key header behavior'
 assert_contains "$doc" 'cache_age_seconds' 'freshness metadata'
@@ -73,6 +74,74 @@ assert_contains README.md 'docs/v2-market-data-gateway\.md' 'the market gateway 
 assert_contains dev/js/src/coingecko.js 'gatewayBaseUrl' 'browser gateway base URL usage'
 assert_not_contains dev/js/src/coingecko.js 'https://api\.coingecko\.com/api/v3/' 'direct CoinGecko API base URL'
 assert_not_contains dev/js/src/components/search-bar.js 'localstorage\.one' 'direct browser search data source'
+
+php_check 'market gateway should work by default without a CoinGecko API key' \
+    env -i PATH="$PATH" \
+        COINGECKO_API_PLAN=demo \
+        COINGECKO_API_KEY= \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$test_api = $api;
+$test_api['market_data']['transport'] = function ( $request ) {
+    if ( 0 !== strpos( $request['url'], 'https://api.coingecko.com/api/v3/coins/markets?' ) ) {
+        fwrite( STDERR, 'Unexpected public API URL: ' . $request['url'] . "\n" );
+        exit( 1 );
+    }
+    if ( isset( $request['headers']['x-cg-demo-api-key'] ) || isset( $request['headers']['x-cg-pro-api-key'] ) ) {
+        fwrite( STDERR, "Keyless request should not include a CoinGecko API key header\n" );
+        exit( 1 );
+    }
+    if ( 'demo' !== $request['plan'] ) {
+        fwrite( STDERR, 'Expected default demo/public plan, got ' . $request['plan'] . "\n" );
+        exit( 1 );
+    }
+
+    return [
+        'status'  => 200,
+        'headers' => [ 'content-type' => 'application/json' ],
+        'body'    => json_encode(
+            [
+                [
+                    'id'           => 'toncoin',
+                    'symbol'       => 'ton',
+                    'last_updated' => '2026-04-30T20:00:00.000Z',
+                ],
+            ]
+        ),
+    ];
+};
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'GET',
+        'path'    => '/api/market/coins/markets?vs_currency=usd',
+        'headers' => [ 'x-request-id' => 'market-keyless' ],
+        'body'    => '',
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $test_api
+);
+
+if ( 200 !== $response['status'] ) {
+    fwrite( STDERR, 'Expected 200 keyless market response, got ' . $response['status'] . "\n" );
+    exit( 1 );
+}
+
+$payload = json_decode( $response['body'], TRUE );
+if ( ! is_array( $payload ) || TRUE !== $payload['ok'] || 'toncoin' !== $payload['data'][0]['id'] ) {
+    fwrite( STDERR, "Keyless market response did not preserve provider data\n" );
+    exit( 1 );
+}
+if ( ! empty( $payload['meta']['provider']['credentialed'] ) || 'demo' !== $payload['meta']['provider']['plan'] ) {
+    fwrite( STDERR, "Keyless market response should expose uncredentialed Demo/Public provider metadata\n" );
+    exit( 1 );
+}
+PHP
 
 php_check 'market gateway should proxy coin markets through the Demo API header and freshness envelope' \
     env -i PATH="$PATH" \
