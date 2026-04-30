@@ -103,7 +103,7 @@ $site['rtl'] = FALSE;
 | MAX LENGTH: 18 (to fit navigation)
 |
 */
-$site['name'] = 'Gecko Client';
+$site['name'] = 'TONBANKCARD';
 
 /*
 | -------------------------------------------------------------------------
@@ -115,7 +115,7 @@ $site['name'] = 'Gecko Client';
 | MAX LENGTH: 70
 |
 */
-$site['title'] = 'Gecko Client - Cryptocurrency Markets';
+$site['title'] = 'TONBANKCARD Crypto Tracker - Cryptocurrency Markets';
 
 /*
 | -------------------------------------------------------------------------
@@ -127,7 +127,7 @@ $site['title'] = 'Gecko Client - Cryptocurrency Markets';
 | MAX LENGTH: 200
 |
 */
-$site['description'] = 'The Best Cryptocurrency Daily Financial Information Portal';
+$site['description'] = 'TONBANKCARD Crypto Tracker provides market data, TON ecosystem context, alerts, AI-ready summaries, and exchange-widget entry points for public web and Telegram users.';
 
 /*
 | -------------------------------------------------------------------------
@@ -144,7 +144,7 @@ $site['description'] = 'The Best Cryptocurrency Daily Financial Information Port
 | https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta/name/theme-color
 |
 */
-$site['theme_color'] = '#1976D2';
+$site['theme_color'] = '#0B1020';
 
 /*
 | -------------------------------------------------------------------------
@@ -166,7 +166,7 @@ $site['theme_color'] = '#1976D2';
 | $site['logo'] = 'assets/images/logo.png';
 |
 */
-$site['logo'] = 'assets/images/logo.png';
+$site['logo'] = 'assets/images/tonbankcard-logo.svg';
 
 
 /*
@@ -185,7 +185,7 @@ $site['logo'] = 'assets/images/logo.png';
 | $site['favicon'] = 'assets/images/favicon.ico';
 |
 */
-$site['favicon'] = 'assets/images/favicon.ico';
+$site['favicon'] = 'assets/images/tonbankcard-icon.svg';
 
 /*
 | -------------------------------------------------------------------------
@@ -209,9 +209,9 @@ $site['favicon'] = 'assets/images/favicon.ico';
 |
 */
 $site['icons'] = [
-    '16x16'   => 'assets/images/favicon-16x16.png',
-    '32x32'   => 'assets/images/favicon-32x32.png',
-    '192x192' => 'assets/images/android-chrome-192x192.png',
+    '16x16'   => 'assets/images/tonbankcard-icon-16x16.png',
+    '32x32'   => 'assets/images/tonbankcard-icon-32x32.png',
+    '192x192' => 'assets/images/tonbankcard-icon-192x192.png',
 ];
 
 /*
@@ -250,7 +250,7 @@ $site['icons'] = [
 |
 */
 $site['apple_touch_icons'] = [
-    '180x180' => 'assets/images/apple-touch-icon.png',
+    '180x180' => 'assets/images/tonbankcard-apple-touch-icon.png',
 ];
 
 /*
@@ -308,7 +308,7 @@ $site['twitter_card'] = 'summary';
 | $site['twitter_site'] = '@Website';
 |
 */
-$site['twitter_site'] = '';
+$site['twitter_site'] = '@tonbankcard';
 
 /*
 | -------------------------------------------------------------------------
@@ -328,7 +328,7 @@ $site['twitter_site'] = '';
 | $site['twitter_creator'] = '@Author';
 |
 */
-$site['twitter_creator'] = '';
+$site['twitter_creator'] = '@tonbankcard';
 
 /*
 | -------------------------------------------------------------------------

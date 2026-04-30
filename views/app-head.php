@@ -117,8 +117,15 @@ $linked_data = [
          * See "FAVICON" in "config/site.php"
          */
         if ( ! empty( $site['favicon'] ) ) {
+            $favicon_extension = strtolower( pathinfo( parse_url( $site['favicon'], PHP_URL_PATH ), PATHINFO_EXTENSION ) );
+            $favicon_type      = 'image/x-icon';
+            if ( 'svg' === $favicon_extension ) {
+                $favicon_type = 'image/svg+xml';
+            } elseif ( 'png' === $favicon_extension ) {
+                $favicon_type = 'image/png';
+            }
             ?>
-            <link rel="shortcut icon" type="image/x-icon" href="<?php echo esc_url( get_file_url_for_display( $site['favicon'] ) ); ?>" />
+            <link rel="shortcut icon" type="<?php echo esc_attr( $favicon_type ); ?>" href="<?php echo esc_url( get_file_url_for_display( $site['favicon'] ) ); ?>" />
             <?php
         }
 
@@ -128,8 +135,15 @@ $linked_data = [
         if ( ! empty( $site['icons'] ) ) {
             foreach ( $site['icons'] as $sizes => $href ) {
                 if ( ! empty( $href ) ) {
+                    $icon_extension = strtolower( pathinfo( parse_url( $href, PHP_URL_PATH ), PATHINFO_EXTENSION ) );
+                    $icon_type      = 'image/png';
+                    if ( 'svg' === $icon_extension ) {
+                        $icon_type = 'image/svg+xml';
+                    } elseif ( 'ico' === $icon_extension ) {
+                        $icon_type = 'image/x-icon';
+                    }
                     ?>
-                    <link rel="icon" type="image/png" sizes="<?php echo esc_attr( $sizes ); ?>" href="<?php echo esc_url( get_file_url_for_display( $href ) ); ?>" />
+                    <link rel="icon" type="<?php echo esc_attr( $icon_type ); ?>" sizes="<?php echo esc_attr( $sizes ); ?>" href="<?php echo esc_url( get_file_url_for_display( $href ) ); ?>" />
                     <?php
                 }
             }

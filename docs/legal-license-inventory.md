@@ -40,6 +40,7 @@ are added.
 | Asset group | Paths | Observed provenance | Release action |
 | --- | --- | --- | --- |
 | App icons and logo | `assets/images/favicon.ico`, `assets/images/favicon-*.png`, `assets/images/apple-touch-icon.png`, `assets/images/android-chrome-192x192.png`, `assets/images/logo.png` | Extracted from `gecko-client.zip`; no standalone image license file is present. | Treat as Gecko Client placeholder assets until approved TONBANKCARD replacements land. Preserve provenance while they remain in the tree. |
+| TONBANKCARD brand assets | `assets/images/tonbankcard-icon.svg`, `assets/images/tonbankcard-logo.svg`, `assets/images/tonbankcard-icon-*.png`, `assets/images/tonbankcard-apple-touch-icon.png` | Created for issue #7 as TONBANKCARD Crypto Tracker replacement logo and icon assets using simple geometric SVG/PNG artwork. | Use for the public site logo, favicon, browser icons, and Apple touch icon. Keep the asset names and provenance in this inventory when refining the brand kit. |
 | Team photos | `assets/images/team/*.jpg` | Extracted from `gecko-client.zip`; no standalone image license file is present. | Treat as Gecko Client placeholder assets and replace or verify rights before public launch. |
 
 ## Preservation Requirements For Future V2 Work

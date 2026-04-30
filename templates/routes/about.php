@@ -26,111 +26,29 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 */
 $frontend_options['about']['title'] = sprintf( '%s %s', __( 'About' ), $site['name'] );
 
-/*
-| -------------------------------------------------------------------------
-| NAME
-| -------------------------------------------------------------------------
-| TYPE: string
-| DESCRIPTION: Website name.
-| DEFAULT: $site['name']
-|
-*/
-$route_about['name'] = $site['name'];
+$route_about['pillars'] = [
+    [
+        'title' => 'Market pulse',
+        'text'  => 'Track prices, market cap, volume, trending assets, and TON ecosystem context from a public website surface that remains useful without a wallet connection.',
+    ],
+    [
+        'title' => 'Telegram-first workflows',
+        'text'  => 'The V2 roadmap connects public market pages with Telegram Mini App journeys for watchlists, alerts, sharing, referrals, and support through the TONBANKCARD bot.',
+    ],
+    [
+        'title' => 'Responsible intelligence',
+        'text'  => 'AI summaries, alerts, and swap widgets are planned as decision-support tools with source freshness, risk framing, and no investment-advice claims.',
+    ],
+];
 
-/*
-| -------------------------------------------------------------------------
-| TEAM
-| -------------------------------------------------------------------------
-| TYPE: bool
-| DESCRIPTION: Set TRUE to show team section.
-|
-*/
-$route_about['team'] = TRUE;
-
-/*
-| -------------------------------------------------------------------------
-| TEAM MEMBERS
-| -------------------------------------------------------------------------
-|
-| TYPE: array
-| DESCRIPTION: Team members details.
-|
-| -------------------------------------------------------------------------
-| EXPLANATION OF MEMBER PARAMETERS
-| -------------------------------------------------------------------------
-|
-|   ['name']        (string)    Name
-|   ['avatar']      (string)    Avatar image absolute or relative URL
-|   ['role']        (string)    Role in the website/company
-|   ['facebook']    (string)    Facebook page URL
-|   ['twitter']     (string)    Twitter page URL
-|   ['linkedin']    (string)    LinkedIn page URL
-|
-*/
-$route_about['team_members'] = [
+$route_about['localization'] = [
     [
-        'name'      => 'Nikolas Berry',
-        'avatar'    => 'assets/images/team/nikolas-berry.jpg',
-        'role'      => 'CEO',
-        'facebook'  => '#',
-        'twitter'   => '#',
-        'linkedin'  => '#',
+        'language' => 'English',
+        'status'   => 'Primary public copy for the website and Telegram Mini App.',
     ],
     [
-        'name'      => 'Vincent Adams',
-        'avatar'    => 'assets/images/team/vincent-adams.jpg',
-        'role'      => 'COO',
-        'facebook'  => '#',
-        'twitter'   => '#',
-        'linkedin'  => '#',
-    ],
-    [
-        'name'      => 'Issac Nicholson',
-        'avatar'    => 'assets/images/team/issac-nicholson.jpg',
-        'role'      => 'UI/UX Designer',
-        'facebook'  => '#',
-        'twitter'   => '#',
-        'linkedin'  => '#',
-    ],
-    [
-        'name'      => 'Paige Carson',
-        'avatar'    => 'assets/images/team/paige-carson.jpg',
-        'role'      => 'UI/UX Designer',
-        'facebook'  => '#',
-        'twitter'   => '#',
-        'linkedin'  => '#',
-    ],
-        [
-        'name'      => 'Matteo Enriquez',
-        'avatar'    => 'assets/images/team/matteo-enriquez.jpg',
-        'role'      => 'Software Engineer',
-        'facebook'  => '#',
-        'twitter'   => '#',
-        'linkedin'  => '#',
-    ],
-    [
-        'name'      => 'Yousif Sharma',
-        'avatar'    => 'assets/images/team/yousif-sharma.jpg',
-        'role'      => 'Data Analyst',
-        'facebook'  => '#',
-        'twitter'   => '#',
-        'linkedin'  => '#',
-    ],
-    [
-        'name'      => 'Serena Frost',
-        'avatar'    => 'assets/images/team/serena-frost.jpg',
-        'role'      => 'Marketing',
-        'facebook'  => '#',
-        'twitter'   => '#',
-        'linkedin'  => '#',
-    ],
-    [
-        'name'      => 'Melisa Yu',
-        'avatar'    => 'assets/images/team/melisa-yu.jpg',
-        'role'      => 'Public Relations',
-        'facebook'  => '#',
-        'twitter'   => '#',
-        'linkedin'  => '#',
+        'language' => 'Russian',
+        'status'   => 'Placeholder copy track for Telegram RU community links and later localized product pages.',
     ],
 ];
 
@@ -142,62 +60,46 @@ $route_about['team_members'] = [
             <?php echo esc_html( $frontend_options['about']['title'] ); ?>
         </h2>
         <p>
-            <?php echo esc_html( "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Enim nunc faucibus a pellentesque sit. Eget nunc lobortis mattis aliquam faucibus purus in. Nunc pulvinar sapien et ligula. Urna molestie at elementum eu facilisis sed odio morbi. At ultrices mi tempus imperdiet nulla. Commodo nulla facilisi nullam vehicula ipsum. Elementum pulvinar etiam non quam. Vulputate mi sit amet mauris." ); ?>
+            <?php echo esc_html( 'TONBANKCARD Crypto Tracker is the public market-data and market pulse surface for TONBANKCARD V2. It keeps the useful market routes from the current tracker while moving the product toward TON ecosystem discovery, Telegram-native watchlists, alert delivery, shareable market context, and safe exchange-widget entry points.' ); ?>
         </p>
         <p>
-            <?php echo esc_html( "Vitae tortor condimentum lacinia quis vel eros donec ac odio. Vel quam elementum pulvinar etiam non quam. Auctor elit sed vulputate mi sit. Auctor urna nunc id cursus metus aliquam eleifend mi. Tincidunt vitae semper quis lectus nulla at volutpat. Arcu risus quis varius quam quisque id diam vel. Non arcu risus quis varius quam. Lorem dolor sed viverra ipsum. Mi ipsum faucibus vitae aliquet. Ipsum dolor sit amet consectetur adipiscing." ); ?>
+            <?php echo esc_html( 'The product is built for casual market viewers, TON users, active traders, Telegram group admins, and TONBANKCARD operators. Market data and generated summaries are informational only; users should verify sources and make independent financial decisions.' ); ?>
         </p>
     </div>
 
-    <?php if ( ! empty( $route_about['team'] ) ) : ?>
+    <v-row class="mt-10">
+        <?php foreach ( $route_about['pillars'] as $pillar ) : ?>
+            <v-col cols="12" md="4">
+                <h3 class="text-h6 mb-2"><?php echo esc_html( $pillar['title'] ); ?></h3>
+                <p><?php echo esc_html( $pillar['text'] ); ?></p>
+            </v-col>
+        <?php endforeach; ?>
+    </v-row>
 
-        <div id="about-team" class="mt-16">
-            <h2 class="text-h5 text-sm-h4 mb-6 text-center">
-                <?php echo esc_html( "Our Team" ); ?>
-            </h2>
+    <div id="about-trust" class="mt-10">
+        <h3 class="text-h6 text-sm-h5 mb-4">
+            <?php echo esc_html( 'Trust and data boundaries' ); ?>
+        </h3>
+        <ul>
+            <li><?php echo esc_html( 'Coin and exchange data may be delayed, incomplete, revised, or unavailable when upstream providers fail.' ); ?></li>
+            <li><?php echo esc_html( 'AI summaries and alert explanations must stay factual, include risk context, and avoid buy, sell, hold, leverage, or position-sizing recommendations.' ); ?></li>
+            <li><?php echo esc_html( 'Swap widgets and external exchange links are third-party services. TONBANKCARD does not custody funds or execute trades from this website.' ); ?></li>
+            <li><?php echo esc_html( 'Telegram and future wallet-aware features must keep secrets server-side and expose only the minimum data needed for the selected workflow.' ); ?></li>
+        </ul>
+    </div>
 
-            <p class="text-center">
-                <?php echo esc_html( "Meet the team behind the development of this project!" ); ?>
-                <br>
-                <?php echo esc_html( "We appreciate the talent and skills of each element, but above all is the great attachment to the crypto community what make us different." ); ?>
-            </p>
-
-            <?php if ( ! empty( $route_about['team_members'] ) ) : ?>
-                <v-row class="mt-8">
-                    <?php foreach ( $route_about['team_members'] as $member ) : ?>
-                        <v-col cols="6" sm="4" md="3" class="text-center">
-                            <div>
-                                <v-avatar :size="128">
-                                    <v-img src="<?php echo esc_url( get_file_url_for_display( $member['avatar'] ) ); ?>"></v-img>
-                                </v-avatar>
-                            </div>
-                            <h4 class="mt-2"><?php echo esc_html( $member['name'] ); ?></h4>
-                            <div class="text-uppercase caption"><?php echo esc_html( $member['role'] ); ?></div>
-                            <div>
-                                <?php if ( ! empty( $member['facebook'] ) ) : ?>
-                                    <v-btn icon href="<?php echo esc_url( $member['facebook'] ); ?>" target="_blank" rel="noopener">
-                                        <v-icon>mdi-facebook</v-icon>
-                                    </v-btn>
-                                <?php endif; ?>
-
-                                <?php if ( ! empty( $member['twitter'] ) ) : ?>
-                                    <v-btn icon href="<?php echo esc_url( $member['twitter'] ); ?>" target="_blank" rel="noopener">
-                                        <v-icon>mdi-twitter</v-icon>
-                                    </v-btn>
-                                <?php endif; ?>
-
-                                <?php if ( ! empty( $member['linkedin'] ) ) : ?>
-                                    <v-btn icon href="<?php echo esc_url( $member['linkedin'] ); ?>" target="_blank" rel="noopener">
-                                        <v-icon>mdi-linkedin</v-icon>
-                                    </v-btn>
-                                <?php endif; ?>
-                            </div>
-                        </v-col>
-                    <?php endforeach; ?>
-                </v-row>
-            <?php endif; ?>
-
-        </div>
-    <?php endif; ?>
+    <div id="about-localization" class="mt-10">
+        <h3 class="text-h6 text-sm-h5 mb-4">
+            <?php echo esc_html( 'Localization placeholders' ); ?>
+        </h3>
+        <v-row>
+            <?php foreach ( $route_about['localization'] as $locale ) : ?>
+                <v-col cols="12" sm="6">
+                    <strong><?php echo esc_html( $locale['language'] ); ?></strong>
+                    <p><?php echo esc_html( $locale['status'] ); ?></p>
+                </v-col>
+            <?php endforeach; ?>
+        </v-row>
+    </div>
 
 </v-container>

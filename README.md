@@ -45,6 +45,7 @@ Individual checks:
 ```sh
 npm run test:workflow
 npm run lint:php
+npm run test:content
 npm run validate:bundle
 npm run test:smoke
 ```

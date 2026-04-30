@@ -64,22 +64,40 @@ $navigation['items'] = [
         ],
     ],
     [
-        'text' => 'Facebook',
-        'icon' => 'mdi-facebook',
-        'url' => 'https://www.facebook.com/',
-        'external' => TRUE,
+        'text' => 'TONBANKCARD',
+        'icon' => 'mdi-web',
         'divider' => 'before',
-    ],
-    [
-        'text' => 'Twitter',
-        'icon' => 'mdi-twitter',
-        'url' => 'https://twitter.com/',
-        'external' => TRUE,
-    ],
-    [
-        'text' => 'Instagram',
-        'icon' => 'mdi-instagram',
-        'url' => 'https://www.instagram.com/',
-        'external' => TRUE,
+        'items' => [
+            [
+                'text' => 'Website',
+                'icon' => 'mdi-web',
+                'url' => 'https://tonbankcard.com/',
+                'external' => TRUE,
+            ],
+            [
+                'text' => 'Telegram',
+                'icon' => 'mdi-telegram',
+                'url' => 'https://t.me/tonbankcard',
+                'external' => TRUE,
+            ],
+            [
+                'text' => 'Telegram RU',
+                'icon' => 'mdi-telegram',
+                'url' => 'https://t.me/tonbankcard_ru',
+                'external' => TRUE,
+            ],
+            [
+                'text' => 'Support Bot',
+                'icon' => 'mdi-robot',
+                'url' => 'https://t.me/tonbankcard_bot',
+                'external' => TRUE,
+            ],
+            [
+                'text' => 'YouTube',
+                'icon' => 'mdi-youtube',
+                'url' => 'https://www.youtube.com/@tonbankcard',
+                'external' => TRUE,
+            ],
+        ],
     ],
 ];
