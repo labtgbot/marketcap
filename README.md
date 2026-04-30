@@ -64,6 +64,8 @@ npm run test:market-gateway
 npm run test:search-api
 npm run test:cache-rate-limit
 npm run test:telegram-session
+npm run test:ai-provider
+npm run test:observability
 npm run validate:bundle
 npm run test:smoke
 ```
@@ -116,3 +118,5 @@ See [docs/v2-cache-rate-limit-coalescing.md](docs/v2-cache-rate-limit-coalescing
 See [docs/v2-telegram-session.md](docs/v2-telegram-session.md) for the `/api/telegram/session` initData validation, session storage, local browser fallback, and regression coverage from issue #13.
 
 See [docs/v2-observability-operational-logging.md](docs/v2-observability-operational-logging.md) for request ID tracing, frontend/API/provider error logging, verbose tracing flags, and operational health queries from issue #18.
+
+See [docs/v2-ai-provider-foundation.md](docs/v2-ai-provider-foundation.md) for the configurable Groq-first AI provider layer, structured insight validation, safety rules, and fallback behavior from issue #17.
