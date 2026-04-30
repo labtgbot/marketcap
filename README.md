@@ -83,3 +83,5 @@ See [docs/adr/0001-v2-migration-architecture.md](docs/adr/0001-v2-migration-arch
 See [docs/legal-license-inventory.md](docs/legal-license-inventory.md) for the current legal notice and license inventory, and [docs/release-checklist.md](docs/release-checklist.md) for the public launch legal review checkpoint.
 
 See [docs/runtime-configuration.md](docs/runtime-configuration.md) and [.env.example](.env.example) for local, staging, production, and Telegram Mini App runtime configuration.
+
+See [docs/v2-analytics-privacy-metrics.md](docs/v2-analytics-privacy-metrics.md) for the analytics event taxonomy, privacy rules, KPI definitions, retention windows, and dashboard requirements from issue #10.
