@@ -10,6 +10,10 @@
 
 defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 
+if ( ! function_exists( 'tonbankcard_api_cache_settings' ) ) {
+    require_once __DIR__ . '/cache.php';
+}
+
 /**
  * Returns TRUE when a normalized path belongs to the market API surface.
  *
@@ -93,6 +97,12 @@ function tonbankcard_api_market_handle( array $request, array $runtime, array $c
     $provider = tonbankcard_api_market_provider_config( $runtime, $config );
     $query    = tonbankcard_api_market_sanitize_query( isset( $request['query'] ) ? $request['query'] : [] );
     $fetched_at = time();
+    $cache_context = tonbankcard_api_market_cache_context( $route, $query, $provider, $runtime, $config, $request_id );
+    $cached = tonbankcard_api_market_cache_read( $cache_context, $runtime, $config, $route, $provider, $request_id, $headers );
+    if ( null !== $cached ) {
+        return $cached;
+    }
+
     $upstream_response = tonbankcard_api_market_fetch( $route['upstream_path'], $query, $provider, $config );
 
     return tonbankcard_api_market_response(
@@ -101,7 +111,8 @@ function tonbankcard_api_market_handle( array $request, array $runtime, array $c
         $provider,
         $request_id,
         $headers,
-        $fetched_at
+        $fetched_at,
+        $cache_context
     );
 }
 
@@ -304,6 +315,174 @@ function tonbankcard_api_market_provider_config( array $runtime, array $config )
 }
 
 /**
+ * Builds cache metadata for a market gateway request.
+ *
+ * @param array $route
+ * @param array $query
+ * @param array $provider
+ * @param array $runtime
+ * @param array $config
+ * @param string $request_id
+ * @return array
+ */
+function tonbankcard_api_market_cache_context( array $route, array $query, array $provider, array $runtime, array $config, string $request_id ) {
+    $settings = tonbankcard_api_cache_settings( $config );
+    $redis = tonbankcard_api_redis_settings( $runtime, $config );
+    $type = tonbankcard_api_market_cache_type( isset( $route['upstream_path'] ) ? $route['upstream_path'] : '' );
+    $ttl = isset( $settings['ttls'][ $type ] ) ? max( 0, (int) $settings['ttls'][ $type ] ) : 0;
+
+    $enabled = ! empty( $settings['enabled'] ) && ! empty( $redis['enabled'] ) && $ttl > 0;
+    $normalized_query = tonbankcard_api_market_normalize_cache_query( $query );
+    $parts = [
+        'provider' => $provider['name'],
+        'plan'     => $provider['plan'],
+        'route'    => isset( $route['gateway_path'] ) ? $route['gateway_path'] : '',
+        'upstream' => isset( $route['upstream_path'] ) ? $route['upstream_path'] : '',
+        'query'    => $normalized_query,
+    ];
+    $cache_key = tonbankcard_api_redis_key( $runtime, $config, 'cache', $parts );
+    $lock_key = tonbankcard_api_redis_key( $runtime, $config, 'coalesce', $parts );
+
+    return [
+        'enabled'           => $enabled,
+        'state'             => $enabled ? 'active' : 'bypass',
+        'type'              => $type,
+        'ttl_seconds'       => $ttl,
+        'stale_ttl_seconds' => $settings['stale_ttl_seconds'],
+        'key'               => $cache_key,
+        'lock_key'          => $lock_key,
+        'request_id'        => $request_id,
+        'runtime'           => $runtime,
+        'config'            => $config,
+        'coalesce'          => $settings['coalesce'],
+        'stale'             => null,
+    ];
+}
+
+/**
+ * Returns the configured cache TTL bucket for a CoinGecko path.
+ *
+ * @param string $upstream_path
+ * @return string
+ */
+function tonbankcard_api_market_cache_type( string $upstream_path ) {
+    if ( 'global' === $upstream_path ) {
+        return 'global_stats';
+    }
+
+    if ( in_array( $upstream_path, [ 'coins/list', 'exchanges/list', 'search', 'search/trending' ], TRUE ) ) {
+        return 'search_index';
+    }
+
+    if ( preg_match( '#/(market_chart|volume_chart)(/range)?$#', $upstream_path ) ) {
+        return 'charts';
+    }
+
+    if ( preg_match( '#^(coins|exchanges)/[^/]+$#', $upstream_path ) || 'finance_platforms' === $upstream_path ) {
+        return 'coin_metadata';
+    }
+
+    return 'live_prices';
+}
+
+/**
+ * Sorts query keys recursively for stable cache keys.
+ *
+ * @param array $query
+ * @return array
+ */
+function tonbankcard_api_market_normalize_cache_query( array $query ) {
+    ksort( $query, SORT_STRING );
+    foreach ( $query as $key => $value ) {
+        if ( is_array( $value ) ) {
+            $query[ $key ] = tonbankcard_api_market_normalize_cache_query( $value );
+        }
+    }
+
+    return $query;
+}
+
+/**
+ * Reads cache, serves hits, tracks stale fallback candidates, and coalesces duplicates.
+ *
+ * @param array $cache_context
+ * @param array $runtime
+ * @param array $config
+ * @param array $route
+ * @param array $provider
+ * @param string $request_id
+ * @param array $headers
+ * @return array|null
+ */
+function tonbankcard_api_market_cache_read( array &$cache_context, array $runtime, array $config, array $route, array $provider, string $request_id, array $headers ) {
+    if ( empty( $cache_context['enabled'] ) ) {
+        tonbankcard_api_metric_increment( $runtime, $config, 'cache.bypass' );
+        return null;
+    }
+
+    $cached = tonbankcard_api_cache_get( $runtime, $config, $cache_context['key'] );
+    $state = isset( $cached['state'] ) ? $cached['state'] : 'miss';
+    if ( 'hit' === $state ) {
+        tonbankcard_api_metric_increment( $runtime, $config, 'cache.hit' );
+        return tonbankcard_api_market_cache_response( $cached, $route, $provider, $request_id, $headers, $cache_context, [ 'cache_status' => 'hit' ] );
+    }
+
+    if ( 'stale' === $state ) {
+        $cache_context['stale'] = $cached;
+        tonbankcard_api_metric_increment( $runtime, $config, 'cache.stale' );
+        tonbankcard_api_metric_set( $runtime, $config, 'cache.stale_age_seconds', isset( $cached['stale_age_seconds'] ) ? (int) $cached['stale_age_seconds'] : 0 );
+    } elseif ( in_array( $state, [ 'miss', 'expired' ], TRUE ) ) {
+        tonbankcard_api_metric_increment( $runtime, $config, 'cache.miss' );
+    } else {
+        tonbankcard_api_metric_increment( $runtime, $config, 'cache.bypass' );
+        return null;
+    }
+
+    if ( empty( $cache_context['coalesce']['enabled'] ) ) {
+        return null;
+    }
+
+    $owner = $cache_context['request_id'];
+    $acquired = tonbankcard_api_cache_lock_acquire(
+        $runtime,
+        $config,
+        $cache_context['lock_key'],
+        $owner,
+        isset( $cache_context['coalesce']['lock_ttl_seconds'] ) ? (int) $cache_context['coalesce']['lock_ttl_seconds'] : 15
+    );
+    $cache_context['lock_acquired'] = $acquired;
+
+    if ( $acquired ) {
+        return null;
+    }
+
+    $filled = tonbankcard_api_cache_wait_for_fill(
+        $runtime,
+        $config,
+        $cache_context['key'],
+        isset( $cache_context['coalesce']['wait_ms'] ) ? (int) $cache_context['coalesce']['wait_ms'] : 250,
+        isset( $cache_context['coalesce']['poll_ms'] ) ? (int) $cache_context['coalesce']['poll_ms'] : 25
+    );
+    if ( isset( $filled['state'] ) && 'hit' === $filled['state'] ) {
+        tonbankcard_api_metric_increment( $runtime, $config, 'cache.hit' );
+        return tonbankcard_api_market_cache_response(
+            $filled,
+            $route,
+            $provider,
+            $request_id,
+            $headers,
+            $cache_context,
+            [
+                'cache_status' => 'hit',
+                'coalesced'    => TRUE,
+            ]
+        );
+    }
+
+    return null;
+}
+
+/**
  * Fetches a CoinGecko upstream endpoint.
  *
  * @param string $upstream_path
@@ -502,12 +681,18 @@ function tonbankcard_api_market_parse_header_lines( array $lines ) {
  * @param string $request_id
  * @param array $headers
  * @param int $fetched_at
+ * @param array $cache_context
  * @return array
  */
-function tonbankcard_api_market_response( array $upstream_response, array $route, array $provider, string $request_id, array $headers, int $fetched_at ) {
+function tonbankcard_api_market_response( array $upstream_response, array $route, array $provider, string $request_id, array $headers, int $fetched_at, array $cache_context = [] ) {
     $provider_headers = tonbankcard_api_market_normalize_headers( isset( $upstream_response['headers'] ) && is_array( $upstream_response['headers'] ) ? $upstream_response['headers'] : [] );
 
     if ( ! empty( $upstream_response['error'] ) ) {
+        $fallback = tonbankcard_api_market_stale_fallback_response( $cache_context, $route, $provider, $request_id, $headers );
+        if ( null !== $fallback ) {
+            return $fallback;
+        }
+
         $error = (string) $upstream_response['error'];
         if ( 'timeout' === $error ) {
             return tonbankcard_api_market_provider_error_response(
@@ -536,6 +721,11 @@ function tonbankcard_api_market_response( array $upstream_response, array $route
 
     $status = isset( $upstream_response['status'] ) ? (int) $upstream_response['status'] : 0;
     if ( 200 > $status || 300 <= $status ) {
+        $fallback = tonbankcard_api_market_stale_fallback_response( $cache_context, $route, $provider, $request_id, $headers );
+        if ( null !== $fallback ) {
+            return $fallback;
+        }
+
         $headers = tonbankcard_api_market_copy_provider_headers( $headers, $provider_headers );
         return tonbankcard_api_market_http_error_response( $status, $route, $provider, $request_id, $headers );
     }
@@ -543,6 +733,11 @@ function tonbankcard_api_market_response( array $upstream_response, array $route
     $body = isset( $upstream_response['body'] ) ? (string) $upstream_response['body'] : '';
     $data = json_decode( $body, TRUE );
     if ( JSON_ERROR_NONE !== json_last_error() || ! is_array( $data ) ) {
+        $fallback = tonbankcard_api_market_stale_fallback_response( $cache_context, $route, $provider, $request_id, $headers );
+        if ( null !== $fallback ) {
+            return $fallback;
+        }
+
         return tonbankcard_api_market_provider_error_response(
             502,
             'provider_invalid_json',
@@ -555,12 +750,110 @@ function tonbankcard_api_market_response( array $upstream_response, array $route
         );
     }
 
+    $cache_meta = [
+        'cache_status'      => ! empty( $cache_context['enabled'] ) ? 'miss' : ( isset( $cache_context['state'] ) ? $cache_context['state'] : 'pass' ),
+        'cache_age_seconds' => 0,
+        'cache_ttl_seconds' => isset( $cache_context['ttl_seconds'] ) ? (int) $cache_context['ttl_seconds'] : $provider['cache_ttl_seconds'],
+    ];
+    if ( ! empty( $cache_context['enabled'] ) ) {
+        tonbankcard_api_cache_set(
+            isset( $cache_context['runtime'] ) ? $cache_context['runtime'] : [],
+            isset( $cache_context['config'] ) ? $cache_context['config'] : [],
+            $cache_context['key'],
+            $data,
+            [
+                'status' => $status,
+                'path'   => $route['upstream_path'],
+            ],
+            isset( $cache_context['ttl_seconds'] ) ? (int) $cache_context['ttl_seconds'] : 0,
+            isset( $cache_context['stale_ttl_seconds'] ) ? (int) $cache_context['stale_ttl_seconds'] : 0,
+            $fetched_at
+        );
+    }
+
     return tonbankcard_api_success_response(
         $data,
         $request_id,
         $headers,
         200,
-        tonbankcard_api_market_response_meta( $route, $provider, $data, $status, $fetched_at )
+        tonbankcard_api_market_response_meta( $route, $provider, $data, $status, $fetched_at, $cache_meta )
+    );
+}
+
+/**
+ * Builds a success response from a cached market entry.
+ *
+ * @param array $cached
+ * @param array $route
+ * @param array $provider
+ * @param string $request_id
+ * @param array $headers
+ * @param array $cache_context
+ * @param array $cache_meta
+ * @return array
+ */
+function tonbankcard_api_market_cache_response( array $cached, array $route, array $provider, string $request_id, array $headers, array $cache_context, array $cache_meta ) {
+    $entry = isset( $cached['entry'] ) && is_array( $cached['entry'] ) ? $cached['entry'] : [];
+    $data = isset( $entry['data'] ) && is_array( $entry['data'] ) ? $entry['data'] : [];
+    $stored_at = isset( $entry['stored_at'] ) ? (int) $entry['stored_at'] : time();
+    $upstream = isset( $entry['upstream'] ) && is_array( $entry['upstream'] ) ? $entry['upstream'] : [];
+    $upstream_status = isset( $upstream['status'] ) ? (int) $upstream['status'] : 200;
+
+    $cache_meta = array_merge(
+        [
+            'cache_status'      => isset( $cache_meta['cache_status'] ) ? $cache_meta['cache_status'] : 'hit',
+            'cache_age_seconds' => isset( $cached['cache_age_seconds'] ) ? (int) $cached['cache_age_seconds'] : 0,
+            'stale_age_seconds' => isset( $cached['stale_age_seconds'] ) ? (int) $cached['stale_age_seconds'] : 0,
+            'cache_ttl_seconds' => isset( $cache_context['ttl_seconds'] ) ? (int) $cache_context['ttl_seconds'] : $provider['cache_ttl_seconds'],
+        ],
+        $cache_meta
+    );
+
+    return tonbankcard_api_success_response(
+        $data,
+        $request_id,
+        $headers,
+        200,
+        tonbankcard_api_market_response_meta( $route, $provider, $data, $upstream_status, $stored_at, $cache_meta )
+    );
+}
+
+/**
+ * Serves stale cache data when the upstream provider cannot supply a fresh response.
+ *
+ * @param array $cache_context
+ * @param array $route
+ * @param array $provider
+ * @param string $request_id
+ * @param array $headers
+ * @return array|null
+ */
+function tonbankcard_api_market_stale_fallback_response( array $cache_context, array $route, array $provider, string $request_id, array $headers ) {
+    if ( empty( $cache_context['enabled'] ) || empty( $cache_context['stale'] ) || ! is_array( $cache_context['stale'] ) ) {
+        return null;
+    }
+
+    $runtime = isset( $cache_context['runtime'] ) && is_array( $cache_context['runtime'] ) ? $cache_context['runtime'] : [];
+    $config = isset( $cache_context['config'] ) && is_array( $cache_context['config'] ) ? $cache_context['config'] : [];
+    tonbankcard_api_metric_increment( $runtime, $config, 'cache.upstream_fallback' );
+    tonbankcard_api_metric_set(
+        $runtime,
+        $config,
+        'cache.stale_age_seconds',
+        isset( $cache_context['stale']['stale_age_seconds'] ) ? (int) $cache_context['stale']['stale_age_seconds'] : 0
+    );
+
+    return tonbankcard_api_market_cache_response(
+        $cache_context['stale'],
+        $route,
+        $provider,
+        $request_id,
+        $headers,
+        $cache_context,
+        [
+            'cache_status'      => 'stale',
+            'upstream_fallback' => TRUE,
+        ]
     );
 }
 
@@ -716,24 +1009,36 @@ function tonbankcard_api_market_base_meta( array $runtime, array $config, int $f
  * @param array $data
  * @param int $upstream_status
  * @param int $fetched_at
+ * @param array $cache_meta
  * @return array
  */
-function tonbankcard_api_market_response_meta( array $route, array $provider, array $data, int $upstream_status, int $fetched_at ) {
+function tonbankcard_api_market_response_meta( array $route, array $provider, array $data, int $upstream_status, int $fetched_at, array $cache_meta = [] ) {
     $last_updated_at = tonbankcard_api_market_data_timestamp( $data );
     if ( null === $last_updated_at ) {
         $last_updated_at = $fetched_at;
     }
 
+    $freshness = [
+        'fetched_at'        => gmdate( 'c', $fetched_at ),
+        'last_updated_at'   => gmdate( 'c', $last_updated_at ),
+        'cache_age_seconds' => isset( $cache_meta['cache_age_seconds'] ) ? (int) $cache_meta['cache_age_seconds'] : 0,
+        'cache_status'      => isset( $cache_meta['cache_status'] ) ? (string) $cache_meta['cache_status'] : 'pass',
+        'data_age_seconds'  => max( 0, time() - $last_updated_at ),
+        'cache_ttl_seconds' => isset( $cache_meta['cache_ttl_seconds'] ) ? (int) $cache_meta['cache_ttl_seconds'] : $provider['cache_ttl_seconds'],
+    ];
+    if ( isset( $cache_meta['stale_age_seconds'] ) && 0 < (int) $cache_meta['stale_age_seconds'] ) {
+        $freshness['stale_age_seconds'] = (int) $cache_meta['stale_age_seconds'];
+    }
+    if ( ! empty( $cache_meta['upstream_fallback'] ) ) {
+        $freshness['upstream_fallback'] = TRUE;
+    }
+    if ( ! empty( $cache_meta['coalesced'] ) ) {
+        $freshness['coalesced'] = TRUE;
+    }
+
     return [
         'provider' => tonbankcard_api_market_provider_meta( $provider ),
-        'freshness' => [
-            'fetched_at'        => gmdate( 'c', $fetched_at ),
-            'last_updated_at'   => gmdate( 'c', $last_updated_at ),
-            'cache_age_seconds' => 0,
-            'cache_status'      => 'pass',
-            'data_age_seconds'  => max( 0, $fetched_at - $last_updated_at ),
-            'cache_ttl_seconds' => $provider['cache_ttl_seconds'],
-        ],
+        'freshness' => $freshness,
         'upstream' => [
             'status' => $upstream_status,
             'path'   => $route['upstream_path'],
