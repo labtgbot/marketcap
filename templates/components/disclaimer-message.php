@@ -32,7 +32,7 @@ $component_disclaimer_message['title'] = 'Disclaimer';
 | DESCRIPTION: Disclaimer text.
 |
 */
-$component_disclaimer_message['text'] = 'The information provided on this website does not constitute investment advice, financial advice, trading advice, or any other sort of advice and you should not treat any of the website\'s content as such. We does not recommend that any cryptocurrency should be bought, sold, or held by you. Do conduct your own due diligence and consult your financial advisor before making any investment decisions.';
+$component_disclaimer_message['text'] = 'TONBANKCARD Crypto Tracker provides market data, AI summaries, alerts, and swap widgets for informational purposes only. Prices, liquidity, generated summaries, and alert triggers may be delayed, incomplete, or wrong. Nothing on this website is investment, financial, legal, tax, or trading advice, and TONBANKCARD does not recommend buying, selling, holding, borrowing, lending, swapping, or staking any asset.';
 
 ?>
 <section class="gc-disclaimer-message caption">

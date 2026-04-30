@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">TONBANKCARD icon</title>
+  <desc id="desc">TONBANKCARD Crypto Tracker monogram.</desc>
+  <rect width="128" height="128" rx="24" fill="#0b1020"/>
+  <path d="M24 29h80L64 100 24 29z" fill="#1bb2da"/>
+  <path d="M40 41h48L64 84 40 41z" fill="#f6fafd"/>
+  <path d="M64 84 51 41h26L64 84z" fill="#1bb2da"/>
+</svg>

@@ -27,247 +27,110 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 */
 $frontend_options['terms']['title'] = __( 'Terms' );
 
-/*
-| -------------------------------------------------------------------------
-| NAME
-| -------------------------------------------------------------------------
-| TYPE: string
-| DESCRIPTION: Website name.
-|
-*/
 $route_terms['name'] = $site['name'];
-
-/*
-| -------------------------------------------------------------------------
-| SITE URL
-| -------------------------------------------------------------------------
-| TYPE: string
-| DESCRIPTION: Homepage URL.
-|
-*/
 $route_terms['site_url'] = site_url();
-
-/*
-| -------------------------------------------------------------------------
-| COOKIES
-| -------------------------------------------------------------------------
-| TYPE: bool
-| DESCRIPTION: Set TRUE to show "Cookies" section.
-|
-*/
-$route_terms['cookies'] = TRUE;
-
-/*
-| -------------------------------------------------------------------------
-| PRIVACY POLICY URL
-| -------------------------------------------------------------------------
-| TYPE: string
-| DESCRIPTION: Privacy policy URL. Default to "privacy-policy" route URL if enabled.
-|
-*/
 $route_terms['privacy_policy_url'] = empty( $routes['privacy-policy']['enabled'] ) ? '' : site_url( $routes['privacy-policy']['path'] );
-
-/*
-| -------------------------------------------------------------------------
-| COOKIES POLICY URL
-| -------------------------------------------------------------------------
-| TYPE: string
-| DESCRIPTION: Cookies policy URL. Default to "cookies-policy" route URL if enabled.
-|
-*/
 $route_terms['cookies_policy_url'] = empty( $routes['cookies-policy']['enabled'] ) ? '' : site_url( $routes['cookies-policy']['path'] );
-
-/*
-| -------------------------------------------------------------------------
-| LICENSE
-| -------------------------------------------------------------------------
-| TYPE: bool
-| DESCRIPTION: Set TRUE to show "License" section.
-|
-*/
-$route_terms['license'] = TRUE;
-
-/*
-| -------------------------------------------------------------------------
-| IFRAMES
-| -------------------------------------------------------------------------
-| TYPE: bool
-| DESCRIPTION: Set TRUE to show "iFrames" section.
-|
-*/
-$route_terms['iframes'] = TRUE;
-
-/*
-| -------------------------------------------------------------------------
-| RESERVATION RIGHTS
-| -------------------------------------------------------------------------
-| TYPE: bool
-| DESCRIPTION: Set TRUE to show "Reservation of Rights" section.
-|
-*/
-$route_terms['reservation_rights'] = TRUE;
-
-/*
-| -------------------------------------------------------------------------
-| REMOVAL LINKS
-| -------------------------------------------------------------------------
-| TYPE: bool
-| DESCRIPTION: Set TRUE to show "Removal of links from our website" section.
-|
-*/
-$route_terms['removal_links'] = TRUE;
-
-/*
-| -------------------------------------------------------------------------
-| DISCLAIMER
-| -------------------------------------------------------------------------
-| TYPE: bool
-| DESCRIPTION: Set TRUE to show "Removal of links from our website" section.
-|
-*/
-$route_terms['disclaimer'] = TRUE;
 
 ?>
 <v-container tag="section" id="terms" class="mt-8 mb-16 pa-4 pa-sm-6">
     <h1 class="text-h4 text-sm-h3 mb-6">
         <?php echo esc_html( $frontend_options['terms']['title'] ); ?>
     </h1>
+
     <p>
-        <?php echo esc_html( "These terms and conditions outline the rules and regulations for the use of {$route_terms['name']}’s Website, located at \"{$route_terms['site_url']}\"." ); ?>
-        <br>
-        <?php echo esc_html( "By accessing this website we assume you accept these terms and conditions. Do not continue to use {$route_terms['name']} if you do not agree to take all of the terms and conditions stated on this page." ); ?>
+        <?php echo esc_html( "These terms apply to the use of {$route_terms['name']} Crypto Tracker at {$route_terms['site_url']} and related public website or Telegram Mini App surfaces operated for TONBANKCARD V2." ); ?>
+        <?php echo esc_html( 'By using the service, you agree to use it only for lawful, informational, and personal market-research purposes.' ); ?>
     </p>
 
-    <?php if ( ! empty( $route_terms['cookies'] ) ) : ?>
-    <div class="mt-12">
-        <h3 class="text-h6 text-sm-h5 mb-4">
-            <?php echo esc_html( "Cookies" ); ?>
-        </h3>
-        <p>
-            <?php echo esc_html( "We employ the use of cookies." ); ?>
-            <?php
-                $has_privacy_url = ! empty( $route_terms['privacy_policy_url'] );
-                $has_cookies_url = ! empty( $route_terms['cookies_policy_url'] );
-            ?>
-            <?php if ( $has_privacy_url || $has_cookies_url) : ?>
-                <?php echo esc_html( "By accessing {$route_terms['name']}, you agreed to use cookies in agreement with the {$route_terms['name']}’s" ); ?>
-                <?php if ( $has_privacy_url ) : ?>
-                    <a href="<?php echo esc_url( $route_terms['privacy_policy_url'] ); ?>"><?php echo esc_html( "Privacy Policy" ); ?></a>
-                <?php endif; ?>
-                <?php if ( $has_privacy_url && $has_cookies_url ) echo esc_html( 'and' ); ?>
-                <?php if ( $has_cookies_url ) : ?>
-                    <a href="<?php echo esc_url( $route_terms['cookies_policy_url'] ); ?>"><?php echo esc_html( "Cookies Policy" ); ?></a>
-                <?php endif; ?>
-                .
-            <?php endif; ?>
-        </p>
-        <p>
-            <?php echo esc_html( "Most interactive websites use cookies to let us retrieve the user’s details for each visit. Cookies are used by our website to enable the functionality of certain areas to make it easier for people visiting our website. Some of our affiliate/advertising partners may also use cookies." ); ?>
-        </p>
-    </div>
-    <?php endif; ?>
-
-    <?php if ( ! empty( $route_terms['license'] ) ) : ?>
     <div class="mt-12">
         <h2 class="text-h6 text-sm-h5 mb-4">
-            <?php echo esc_html( "License" ); ?>
+            <?php echo esc_html( 'Informational service only' ); ?>
         </h2>
         <p>
-            <?php echo esc_html( "Unless otherwise stated, {$route_terms['name']} and/or its licensors own the intellectual property rights for all material on {$route_terms['name']}." ); ?>
-            <?php echo esc_html( "All intellectual property rights are reserved." ); ?>
-            <?php echo esc_html( "You may access this from {$route_terms['name']} for your own personal use subjected to restrictions set in these terms and conditions." ); ?>
+            <?php echo esc_html( 'TONBANKCARD Crypto Tracker is not a broker, dealer, exchange, investment adviser, custodian, wallet provider, tax adviser, or legal adviser. The website does not execute trades, hold assets, manage orders, custody funds, or guarantee access to any third-party service.' ); ?>
         </p>
         <p>
-            <?php echo esc_html( "You must not:" ); ?>
+            <?php echo esc_html( 'Nothing shown on the website, in Telegram, in generated summaries, in alerts, or in widget prompts is financial, investment, legal, tax, accounting, trading, lending, staking, borrowing, or custody advice.' ); ?>
         </p>
+    </div>
+
+    <div class="mt-12">
+        <h2 class="text-h6 text-sm-h5 mb-4">
+            <?php echo esc_html( 'Market data disclosure' ); ?>
+        </h2>
+        <p>
+            <?php echo esc_html( 'Provider market data may come from CoinGecko or other providers. Prices, volume, market capitalization, rankings, liquidity, exchange metadata, charts, and derived calculations may be delayed, cached, incomplete, unavailable, or wrong. You are responsible for checking source data before acting on it.' ); ?>
+        </p>
+    </div>
+
+    <div class="mt-12">
+        <h2 class="text-h6 text-sm-h5 mb-4">
+            <?php echo esc_html( 'AI summaries and generated content' ); ?>
+        </h2>
+        <p>
+            <?php echo esc_html( 'AI summaries, market explanations, sentiment labels, and alert explanations may be generated from provider data, cached data, user settings, or operator-curated context. Generated content can omit relevant facts, misread source data, or become stale. It must not be treated as a recommendation to buy, sell, hold, leverage, borrow, lend, stake, or swap any asset.' ); ?>
+        </p>
+    </div>
+
+    <div class="mt-12">
+        <h2 class="text-h6 text-sm-h5 mb-4">
+            <?php echo esc_html( 'Alerts' ); ?>
+        </h2>
+        <p>
+            <?php echo esc_html( 'Alerts are convenience notifications. They may be delayed, duplicated, missed, paused, or delivered after market conditions have changed. You should not rely on alerts as the only trigger for financial decisions, risk controls, liquidations, or compliance obligations.' ); ?>
+        </p>
+    </div>
+
+    <div class="mt-12">
+        <h2 class="text-h6 text-sm-h5 mb-4">
+            <?php echo esc_html( 'Swap widgets and third-party services' ); ?>
+        </h2>
+        <p>
+            <?php echo esc_html( 'Swap widgets, ChangeNOW links, exchange links, blockchain explorers, Telegram links, and other third-party services are operated by their respective providers. Their terms, fees, execution, availability, asset support, KYC rules, custody model, and transaction risks are not controlled by TONBANKCARD.' ); ?>
+        </p>
+    </div>
+
+    <div class="mt-12">
+        <h2 class="text-h6 text-sm-h5 mb-4">
+            <?php echo esc_html( 'User responsibilities' ); ?>
+        </h2>
         <ul>
-            <li>
-                <?php echo esc_html( "Republish material from {$route_terms['name']}" ); ?>
-            </li>
-            <li>
-                <?php echo esc_html( "Sell, rent or sub-license material from {$route_terms['name']}" ); ?>
-            </li>
-            <li>
-                <?php echo esc_html( "Reproduce, duplicate or copy material from {$route_terms['name']}" ); ?>
-            </li>
-            <li>
-                <?php echo esc_html( "Redistribute content from {$route_terms['name']}" ); ?>
-            </li>
+            <li><?php echo esc_html( 'Verify every asset, address, network, provider, fee, and exchange route before sending funds or sharing personal information.' ); ?></li>
+            <li><?php echo esc_html( 'Use the service only where crypto market tracking and related third-party services are lawful for you.' ); ?></li>
+            <li><?php echo esc_html( 'Do not abuse search, alert, referral, or sharing workflows, and do not attempt to bypass rate limits or feature flags.' ); ?></li>
+            <li><?php echo esc_html( 'Keep Telegram accounts, wallets, API keys, and devices secure. TONBANKCARD will never ask for private keys or seed phrases.' ); ?></li>
         </ul>
     </div>
-    <?php endif; ?>
 
-    <?php if ( ! empty( $route_terms['iframes'] ) ) : ?>
     <div class="mt-12">
         <h2 class="text-h6 text-sm-h5 mb-4">
-            <?php echo esc_html( "iFrames" ); ?>
+            <?php echo esc_html( 'Privacy, cookies, and localization' ); ?>
         </h2>
         <p>
-            <?php echo esc_html( "Without prior approval and written permission, you may not create frames around our Webpages that alter in any way the visual presentation or appearance of our Website." ); ?>
+            <?php echo esc_html( 'The privacy and cookies pages describe how the product handles browser preferences, local storage, Telegram context, analytics, AI prompts, alert settings, and future wallet-aware data. English is the primary copy track; Russian copy is tracked as a localization placeholder for Telegram RU community surfaces.' ); ?>
+        </p>
+        <?php if ( ! empty( $route_terms['privacy_policy_url'] ) || ! empty( $route_terms['cookies_policy_url'] ) ) : ?>
+            <p>
+                <?php if ( ! empty( $route_terms['privacy_policy_url'] ) ) : ?>
+                    <a href="<?php echo esc_url( $route_terms['privacy_policy_url'] ); ?>"><?php echo esc_html( 'Privacy Policy' ); ?></a>
+                <?php endif; ?>
+                <?php if ( ! empty( $route_terms['privacy_policy_url'] ) && ! empty( $route_terms['cookies_policy_url'] ) ) : ?>
+                    <?php echo esc_html( ' and ' ); ?>
+                <?php endif; ?>
+                <?php if ( ! empty( $route_terms['cookies_policy_url'] ) ) : ?>
+                    <a href="<?php echo esc_url( $route_terms['cookies_policy_url'] ); ?>"><?php echo esc_html( 'Cookies Policy' ); ?></a>
+                <?php endif; ?>
+            </p>
+        <?php endif; ?>
+    </div>
+
+    <div class="mt-12">
+        <h2 class="text-h6 text-sm-h5 mb-4">
+            <?php echo esc_html( 'Changes' ); ?>
+        </h2>
+        <p>
+            <?php echo esc_html( 'TONBANKCARD may update these terms as V2 features, providers, routes, widgets, localization, and Telegram workflows change. Continued use after updates means you accept the revised terms.' ); ?>
         </p>
     </div>
-    <?php endif; ?>
-
-    <?php if ( ! empty( $route_terms['reservation_rights'] ) ) : ?>
-        <div class="mt-12">
-            <h2 class="text-h6 text-sm-h5 mb-4">
-                <?php echo esc_html( "Reservation of Rights" ); ?>
-            </h2>
-            <p>
-                <?php echo esc_html( "We reserve the right to request that you remove all links or any particular link to our Website." ); ?>
-                <?php echo esc_html( "You approve to immediately remove all links to our Website upon request." ); ?>
-                <?php echo esc_html( "We also reserve the right to amen these terms and conditions and it’s linking policy at any time." ); ?>
-                <?php echo esc_html( "By continuously linking to our Website, you agree to be bound to and follow these linking terms and conditions." ); ?>
-            </p>
-        </div>
-    <?php endif; ?>
-
-    <?php if ( ! empty( $route_terms['removal_links'] ) ) : ?>
-        <div class="mt-12">
-            <h2 class="text-h6 text-sm-h5 mb-4">
-                <?php echo esc_html( "Removal of links from our website" ); ?>
-            </h2>
-            <p>
-                <?php echo esc_html( "If you find any link on our Website that is offensive for any reason, you are free to contact and inform us any moment." ); ?>
-                <?php echo esc_html( "We will consider requests to remove links but we are not obligated to or so or to respond to you directly." ); ?>
-            </p>
-            <p>
-                <?php echo esc_html( "We do not ensure that the information on this website is correct, we do not warrant its completeness or accuracy; nor do we promise to ensure that the website remains available or that the material on the website is kept up to date." ); ?>
-            </p>
-        </div>
-    <?php endif; ?>
-
-    <?php if ( ! empty( $route_terms['disclaimer'] ) ) : ?>
-        <div class="mt-12">
-            <h2 class="text-h6 text-sm-h5 mb-4">
-                <?php echo esc_html( "Disclaimer" ); ?>
-            </h2>
-            <p>
-                <?php echo esc_html( "To the maximum extent permitted by applicable law, we exclude all representations, warranties and conditions relating to our website and the use of this website." ); ?>
-                <br>
-                <?php echo esc_html( "Nothing in this disclaimer will:" ); ?>
-            </p>
-            <ul>
-                <li>
-                    <?php echo esc_html( "limit or exclude our or your liability for death or personal injury;" ); ?>
-                </li>
-                <li>
-                    <?php echo esc_html( "limit or exclude our or your liability for fraud or fraudulent misrepresentation;" ); ?>
-                </li>
-                <li>
-                    <?php echo esc_html( "limit any of our or your liabilities in any way that is not permitted under applicable law; or" ); ?>
-                </li>
-                <li>
-                    <?php echo esc_html( "exclude any of our or your liabilities that may not be excluded under applicable law." ); ?>
-                </li>
-            </ul>
-            <p>
-                <?php echo esc_html( "The limitations and prohibitions of liability set in this Section and elsewhere in this disclaimer: (a) are subject to the preceding paragraph; and (b) govern all liabilities arising under the disclaimer, including liabilities arising in contract, in tort and for breach of statutory duty." ); ?>
-            </p>
-            <p>
-                <?php echo esc_html( "As long as the website and the information and services on the website are provided free of charge, we will not be liable for any loss or damage of any nature." ); ?>
-            </p>
-        </div>
-    <?php endif; ?>
-
 </v-container>

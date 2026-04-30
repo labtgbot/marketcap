@@ -21,7 +21,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 | DESCRIPTION: Dialog title.
 |
 */
-$component_cookies_dialog['title'] = 'We Use Cookies';
+$component_cookies_dialog['title'] = 'TONBANKCARD Uses Cookies';
 
 /*
 | -------------------------------------------------------------------------
@@ -32,7 +32,7 @@ $component_cookies_dialog['title'] = 'We Use Cookies';
 | DESCRIPTION: Dialog message.
 |
 */
-$component_cookies_dialog['message'] = 'By continuing to browse or by clicking "Accept", you agree to the storing of cookies on your device to improve user experience and for analytical purposes.';
+$component_cookies_dialog['message'] = 'TONBANKCARD Crypto Tracker uses necessary cookies and local storage for preferences such as theme, display currency, consent state, and future watchlist or alert settings. Analytics cookies are used only when enabled for the current deployment.';
 
 /*
 | -------------------------------------------------------------------------

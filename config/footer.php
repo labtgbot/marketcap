@@ -44,22 +44,55 @@ $footer['show'] = TRUE;
 */
 $footer['links'] = [
     [
-        'icon' => 'mdi-facebook',
-        'url' => 'https://www.facebook.com/',
+        'text' => 'TONBANKCARD',
+        'icon' => 'mdi-web',
+        'url' => 'https://tonbankcard.com/',
         'external' => TRUE,
     ],
     [
+        'text' => 'Telegram',
+        'icon' => 'mdi-telegram',
+        'url' => 'https://t.me/tonbankcard',
+        'external' => TRUE,
+    ],
+    [
+        'text' => 'Telegram RU',
+        'icon' => 'mdi-telegram',
+        'url' => 'https://t.me/tonbankcard_ru',
+        'external' => TRUE,
+    ],
+    [
+        'text' => 'Chat',
+        'icon' => 'mdi-telegram',
+        'url' => 'https://t.me/tonbankcard_chat',
+        'external' => TRUE,
+    ],
+    [
+        'text' => 'Chat RU',
+        'icon' => 'mdi-telegram',
+        'url' => 'https://t.me/tonbankcard_chat_ru',
+        'external' => TRUE,
+    ],
+    [
+        'text' => 'X',
         'icon' => 'mdi-twitter',
-        'url' => 'https://twitter.com/',
+        'url' => 'https://twitter.com/tonbankcard',
         'external' => TRUE,
     ],
     [
-        'icon' => 'mdi-instagram',
-        'url' => 'https://www.instagram.com/',
+        'text' => 'VK',
+        'icon' => 'mdi-vk',
+        'url' => 'https://vk.com/tonbankcard',
         'external' => TRUE,
     ],
     [
-        'text' => 'About Us',
+        'text' => 'YouTube',
+        'icon' => 'mdi-youtube',
+        'url' => 'https://www.youtube.com/@tonbankcard',
+        'external' => TRUE,
+    ],
+    [
+        'text' => 'About',
         'route' => 'about',
     ],
     [
@@ -84,7 +117,5 @@ $footer['links'] = [
 | DESCRIPTION: The message display at the bottom of the footer.
 |
 */
-$footer['copyrights'] = '&copy; 2021 Gecko Client - All rights reserved';
-
-
+$footer['copyrights'] = '&copy; 2026 TONBANKCARD Crypto Tracker. Market data and third-party widgets are provided for informational use only.';
 
