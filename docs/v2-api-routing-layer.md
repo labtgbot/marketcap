@@ -22,6 +22,7 @@ Initial routes:
 | --- | --- | --- |
 | `GET` | `/api` | Service metadata and registered route list. |
 | `GET` | `/api/health` | Liveness response with app boot, configuration, database, Redis, and upstream provider checks. |
+| `GET` | `/api/metrics` | Redis-backed cache and rate-limit counters. |
 | `GET` | `/api/ready` | Readiness response. Returns `503` when required configuration or required dependency checks fail. |
 | `POST` | `/api/telegram/session` | Validates raw Telegram Mini App `initData` and creates or refreshes a server session. |
 | `OPTIONS` | `/api/*` | CORS preflight response for configured website and Mini App origins. |
@@ -96,6 +97,7 @@ Allowed request headers:
 - `Authorization`
 - `Content-Type`
 - `X-Request-ID`
+- `X-TONBANKCARD-Admin`
 - `X-TONBANKCARD-Session`
 - `X-Telegram-Init-Data`
 
@@ -111,8 +113,9 @@ hooks are intentionally small:
 
 - Session middleware detects whether a bearer token or
   `tonbankcard_session` cookie exists, but does not trust or expose its value.
-- Rate limiting is configured as a disabled hook until the Redis-backed
-  limiter is implemented.
+- Rate limiting uses Upstash Redis when enabled, classifies anonymous web,
+  Telegram session, and admin requests, and returns clear `429 rate_limited`
+  responses with retry headers.
 - Validation rejects invalid JSON request bodies before route handlers run.
 - Audit logging is disabled by default and can be enabled with
   `TONBANKCARD_API_AUDIT_LOG=true` after a production-safe sink is selected.
@@ -123,6 +126,10 @@ watchlist, alert, and admin issues that follow this routing layer.
 Issue #13 adds `/api/telegram/session` on top of this routing layer. See
 `docs/v2-telegram-session.md` for the Telegram-specific validation, storage,
 and local browser fallback contract.
+
+Issue #15 adds Redis-backed cache, metrics, request coalescing, and rate-limit
+enforcement. See `docs/v2-cache-rate-limit-coalescing.md` for the operational
+contract and default policies.
 
 ## Secret Handling
 
