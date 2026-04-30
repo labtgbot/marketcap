@@ -60,6 +60,258 @@ function site_url( string $path = '' ) {
 }
 
 /**
+ * Returns the current browser path normalized for route matching.
+ *
+ * @return string
+ */
+function tonbankcard_current_path() {
+    $path = '/';
+    if ( ! empty( $_SERVER['REQUEST_URI'] ) ) {
+        $parsed_path = parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH );
+        if ( is_string( $parsed_path ) && '' !== $parsed_path ) {
+            $path = $parsed_path;
+        }
+    }
+
+    $base_path = parse_url( (string) base_url(), PHP_URL_PATH );
+    if ( is_string( $base_path ) && '' !== $base_path && '/' !== $base_path ) {
+        $base_path = '/' . trim( $base_path, '/' );
+        if ( $path === $base_path ) {
+            $path = '/';
+        } elseif ( 0 === strpos( $path, $base_path . '/' ) ) {
+            $path = substr( $path, strlen( $base_path ) );
+        }
+    }
+
+    return tonbankcard_normalize_path( $path );
+}
+
+/**
+ * Normalizes a route path for public route matching.
+ *
+ * @param string $path
+ * @return string
+ */
+function tonbankcard_normalize_path( string $path ) {
+    $path = '/' . ltrim( $path, '/' );
+    if ( '/' !== $path ) {
+        $path = rtrim( $path, '/' );
+    }
+    return $path;
+}
+
+/**
+ * Converts a URL slug into readable title text.
+ *
+ * @param string $slug
+ * @return string
+ */
+function tonbankcard_slug_title( string $slug ) {
+    $known = [
+        'bitcoin'       => 'Bitcoin',
+        'ethereum'      => 'Ethereum',
+        'toncoin'       => 'Toncoin',
+        'tether'        => 'Tether',
+        'usd-coin'      => 'USD Coin',
+        'binancecoin'   => 'BNB',
+        'the-open-network' => 'The Open Network',
+    ];
+
+    $slug = strtolower( trim( $slug ) );
+    if ( isset( $known[ $slug ] ) ) {
+        return $known[ $slug ];
+    }
+
+    $words = preg_split( '/[-_]+/', $slug );
+    $words = array_filter( array_map( 'trim', is_array( $words ) ? $words : [] ) );
+    if ( empty( $words ) ) {
+        return 'Coin';
+    }
+
+    return ucwords( implode( ' ', $words ) );
+}
+
+/**
+ * Matches a path against a route pattern with :parameters.
+ *
+ * @param string $pattern
+ * @param string $path
+ * @return array|null
+ */
+function tonbankcard_match_route_pattern( string $pattern, string $path ) {
+    $pattern = tonbankcard_normalize_path( $pattern );
+    $path    = tonbankcard_normalize_path( $path );
+
+    $param_names = [];
+    $regex = preg_replace_callback(
+        '/\\\\?:([A-Za-z_][A-Za-z0-9_]*)/',
+        function ( $matches ) use ( &$param_names ) {
+            $param_names[] = $matches[1];
+            return '([^/]+)';
+        },
+        preg_quote( $pattern, '#' )
+    );
+
+    if ( ! is_string( $regex ) || ! preg_match( '#^' . $regex . '$#', $path, $matches ) ) {
+        return null;
+    }
+
+    $params = [];
+    foreach ( $param_names as $index => $name ) {
+        $params[ $name ] = rawurldecode( $matches[ $index + 1 ] );
+    }
+
+    return $params;
+}
+
+/**
+ * Replaces :parameters in a route path.
+ *
+ * @param string $path
+ * @param array $params
+ * @return string
+ */
+function tonbankcard_fill_route_path( string $path, array $params ) {
+    foreach ( $params as $name => $value ) {
+        $path = str_replace( ':' . $name, rawurlencode( (string) $value ), $path );
+    }
+    return tonbankcard_normalize_path( $path );
+}
+
+/**
+ * Returns the V2 public route matching a path.
+ *
+ * @param string|null $path
+ * @return array|null
+ */
+function tonbankcard_public_route_for_path( $path = null ) {
+    $routes = isset( $GLOBALS['routes_v2']['public'] ) && is_array( $GLOBALS['routes_v2']['public'] )
+        ? $GLOBALS['routes_v2']['public']
+        : [];
+    $path = null === $path ? tonbankcard_current_path() : tonbankcard_normalize_path( (string) $path );
+
+    foreach ( $routes as $name => $route ) {
+        if ( empty( $route['path'] ) || ! is_string( $route['path'] ) ) {
+            continue;
+        }
+
+        $params = tonbankcard_match_route_pattern( $route['path'], $path );
+        if ( null === $params ) {
+            continue;
+        }
+
+        $route['name']   = $name;
+        $route['params'] = $params;
+        return $route;
+    }
+
+    return null;
+}
+
+/**
+ * Builds server-rendered metadata for the current public route.
+ *
+ * @param string|null $path
+ * @return array
+ */
+function tonbankcard_public_route_meta( $path = null ) {
+    $route = tonbankcard_public_route_for_path( $path );
+    $site  = $GLOBALS['site'];
+    $path  = null === $path ? tonbankcard_current_path() : tonbankcard_normalize_path( (string) $path );
+
+    if ( empty( $route ) ) {
+        $route = [
+            'name'        => 'home',
+            'path'        => '/',
+            'params'      => [],
+            'title'       => $site['name'],
+            'description' => $site['description'],
+            'og_type'     => 'website',
+            'schema_type' => 'WebPage',
+        ];
+    }
+
+    $params      = isset( $route['params'] ) && is_array( $route['params'] ) ? $route['params'] : [];
+    $subject     = isset( $params['id'] ) ? tonbankcard_slug_title( (string) $params['id'] ) : '';
+    $title       = ! empty( $route['title'] ) ? $route['title'] : $site['title'];
+    $description = ! empty( $route['description'] ) ? $route['description'] : $site['description'];
+
+    if ( $subject && ! empty( $route['title_template'] ) ) {
+        $title = sprintf( $route['title_template'], $subject );
+    }
+    if ( $subject && ! empty( $route['description_template'] ) ) {
+        $description = sprintf( $route['description_template'], $subject );
+    }
+
+    $canonical_path = ! empty( $route['canonical_path'] ) ? $route['canonical_path'] : $path;
+    $canonical_path = tonbankcard_fill_route_path( $canonical_path, $params );
+    $canonical_url  = site_url( ltrim( $canonical_path, '/' ) );
+    $full_title     = $title === $site['title'] ? $site['title'] : $title . ' - ' . $site['title'];
+
+    return [
+        'route'         => $route,
+        'path'          => $path,
+        'canonical_url' => $canonical_url,
+        'title'         => $title,
+        'full_title'    => $full_title,
+        'description'   => $description,
+        'og_type'       => ! empty( $route['og_type'] ) ? $route['og_type'] : 'website',
+        'schema_type'   => ! empty( $route['schema_type'] ) ? $route['schema_type'] : 'WebPage',
+        'subject'       => $subject,
+        'image'         => ! empty( $route['image'] ) ? $route['image'] : ( $site['og_image'] ?: $site['logo'] ),
+    ];
+}
+
+/**
+ * Builds JSON-LD objects for the public website shell.
+ *
+ * @param array $meta
+ * @return array
+ */
+function tonbankcard_public_linked_data( array $meta ) {
+    $site = $GLOBALS['site'];
+    $data = [
+        [
+            '@context' => 'https://schema.org',
+            '@type'    => 'WebSite',
+            'name'     => $site['name'],
+            'url'      => site_url(),
+            'potentialAction' => [
+                '@type'       => 'SearchAction',
+                'target'      => site_url( '?q={search_term_string}' ),
+                'query-input' => 'required name=search_term_string',
+            ],
+        ],
+    ];
+
+    if ( 'FinancialProduct' === $meta['schema_type'] ) {
+        $data[] = [
+            '@context'    => 'https://schema.org',
+            '@type'       => 'FinancialProduct',
+            'name'        => $meta['subject'] ?: $meta['title'],
+            'description' => $meta['description'],
+            'url'         => $meta['canonical_url'],
+            'category'    => 'Cryptocurrency',
+        ];
+    } else {
+        $data[] = [
+            '@context'    => 'https://schema.org',
+            '@type'       => $meta['schema_type'],
+            'name'        => $meta['title'],
+            'description' => $meta['description'],
+            'url'         => $meta['canonical_url'],
+            'isPartOf'    => [
+                '@type' => 'WebSite',
+                'name'  => $site['name'],
+                'url'   => site_url(),
+            ],
+        ];
+    }
+
+    return $data;
+}
+
+/**
  * @since 1.0.0
  * Generates stylesheet URL
  *

@@ -22,6 +22,7 @@
   "routes/finance-platforms.js",
   "routes/finance-products.js",
   "routes/privacy-policy.js",
+  "routes/public-static.js",
   "routes/terms.js",
   "routes/not-found.js",
   "vm.js"

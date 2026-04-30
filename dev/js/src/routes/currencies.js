@@ -3,14 +3,15 @@
 
     const setTitle = GeckoClient.setTitle;
 
+    const currenciesRouteConfig = GeckoClient.routesConfig.currencies;
+    const marketsRouteConfig = GeckoClient.routesConfig.markets;
     const currenciesOptions = GeckoClient.getOptions('currencies');
+    const marketsOptions = GeckoClient.getOptions('markets', {});
     const tableHeaders = currenciesOptions.tableHeaders.filter(header => header.show);
     const perPage = Math.min(250, currenciesOptions.perPage) || 100;
 
-    GeckoClient.router.addRoute({
-        name: 'currencies',
-        path: GeckoClient.routesConfig.currencies.path,
-        component: {
+    function currenciesComponent(routeTitle) {
+        return {
             template: '#route-currencies',
             data: function () {
                 return {
@@ -27,7 +28,7 @@
             created: function () {
                 this.fetchFirstCurrencies();
                 // update title meta tags
-                setTitle(currenciesOptions.title);
+                setTitle(routeTitle || currenciesOptions.title);
             },
             watch: {
                 '$root.vsCurrencyId': function () {
@@ -83,7 +84,21 @@
                     this.$router.push(currency.route);
                 }
             }
-        }
+        };
+    }
+
+    GeckoClient.router.addRoute({
+        name: 'currencies',
+        path: currenciesRouteConfig.path,
+        component: currenciesComponent(currenciesOptions.title)
     });
+
+    if (marketsRouteConfig) {
+        GeckoClient.router.addRoute({
+            name: 'markets',
+            path: marketsRouteConfig.path,
+            component: currenciesComponent(marketsOptions.title || currenciesOptions.title)
+        });
+    }
 
 })(window, CoinGecko, GeckoClient);

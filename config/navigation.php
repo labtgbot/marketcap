@@ -40,9 +40,24 @@ $navigation['items'] = [
         'route' => 'currencies',
     ],
     [
+        'text' => 'Markets',
+        'icon' => 'mdi-chart-line',
+        'route' => 'markets',
+    ],
+    [
+        'text' => 'TON Ecosystem',
+        'icon' => 'mdi-diamond-stone',
+        'route' => 'ton',
+    ],
+    [
         'text' => 'Exchanges',
         'icon' => 'mdi-swap-vertical-bold',
         'route' => 'exchanges',
+    ],
+    [
+        'text' => 'Screener',
+        'icon' => 'mdi-table-search',
+        'route' => 'screener',
     ],
     [
         'text' => 'Derivatives',
@@ -68,6 +83,10 @@ $navigation['items'] = [
         'icon' => 'mdi-web',
         'divider' => 'before',
         'items' => [
+            [
+                'text' => 'Support',
+                'route' => 'support',
+            ],
             [
                 'text' => 'Website',
                 'icon' => 'mdi-web',

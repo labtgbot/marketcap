@@ -414,7 +414,7 @@
         const link = document.querySelector('link[rel="canonical"]')
         if (link) link.href = url;
 
-        const og = document.querySelector('meta[rel="og:url"]')
+        const og = document.querySelector('meta[property="og:url"]')
         if (og) og.content = url;
     }
 
@@ -1324,14 +1324,15 @@
 
     const setTitle = GeckoClient.setTitle;
 
+    const currenciesRouteConfig = GeckoClient.routesConfig.currencies;
+    const marketsRouteConfig = GeckoClient.routesConfig.markets;
     const currenciesOptions = GeckoClient.getOptions('currencies');
+    const marketsOptions = GeckoClient.getOptions('markets', {});
     const tableHeaders = currenciesOptions.tableHeaders.filter(header => header.show);
     const perPage = Math.min(250, currenciesOptions.perPage) || 100;
 
-    GeckoClient.router.addRoute({
-        name: 'currencies',
-        path: GeckoClient.routesConfig.currencies.path,
-        component: {
+    function currenciesComponent(routeTitle) {
+        return {
             template: '#route-currencies',
             data: function () {
                 return {
@@ -1348,7 +1349,7 @@
             created: function () {
                 this.fetchFirstCurrencies();
                 // update title meta tags
-                setTitle(currenciesOptions.title);
+                setTitle(routeTitle || currenciesOptions.title);
             },
             watch: {
                 '$root.vsCurrencyId': function () {
@@ -1404,8 +1405,22 @@
                     this.$router.push(currency.route);
                 }
             }
-        }
+        };
+    }
+
+    GeckoClient.router.addRoute({
+        name: 'currencies',
+        path: currenciesRouteConfig.path,
+        component: currenciesComponent(currenciesOptions.title)
     });
+
+    if (marketsRouteConfig) {
+        GeckoClient.router.addRoute({
+            name: 'markets',
+            path: marketsRouteConfig.path,
+            component: currenciesComponent(marketsOptions.title || currenciesOptions.title)
+        });
+    }
 
 })(window, CoinGecko, GeckoClient);
 
@@ -1413,6 +1428,9 @@
     'use strict';
 
     const setTitle = GeckoClient.setTitle;
+
+    const currencyRouteConfig = GeckoClient.routesConfig.currency;
+    const coinsRouteConfig = GeckoClient.routesConfig.coins;
 
     const mainOptions = GeckoClient.getOptions('currency');
 
@@ -1425,10 +1443,8 @@
     const historicalToTimestamp = parseInt(new Date() / 1000);
 
 
-    GeckoClient.router.addRoute({
-        name: 'currency',
-        path: GeckoClient.routesConfig.currency.path,
-        component: {
+    function currencyComponent() {
+        return {
             template: '#route-currency',
             data: function () {
                 return {
@@ -1641,8 +1657,22 @@
                     this.fetchHistoricalData().finally(() => this.historicalLoading = false);
                 }
             }
-        }
+        };
+    }
+
+    GeckoClient.router.addRoute({
+        name: 'currency',
+        path: currencyRouteConfig.path,
+        component: currencyComponent()
     });
+
+    if (coinsRouteConfig) {
+        GeckoClient.router.addRoute({
+            name: 'coins',
+            path: coinsRouteConfig.path,
+            component: currencyComponent()
+        });
+    }
 
 })(window, CoinGecko, GeckoClient);
 
@@ -2061,6 +2091,31 @@
                 setTitle(privacyPolicyOptions.title)
             }
         }
+    });
+
+})(window, GeckoClient);
+
+(function (window, GeckoClient) {
+    'use strict';
+
+    const setTitle = GeckoClient.setTitle;
+
+    ['ton', 'screener', 'support'].forEach(routeName => {
+        const routeConfig = GeckoClient.routesConfig[routeName];
+        if (!routeConfig) return;
+
+        const routeOptions = GeckoClient.getOptions(routeName, {});
+
+        GeckoClient.router.addRoute({
+            name: routeName,
+            path: routeConfig.path,
+            component: {
+                template: '#route-' + routeName,
+                created: function () {
+                    setTitle(routeOptions.title);
+                }
+            }
+        });
     });
 
 })(window, GeckoClient);

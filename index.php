@@ -55,6 +55,10 @@ require_once GECKO_CLIENT_CONFIG_DIR . '/vuetify.php';
  */
 require_once GECKO_CLIENT_CONFIG_DIR . '/navigation.php';
 /**
+ * @var array $v2
+ */
+require_once GECKO_CLIENT_CONFIG_DIR . '/v2.php';
+/**
  * @var array $footer
  */
 require_once GECKO_CLIENT_CONFIG_DIR . '/footer.php';
@@ -70,6 +74,10 @@ require_once GECKO_CLIENT_CONFIG_DIR . '/coingecko.php';
  * @var array $routes
  */
 require_once GECKO_CLIENT_CONFIG_DIR . '/routes.php';
+/**
+ * @var array $routes_v2
+ */
+require_once GECKO_CLIENT_CONFIG_DIR . '/routes-v2.php';
 /**
  * @var array $formats
  */

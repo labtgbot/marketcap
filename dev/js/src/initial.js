@@ -186,7 +186,7 @@
         const link = document.querySelector('link[rel="canonical"]')
         if (link) link.href = url;
 
-        const og = document.querySelector('meta[rel="og:url"]')
+        const og = document.querySelector('meta[property="og:url"]')
         if (og) og.content = url;
     }
 

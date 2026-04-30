@@ -1,0 +1,102 @@
+<?php
+/**
+ * V2 public website route metadata registry.
+ */
+
+defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
+
+$routes_v2 = [];
+
+$routes_v2['public'] = [
+    'home' => [
+        'path'        => '/',
+        'title'       => 'Market Overview',
+        'description' => 'Track live cryptocurrency markets, TON ecosystem context, trending assets, exchanges, and shareable market links from TONBANKCARD Crypto Tracker.',
+        'og_type'     => 'website',
+        'schema_type' => 'WebSite',
+    ],
+    'markets' => [
+        'path'        => '/markets',
+        'title'       => 'Crypto Markets',
+        'description' => 'Browse cryptocurrency prices, market capitalization, volume, rank, and recent movement from the TONBANKCARD public market table.',
+        'og_type'     => 'website',
+        'schema_type' => 'CollectionPage',
+    ],
+    'coins' => [
+        'path'                 => '/coins/:id',
+        'title_template'       => '%s Price, Chart, and Market Data',
+        'description_template' => 'Track %s price, chart history, market capitalization, volume, rank, converter tools, exchange markets, and shareable market context.',
+        'og_type'              => 'article',
+        'schema_type'          => 'FinancialProduct',
+    ],
+    'currency' => [
+        'path'                 => '/currency/:id',
+        'title_template'       => '%s Price, Chart, and Market Data',
+        'description_template' => 'Track %s price, chart history, market capitalization, volume, rank, converter tools, exchange markets, and shareable market context.',
+        'og_type'              => 'article',
+        'schema_type'          => 'FinancialProduct',
+    ],
+    'ton' => [
+        'path'        => '/ton',
+        'title'       => 'TON Ecosystem',
+        'description' => 'Explore TON ecosystem market context, Toncoin, TON assets, Telegram-native growth loops, and upcoming TONBANKCARD V2 ecosystem coverage.',
+        'og_type'     => 'website',
+        'schema_type' => 'CollectionPage',
+    ],
+    'exchanges' => [
+        'path'        => '/exchanges',
+        'title'       => 'Crypto Exchanges',
+        'description' => 'Compare cryptocurrency exchanges by trust score, volume, country, launch year, and market availability through TONBANKCARD Crypto Tracker.',
+        'og_type'     => 'website',
+        'schema_type' => 'CollectionPage',
+    ],
+    'exchange' => [
+        'path'                 => '/exchange/:id',
+        'title_template'       => '%s Exchange Markets',
+        'description_template' => 'Review %s exchange volume, trust score, normalized liquidity, chart context, and market availability.',
+        'og_type'              => 'article',
+        'schema_type'          => 'WebPage',
+    ],
+    'screener' => [
+        'path'        => '/screener',
+        'title'       => 'Crypto Screener',
+        'description' => 'Prepare market filters for market cap, movement, volume, category, TON tags, and sentiment as the TONBANKCARD V2 screener evolves.',
+        'og_type'     => 'website',
+        'schema_type' => 'SearchResultsPage',
+    ],
+    'about' => [
+        'path'        => '/about',
+        'title'       => 'About TONBANKCARD',
+        'description' => 'Learn how TONBANKCARD Crypto Tracker connects public market pages with Telegram-native watchlists, alerts, sharing, and responsible intelligence.',
+        'og_type'     => 'website',
+        'schema_type' => 'AboutPage',
+    ],
+    'support' => [
+        'path'        => '/support',
+        'title'       => 'Support',
+        'description' => 'Find TONBANKCARD support, official channels, bot help, issue reporting guidance, and safety boundaries for market data and exchange widgets.',
+        'og_type'     => 'website',
+        'schema_type' => 'ContactPage',
+    ],
+    'terms' => [
+        'path'        => '/terms',
+        'title'       => 'Terms and Risk Disclosures',
+        'description' => 'Read TONBANKCARD terms and risk disclosures for market data, AI summaries, alerts, swap widgets, and third-party providers.',
+        'og_type'     => 'website',
+        'schema_type' => 'WebPage',
+    ],
+    'privacy-policy' => [
+        'path'        => '/privacy-policy',
+        'title'       => 'Privacy Policy',
+        'description' => 'Review TONBANKCARD privacy coverage for Telegram data, analytics, AI features, alerts, wallet context, and support requests.',
+        'og_type'     => 'website',
+        'schema_type' => 'WebPage',
+    ],
+    'cookies-policy' => [
+        'path'        => '/cookies-policy',
+        'title'       => 'Cookies and Local Storage Policy',
+        'description' => 'Review how TONBANKCARD uses cookies, local storage, browser storage, and third-party provider storage for the public website and Mini App.',
+        'og_type'     => 'website',
+        'schema_type' => 'WebPage',
+    ],
+];

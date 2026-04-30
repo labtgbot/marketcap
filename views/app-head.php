@@ -17,24 +17,17 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
  */
 
 
-/*
- * LINKED DATA
- */
-$linked_data = [
-    '@context' => 'http://schema.org',
-    '@type' => 'WebSite',
-    'name' => $site['name'],
-    'url' => site_url(),
-];
+$public_meta = tonbankcard_public_route_meta();
+$linked_data = tonbankcard_public_linked_data( $public_meta );
 
 ?>
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="canonical" href="<?php echo esc_url( site_url() ); ?>" />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="<?php echo esc_url( site_url() ); ?>" />
+    <link rel="canonical" href="<?php echo esc_url( $public_meta['canonical_url'] ); ?>" />
+    <meta property="og:type" content="<?php echo esc_attr( $public_meta['og_type'] ); ?>" />
+    <meta property="og:url" content="<?php echo esc_url( $public_meta['canonical_url'] ); ?>" />
 
     <?php
 
@@ -49,18 +42,18 @@ $linked_data = [
          * See "TITLE" in "config/site.php"
          */
         ?>
-        <title><?php echo esc_html( $site['title'] ); ?></title>
-        <meta content="<?php echo esc_attr( $site['title'] ); ?>" name="twitter:title" />
-        <meta content="<?php echo esc_attr( $site['title'] ); ?>" property="og:title" />
+        <title><?php echo esc_html( $public_meta['full_title'] ); ?></title>
+        <meta name="twitter:title" content="<?php echo esc_attr( $public_meta['full_title'] ); ?>" />
+        <meta property="og:title" content="<?php echo esc_attr( $public_meta['full_title'] ); ?>" />
         <?php
 
         /*
          * See "DESCRIPTION" in "config/site.php"
          */
         ?>
-        <meta content="<?php echo esc_attr( $site['description'] ); ?>" name="description" />
-        <meta content="<?php echo esc_attr( $site['description'] ); ?>" name="twitter:description" />
-        <meta content="<?php echo esc_attr( $site['description'] ); ?>" property="og:description" />
+        <meta name="description" content="<?php echo esc_attr( $public_meta['description'] ); ?>" />
+        <meta name="twitter:description" content="<?php echo esc_attr( $public_meta['description'] ); ?>" />
+        <meta property="og:description" content="<?php echo esc_attr( $public_meta['description'] ); ?>" />
         <?php
 
         /*
@@ -68,7 +61,16 @@ $linked_data = [
          */
         if ( ! empty( $site['theme_color'] ) ) {
             ?>
-            <meta content="<?php echo esc_attr( $site['theme_color'] ); ?>" name="theme-color" />
+            <meta name="theme-color" content="<?php echo esc_attr( $site['theme_color'] ); ?>" />
+            <?php
+        }
+
+        if ( ! empty( $GLOBALS['v2']['manifest'] ) ) {
+            ?>
+            <link rel="manifest" href="<?php echo esc_url( get_file_url_for_display( $GLOBALS['v2']['manifest'] ) ); ?>" />
+            <meta name="mobile-web-app-capable" content="yes" />
+            <meta name="apple-mobile-web-app-capable" content="yes" />
+            <meta name="apple-mobile-web-app-title" content="<?php echo esc_attr( $site['name'] ); ?>" />
             <?php
         }
 
@@ -164,9 +166,9 @@ $linked_data = [
         /*
          * See "OPEN GRAPH IMAGE" in "config/site.php"
          */
-        if ( ! empty( $site['og_image'] ) ) {
+        if ( ! empty( $public_meta['image'] ) ) {
             ?>
-            <meta content="<?php echo esc_url( get_file_url_for_display( $site['og_image'] ) ); ?>" property="og:image" />
+            <meta property="og:image" content="<?php echo esc_url( get_file_url_for_display( $public_meta['image'] ) ); ?>" />
             <?php
         }
 
@@ -175,7 +177,7 @@ $linked_data = [
          */
         if ( ! empty( $site['twitter_card'] ) ) {
             ?>
-            <meta content="<?php echo esc_attr( $site['twitter_card'] ); ?>" name="twitter:card" />
+            <meta name="twitter:card" content="<?php echo esc_attr( $site['twitter_card'] ); ?>" />
             <?php
         }
 
@@ -184,7 +186,7 @@ $linked_data = [
          */
         if ( ! empty( $site['twitter_site'] ) ) {
             ?>
-            <meta content="<?php echo esc_attr( $site['twitter_site'] ); ?>" name="twitter:site" />
+            <meta name="twitter:site" content="<?php echo esc_attr( $site['twitter_site'] ); ?>" />
             <?php
         }
 
@@ -193,16 +195,17 @@ $linked_data = [
          */
         if ( ! empty( $site['twitter_creator'] ) ) {
             ?>
-            <meta content="<?php echo esc_attr( $site['twitter_creator'] ); ?>" name="twitter:creator" />
+            <meta name="twitter:creator" content="<?php echo esc_attr( $site['twitter_creator'] ); ?>" />
             <?php
         }
 
         /*
          * See "TWITTER IMAGE" in "config/site.php"
          */
-        if ( ! empty( $site['twitter_image'] ) ) {
+        if ( ! empty( $site['twitter_image'] ) || ! empty( $public_meta['image'] ) ) {
+            $twitter_image = empty( $site['twitter_image'] ) ? $public_meta['image'] : $site['twitter_image'];
             ?>
-            <meta content="<?php echo esc_url( get_file_url_for_display( $site['twitter_image'] ) ); ?>" name="twitter:image" />
+            <meta name="twitter:image" content="<?php echo esc_url( get_file_url_for_display( $twitter_image ) ); ?>" />
             <?php
         }
 
@@ -210,7 +213,7 @@ $linked_data = [
          * Print Linked Data (JSON-LD)
          */
         ?>
-        <script type="application/ld+json"><?php echo json_encode( $linked_data ); ?></script>
+        <script type="application/ld+json"><?php echo json_encode( $linked_data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ); ?></script>
         <?php
 
     ?>

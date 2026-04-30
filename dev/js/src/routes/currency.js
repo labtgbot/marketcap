@@ -3,6 +3,9 @@
 
     const setTitle = GeckoClient.setTitle;
 
+    const currencyRouteConfig = GeckoClient.routesConfig.currency;
+    const coinsRouteConfig = GeckoClient.routesConfig.coins;
+
     const mainOptions = GeckoClient.getOptions('currency');
 
     const marketOptions = GeckoClient.getOptions('currency-market');
@@ -14,10 +17,8 @@
     const historicalToTimestamp = parseInt(new Date() / 1000);
 
 
-    GeckoClient.router.addRoute({
-        name: 'currency',
-        path: GeckoClient.routesConfig.currency.path,
-        component: {
+    function currencyComponent() {
+        return {
             template: '#route-currency',
             data: function () {
                 return {
@@ -230,7 +231,21 @@
                     this.fetchHistoricalData().finally(() => this.historicalLoading = false);
                 }
             }
-        }
+        };
+    }
+
+    GeckoClient.router.addRoute({
+        name: 'currency',
+        path: currencyRouteConfig.path,
+        component: currencyComponent()
     });
+
+    if (coinsRouteConfig) {
+        GeckoClient.router.addRoute({
+            name: 'coins',
+            path: coinsRouteConfig.path,
+            component: currencyComponent()
+        });
+    }
 
 })(window, CoinGecko, GeckoClient);

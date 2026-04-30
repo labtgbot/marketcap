@@ -48,9 +48,10 @@ foreach ( $components as $component ) {
  * See "ROUTES" in "config/routes.php"
  */
 foreach ( $enabled_routes as $name => $route ) {
+    $template = empty( $route['template'] ) ? $name : $route['template'];
     ?>
     <script id="route-<?php echo $name ?>" type="text/x-template">
-        <?php include GECKO_CLIENT_TEMPLATES_DIR . "/routes/" . $name . '.php'; ?>
+        <?php include GECKO_CLIENT_TEMPLATES_DIR . "/routes/" . $template . '.php'; ?>
     </script>
     <?php
 }

@@ -15,6 +15,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 /**
  * @var array $site
  * @var array $footer
+ * @var array $v2
  */
 
 ?>
@@ -89,6 +90,19 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
                 require_once GECKO_CLIENT_VIEWS_DIR . '/app-footer.php';
             }
 
+            if ( ! empty( $v2['mobile_navigation'] ) ) {
+                ?>
+                <v-bottom-navigation app grow class="public-web-bottom-navigation d-sm-none" color="primary">
+                    <?php foreach ( $v2['mobile_navigation'] as $item ) : ?>
+                        <v-btn <?php link_attrs( $item ); ?>>
+                            <span><?php echo esc_html( $item['text'] ); ?></span>
+                            <v-icon><?php echo esc_html( $item['icon'] ); ?></v-icon>
+                        </v-btn>
+                    <?php endforeach; ?>
+                </v-bottom-navigation>
+                <?php
+            }
+
             /*
              * COOKIES DIALOG COMPONENT
              *
@@ -105,4 +119,3 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 <?php require_once GECKO_CLIENT_VIEWS_DIR . '/app-scripts.php'; ?>
 </body>
 </html>
-
