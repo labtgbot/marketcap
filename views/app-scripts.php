@@ -96,8 +96,9 @@ $gecko_client['website'] = [
 ];
 // CoinGecko
 $gecko_client['cg'] = [
-    'cache'   => (bool) $coingecko['cache'],
-    'timeout' => (int) $coingecko['timeout'],
+    'cache'          => (bool) $coingecko['cache'],
+    'timeout'        => (int) $coingecko['timeout'],
+    'gatewayBaseUrl' => site_url( 'api/market/' ),
 ];
 // Custom Links
 $gecko_client['links'] = [

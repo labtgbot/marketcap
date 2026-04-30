@@ -1,4 +1,4 @@
-(function (window, _, axios, Vue, GeckoClient) {
+(function (window, _, Vue, GeckoClient, CoinGecko) {
     'use strict';
 
     const __ = GeckoClient.__;
@@ -82,35 +82,6 @@
             fetchData: function () {
                 this.loading = true;
 
-                // coingecko disabled CORS in search endpoint, so here is an alternative
-
-                return axios.get('https://localstorage.one/crypto/data/search.json', {timeout: GeckoClient.cg.timeout})
-                    .then(res => {
-                        const search = res.data || {};
-
-                        this.coins = _.map(search.coins, (coin,index) => {
-                            return {
-                                market_cap_rank: index + 1,
-                                id: coin[0],
-                                symbol: coin[1],
-                                name: coin[2],
-                                large: coin[3]
-                            }
-                        });
-
-                        this.exchanges = _.map(search.exchanges, (exchange,index) => {
-                            return {
-                                id: exchange[0],
-                                name: exchange[1],
-                                large: exchange[2]
-                            }
-                        });
-
-                        return search;
-                    })
-                    .finally(() => this.loading = false);
-
-                /*
                 return CoinGecko.search()
                     .then(search => {
                         this.coins = search.coins;
@@ -118,7 +89,6 @@
                         return search;
                     })
                     .finally(() => this.loading = false);
-                 */
             },
             searchItems: function () {
                 // avoid multiple 'fetchData' calls
@@ -137,4 +107,4 @@
         }
     });
 
-})(window, _, axios, Vue, GeckoClient);
+})(window, _, Vue, GeckoClient, CoinGecko);

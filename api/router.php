@@ -8,6 +8,8 @@
 
 defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 
+require_once __DIR__ . '/market.php';
+
 /**
  * Returns TRUE when the current or supplied path belongs to the API surface.
  *
@@ -50,15 +52,22 @@ function tonbankcard_api_dispatch( array $invalid_configs = [] ) {
  * @return array
  */
 function tonbankcard_api_request_from_globals() {
-    $path = parse_url( isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '/', PHP_URL_PATH );
+    $request_uri = isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '/';
+    $path = parse_url( $request_uri, PHP_URL_PATH );
     if ( FALSE === $path || null === $path || '' === $path ) {
         $path = '/';
+    }
+    $query_string = parse_url( $request_uri, PHP_URL_QUERY );
+    $query = [];
+    if ( FALSE !== $query_string && null !== $query_string && '' !== $query_string ) {
+        parse_str( $query_string, $query );
     }
     $body = file_get_contents( 'php://input' );
 
     return [
         'method'  => isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET',
         'path'    => $path,
+        'query'   => $query,
         'headers' => tonbankcard_api_headers_from_globals(),
         'body'    => FALSE === $body ? '' : $body,
     ];
@@ -161,6 +170,8 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
                 'routes'     => [
                     '/api/health',
                     '/api/ready',
+                    '/api/market',
+                    '/api/market/*',
                     '/api/telegram/session',
                 ],
                 'middleware' => $context['hooks'],
@@ -210,6 +221,10 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
         );
     }
 
+    if ( tonbankcard_api_market_is_request( $path ) ) {
+        return tonbankcard_api_market_handle( $request, $runtime, $config, $request_id, $headers );
+    }
+
     return tonbankcard_api_error_response(
         404,
         'not_found',
@@ -255,9 +270,24 @@ function tonbankcard_api_normalize_request( array $request ) {
         $headers[ strtolower( $name ) ] = is_array( $value ) ? implode( ',', $value ) : (string) $value;
     }
 
+    $path = isset( $request['path'] ) ? (string) $request['path'] : '/';
+    $path_query = parse_url( $path, PHP_URL_QUERY );
+    $query = [];
+    if ( FALSE !== $path_query && null !== $path_query && '' !== $path_query ) {
+        parse_str( $path_query, $query );
+    }
+    if ( isset( $request['query'] ) && is_array( $request['query'] ) ) {
+        $query = array_merge( $query, $request['query'] );
+    }
+    $path_only = parse_url( $path, PHP_URL_PATH );
+    if ( FALSE === $path_only || null === $path_only || '' === $path_only ) {
+        $path_only = '/';
+    }
+
     return [
         'method'  => strtoupper( isset( $request['method'] ) ? (string) $request['method'] : 'GET' ),
-        'path'    => isset( $request['path'] ) ? (string) $request['path'] : '/',
+        'path'    => $path_only,
+        'query'   => $query,
         'headers' => $headers,
         'body'    => isset( $request['body'] ) ? (string) $request['body'] : '',
     ];
@@ -1488,7 +1518,7 @@ function tonbankcard_api_upstream_provider_check( array $runtime, array $config 
             'required'   => FALSE,
             'configured' => ! empty( $providers['coingecko']['api_key_configured'] ),
             'available'  => null,
-            'message'    => ! empty( $providers['coingecko']['api_key_configured'] ) ? 'CoinGecko API key is configured server-side.' : 'CoinGecko remains available through keyless public access until the gateway issue adds provider probes.',
+            'message'    => ! empty( $providers['coingecko']['api_key_configured'] ) ? 'CoinGecko API key is configured server-side for the market data gateway.' : 'CoinGecko gateway uses keyless public Demo API access until a server-side key is configured.',
         ],
         'groq'      => [
             'status'     => ! empty( $providers['groq']['api_key_configured'] ) ? 'configured' : ( ! empty( $features['ai'] ) ? 'fail' : 'not_configured' ),
@@ -1533,7 +1563,7 @@ function tonbankcard_api_upstream_provider_check( array $runtime, array $config 
  * @param int $status
  * @return array
  */
-function tonbankcard_api_success_response( array $data, string $request_id, array $headers, int $status = 200 ) {
+function tonbankcard_api_success_response( array $data, string $request_id, array $headers, int $status = 200, array $meta = [] ) {
     return [
         'status'  => $status,
         'headers' => $headers,
@@ -1541,9 +1571,12 @@ function tonbankcard_api_success_response( array $data, string $request_id, arra
             [
                 'ok'   => TRUE,
                 'data' => $data,
-                'meta' => [
-                    'request_id' => $request_id,
-                ],
+                'meta' => array_merge(
+                    [
+                        'request_id' => $request_id,
+                    ],
+                    $meta
+                ),
             ]
         ),
     ];

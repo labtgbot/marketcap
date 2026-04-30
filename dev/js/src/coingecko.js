@@ -13,8 +13,9 @@
     }
 
     const CoinGecko = window.CoinGecko = {
-        baseUrl: 'https://api.coingecko.com/api/v3/',
+        baseUrl: cg.gatewayBaseUrl || '/api/market/',
         cacheMap: new Map(),
+        metaMap: new Map(),
         // cache expiration
         cacheClearTimeout: 5 * 60 * 1000,
         cacheKey: function (path, config) {
@@ -29,8 +30,17 @@
         cacheSet: function (path, config, data) {
             return this.cacheMap.set(this.cacheKey(path, config), data);
         },
+        metaSet: function (path, config, meta) {
+            return this.metaMap.set(this.cacheKey(path, config), meta);
+        },
+        metaGet: function (path, config) {
+            return this.metaMap.get(this.cacheKey(path, config));
+        },
         cacheRegisterClearTimer: function () {
-            this.cacheClearTimer = setInterval(() => this.cacheMap.clear(), this.cacheClearTimeout)
+            this.cacheClearTimer = setInterval(() => {
+                this.cacheMap.clear();
+                this.metaMap.clear();
+            }, this.cacheClearTimeout)
         },
         get: function (path, config, consistency, cache) {
             cache = cache || cg.cache;
@@ -45,7 +55,14 @@
 
             return client.get(path, config)
                 .then((res) => {
-                    let data = res.data
+                    const payload = res.data || {};
+                    let data = payload && payload.ok === true && Object.prototype.hasOwnProperty.call(payload, 'data')
+                        ? payload.data
+                        : payload;
+
+                    if (payload && payload.meta) {
+                        this.metaSet(path, config, payload.meta);
+                    }
 
                     // forces a type or transforms
                     if (consistency) {
