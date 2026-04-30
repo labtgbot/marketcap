@@ -6,6 +6,8 @@ This document analyzes the unpacked `gecko-client.zip` archive and proposes a ph
 
 No extracted application source files were edited for this analysis. The archive was unpacked at the repository root as requested.
 
+The expanded 38-task implementation backlog for TONBANKCARD V2 is maintained in [v2-implementation-roadmap.md](v2-implementation-roadmap.md).
+
 ## Current Project Snapshot
 
 The project is a 2021-era PHP-rendered single page application named Gecko Client.

@@ -1,0 +1,10 @@
+TONBANKCARD Crypto Tracker
+Based on gecko-client (Apache License 2.0)
+
+Modifications by TONBANKCARD Team, 2026:
+- AI sentiment analysis engine
+- TON blockchain integration
+- Upstash Redis caching layer
+- Custom UI/UX enhancements
+
+Original copyright notices must not be removed.
