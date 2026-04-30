@@ -15,6 +15,13 @@ if ( FALSE === $path ) {
 
 $file = realpath( $root . $path );
 
+// Keep /api/* requests on the PHP front controller so API JSON contracts,
+// CORS handling, and request IDs are exercised during local development.
+if ( '/api' === $path || 0 === strpos( $path, '/api/' ) ) {
+    require $root . '/index.php';
+    return TRUE;
+}
+
 if (
     '/' !== $path
     && FALSE !== $file

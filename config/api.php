@@ -1,0 +1,54 @@
+<?php
+/**
+ * -------------------------------------------------------------------------
+ * TONBANKCARD V2 API CONFIGURATION
+ * -------------------------------------------------------------------------
+ * Server-side API routing defaults for the public website and Telegram Mini
+ * App. This file must not expose provider keys, bot tokens, or database
+ * passwords to browser JavaScript.
+ */
+
+defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
+
+$api_runtime = isset( $GLOBALS['runtime_config'] ) ? $GLOBALS['runtime_config'] : tonbankcard_runtime_config();
+
+$api_allowed_origins = [];
+foreach ( [ 'active', 'local', 'staging', 'public', 'telegram' ] as $url_key ) {
+    if ( ! empty( $api_runtime['urls'][ $url_key ] ) ) {
+        $api_allowed_origins[] = rtrim( $api_runtime['urls'][ $url_key ], '/' );
+    }
+}
+
+$api = [
+    'cors'       => [
+        'allowed_origins'      => array_values( array_unique( array_filter( $api_allowed_origins ) ) ),
+        'allowed_methods'      => [ 'GET', 'POST', 'OPTIONS' ],
+        'allowed_headers'      => [
+            'Authorization',
+            'Content-Type',
+            'X-Request-ID',
+            'X-TONBANKCARD-Session',
+            'X-Telegram-Init-Data',
+        ],
+        'exposed_headers'      => [
+            'X-Request-ID',
+            'X-RateLimit-Limit',
+            'X-RateLimit-Remaining',
+        ],
+        'supports_credentials' => TRUE,
+        'max_age'              => 600,
+    ],
+    'rate_limit' => [
+        'enabled'        => FALSE,
+        'window_seconds' => 60,
+        'max_requests'   => 60,
+    ],
+    'audit'      => [
+        'enabled' => tonbankcard_env_bool( 'TONBANKCARD_API_AUDIT_LOG', FALSE ),
+        'sink'    => 'error_log',
+    ],
+    'readiness'  => [
+        'active_checks'   => tonbankcard_env_bool( 'TONBANKCARD_API_ACTIVE_READINESS', FALSE ),
+        'timeout_seconds' => 2,
+    ],
+];

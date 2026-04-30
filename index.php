@@ -78,6 +78,10 @@ require_once GECKO_CLIENT_CONFIG_DIR . '/formats.php';
  * @var array $links
  */
 require_once GECKO_CLIENT_CONFIG_DIR . '/links.php';
+/**
+ * @var array $api
+ */
+require_once GECKO_CLIENT_CONFIG_DIR . '/api.php';
 
 /*
 | -------------------------------------------------------------------------
@@ -85,6 +89,7 @@ require_once GECKO_CLIENT_CONFIG_DIR . '/links.php';
 | -------------------------------------------------------------------------
 */
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/api/router.php';
 
 /*
 | -------------------------------------------------------------------------
@@ -97,6 +102,10 @@ $invalid_configs = array_merge(
     validate_site_configs(),
     validate_vuetify_configs()
 );
+// API requests return JSON errors instead of the HTML configuration screen.
+if ( tonbankcard_api_is_request() ) {
+    tonbankcard_api_dispatch( $invalid_configs );
+}
 // if any config invalid show "Configuration Errors" view
 if ( ! empty( $invalid_configs ) ) {
     header( 'cache-control: no-cache', TRUE, 500 );
