@@ -10,6 +10,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 
 require_once __DIR__ . '/cache.php';
 require_once __DIR__ . '/market.php';
+require_once __DIR__ . '/search.php';
 
 /**
  * Returns TRUE when the current or supplied path belongs to the API surface.
@@ -192,6 +193,8 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
                     '/api/health',
                     '/api/metrics',
                     '/api/ready',
+                    '/api/search',
+                    '/api/search/refresh',
                     '/api/market',
                     '/api/market/*',
                     '/api/telegram/session',
@@ -253,6 +256,10 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
             $request_id,
             $headers
         );
+    }
+
+    if ( tonbankcard_api_search_is_request( $path ) ) {
+        return tonbankcard_api_search_handle( $request, $runtime, $config, $request_id, $headers );
     }
 
     if ( tonbankcard_api_market_is_request( $path ) ) {

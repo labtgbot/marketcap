@@ -135,8 +135,10 @@ route code while moving these data calls behind `/api/market/*`:
 - finance platforms and products
 - derivatives
 
-The search bar now uses `/api/market/search` instead of the previous browser
-request to `https://localstorage.one/crypto/data/search.json`.
+The market gateway still exposes `/api/market/search` and
+`/api/market/search/trending` for provider compatibility. The visible search bar
+uses the first-party `/api/search` smart search service, which replaces the
+previous browser request to `https://localstorage.one/crypto/data/search.json`.
 
 ## Tests
 
