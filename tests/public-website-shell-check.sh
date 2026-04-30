@@ -102,6 +102,8 @@ coin_html="$log_dir/public-shell-coin.html"
 ton_html="$log_dir/public-shell-ton.html"
 screener_html="$log_dir/public-shell-screener.html"
 support_html="$log_dir/public-shell-support.html"
+robots_txt="$log_dir/public-shell-robots.txt"
+sitemap_xml="$log_dir/public-shell-sitemap.xml"
 
 fetch_path "/" "$home_html"
 fetch_path "/markets" "$markets_html"
@@ -109,6 +111,8 @@ fetch_path "/coins/bitcoin" "$coin_html"
 fetch_path "/ton" "$ton_html"
 fetch_path "/screener" "$screener_html"
 fetch_path "/support" "$support_html"
+fetch_path "/robots.txt" "$robots_txt"
+fetch_path "/sitemap.xml" "$sitemap_xml"
 
 assert_status_ok "/"
 assert_status_ok "/markets"
@@ -116,14 +120,22 @@ assert_status_ok "/coins/bitcoin"
 assert_status_ok "/ton"
 assert_status_ok "/screener"
 assert_status_ok "/support"
+assert_status_ok "/robots.txt"
+assert_status_ok "/sitemap.xml"
 
 assert_contains "$home_html" '<title>Market Overview - TONBANKCARD Crypto Tracker' 'home route title'
 assert_contains "$home_html" '<link rel="canonical" href="http://127\.0\.0\.1:8891/"' 'home canonical URL'
+assert_contains "$home_html" '<link rel="alternate" hreflang="en" href="http://127\.0\.0\.1:8891/"' 'English alternate URL'
+assert_contains "$home_html" '<link rel="alternate" hreflang="x-default" href="http://127\.0\.0\.1:8891/"' 'default alternate URL'
+assert_contains "$home_html" '<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"' 'indexable robots policy'
 assert_contains "$home_html" '<meta property="og:url" content="http://127\.0\.0\.1:8891/"' 'home Open Graph URL'
+assert_contains "$home_html" '<meta property="og:locale" content="en_US"' 'Open Graph locale'
 assert_contains "$home_html" '<meta name="twitter:card" content="summary_large_image"' 'large Twitter card metadata'
 assert_contains "$home_html" '<link rel="manifest" href="http://127\.0\.0\.1:8891/site\.webmanifest' 'web app manifest link'
 assert_contains "$home_html" 'application/ld\+json' 'JSON-LD structured data'
 assert_contains "$home_html" '"@type":"WebSite"' 'website structured data'
+assert_contains "$home_html" '"@type":"Organization"' 'organization structured data'
+assert_contains "$home_html" '"@type":"SiteNavigationElement"' 'site navigation structured data'
 assert_contains "$home_html" 'public-web-navigation' 'public website navigation shell'
 assert_not_contains "$home_html" 'telegram-webapp-navigation|Telegram.WebApp|telegram-adapter' 'Telegram-only controls in normal browser shell'
 
@@ -135,6 +147,7 @@ assert_contains "$coin_html" '<title>Bitcoin Price, Chart, and Market Data - TON
 assert_contains "$coin_html" '<link rel="canonical" href="http://127\.0\.0\.1:8891/coins/bitcoin"' 'coin canonical URL'
 assert_contains "$coin_html" '<meta property="og:type" content="article"' 'coin Open Graph article type'
 assert_contains "$coin_html" '"@type":"FinancialProduct"' 'coin structured data'
+assert_contains "$coin_html" '"@type":"BreadcrumbList"' 'coin breadcrumb structured data'
 assert_contains "$coin_html" '"path":"\\/coins\\/:id"' 'canonical coin route in frontend registry'
 
 assert_contains "$ton_html" '<title>TON Ecosystem - TONBANKCARD Crypto Tracker' 'TON route title'
@@ -148,6 +161,16 @@ assert_contains "$screener_html" 'route-screener' 'screener route template'
 assert_contains "$support_html" '<title>Support - TONBANKCARD Crypto Tracker' 'support route title'
 assert_contains "$support_html" '<link rel="canonical" href="http://127\.0\.0\.1:8891/support"' 'support route canonical URL'
 assert_contains "$support_html" 'route-support' 'support route template'
+
+assert_contains "$robots_txt" '^User-agent: \*$' 'robots user agent directive'
+assert_contains "$robots_txt" '^Allow: /$' 'robots allow directive'
+assert_contains "$robots_txt" '^Sitemap: http://127\.0\.0\.1:8891/sitemap\.xml$' 'sitemap pointer in robots.txt'
+
+assert_contains "$sitemap_xml" '<urlset xmlns="http://www\.sitemaps\.org/schemas/sitemap/0\.9">' 'sitemap urlset'
+assert_contains "$sitemap_xml" '<loc>http://127\.0\.0\.1:8891/markets</loc>' 'markets sitemap URL'
+assert_contains "$sitemap_xml" '<loc>http://127\.0\.0\.1:8891/ton</loc>' 'TON sitemap URL'
+assert_contains "$sitemap_xml" '<changefreq>hourly</changefreq>' 'sitemap change frequency'
+assert_not_contains "$sitemap_xml" ':id' 'dynamic route placeholders in sitemap'
 
 if [ "$failures" -gt 0 ]; then
     log "Public website shell check failed. See $log_file and $server_log"
