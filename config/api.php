@@ -11,6 +11,14 @@
 defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 
 $api_runtime = isset( $GLOBALS['runtime_config'] ) ? $GLOBALS['runtime_config'] : tonbankcard_runtime_config();
+$api_profile = isset( $api_runtime['profile'] ) ? (string) $api_runtime['profile'] : 'local';
+$api_upstash = isset( $api_runtime['providers']['upstash'] ) && is_array( $api_runtime['providers']['upstash'] ) ? $api_runtime['providers']['upstash'] : [];
+$api_upstash_configured = ! empty( $api_upstash['rest_url'] ) && ! empty( $api_upstash['rest_token'] );
+$api_redis_timeout = max( 1, (int) tonbankcard_env( 'TONBANKCARD_REDIS_TIMEOUT_SECONDS', 2 ) );
+$api_redis_key_prefix = trim( (string) tonbankcard_env( 'TONBANKCARD_REDIS_KEY_PREFIX', 'tonbankcard:v2' ), ':' );
+if ( '' === $api_redis_key_prefix ) {
+    $api_redis_key_prefix = 'tonbankcard:v2';
+}
 
 $api_allowed_origins = [];
 foreach ( [ 'active', 'local', 'staging', 'public', 'telegram' ] as $url_key ) {
@@ -27,6 +35,8 @@ $api = [
             'Authorization',
             'Content-Type',
             'X-Request-ID',
+            'X-TONBANKCARD-Search-Refresh-Token',
+            'X-TONBANKCARD-Admin',
             'X-TONBANKCARD-Session',
             'X-Telegram-Init-Data',
         ],
@@ -34,14 +44,55 @@ $api = [
             'X-Request-ID',
             'X-RateLimit-Limit',
             'X-RateLimit-Remaining',
+            'X-RateLimit-Reset',
+            'X-RateLimit-Policy',
+            'Retry-After',
         ],
         'supports_credentials' => TRUE,
         'max_age'              => 600,
     ],
+    'redis'      => [
+        'enabled'         => $api_upstash_configured,
+        'rest_url'        => isset( $api_upstash['rest_url'] ) ? $api_upstash['rest_url'] : '',
+        'rest_token'      => isset( $api_upstash['rest_token'] ) ? $api_upstash['rest_token'] : '',
+        'timeout_seconds' => $api_redis_timeout,
+        'key_prefix'      => $api_redis_key_prefix,
+    ],
+    'cache'      => [
+        'enabled'           => tonbankcard_env_bool( 'TONBANKCARD_CACHE_ENABLED', $api_upstash_configured ),
+        'stale_ttl_seconds' => 3600,
+        'ttls'              => [
+            'live_prices'   => 60,
+            'global_stats'  => 300,
+            'coin_metadata' => 3600,
+            'charts'        => 900,
+            'search_index'  => 3600,
+            'ai_summaries'  => 21600,
+            'ton_metadata'  => 86400,
+        ],
+        'coalesce'          => [
+            'enabled'          => TRUE,
+            'lock_ttl_seconds' => 15,
+            'wait_ms'          => 250,
+            'poll_ms'          => 25,
+        ],
+    ],
     'rate_limit' => [
-        'enabled'        => FALSE,
-        'window_seconds' => 60,
-        'max_requests'   => 60,
+        'enabled'  => tonbankcard_env_bool( 'TONBANKCARD_RATE_LIMIT_ENABLED', $api_upstash_configured && 'local' !== $api_profile ),
+        'policies' => [
+            'anonymous_web'    => [
+                'window_seconds' => 60,
+                'max_requests'   => 120,
+            ],
+            'telegram_session' => [
+                'window_seconds' => 60,
+                'max_requests'   => 240,
+            ],
+            'admin_action'     => [
+                'window_seconds' => 60,
+                'max_requests'   => 30,
+            ],
+        ],
     ],
     'audit'      => [
         'enabled' => tonbankcard_env_bool( 'TONBANKCARD_API_AUDIT_LOG', FALSE ),
@@ -78,5 +129,13 @@ $api = [
             'demo_base_url'      => 'https://api.coingecko.com/api/v3/',
             'pro_base_url'       => 'https://pro-api.coingecko.com/api/v3/',
         ],
+    ],
+    'search'      => [
+        'index_cache_key'        => $api_redis_key_prefix . ':search:index',
+        'index_ttl_seconds'     => 3600,
+        'default_limit'         => 12,
+        'max_limit'             => 30,
+        'redis_timeout_seconds' => $api_redis_timeout,
+        'refresh_token'         => (string) tonbankcard_env( 'TONBANKCARD_SEARCH_REFRESH_TOKEN', '' ),
     ],
 ];

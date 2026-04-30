@@ -92,9 +92,13 @@ freshness:
 }
 ```
 
-`cache_age_seconds` is `0` until the Upstash cache issue adds shared server
-caching. `last_updated_at` is derived from common CoinGecko fields such as
-`last_updated`, `market_data.last_updated`, or `updated_at` when present.
+`cache_status` is `miss` for a fresh provider response that is stored, `hit`
+for a fresh Redis response, `stale` for an upstream fallback response,
+`bypass` when cache is disabled or unavailable, and `pass` for non-cacheable
+metadata responses. `last_updated_at` is derived from common CoinGecko fields
+such as `last_updated`, `market_data.last_updated`, or `updated_at` when
+present. See `docs/v2-cache-rate-limit-coalescing.md` for TTLs, request
+coalescing, and stale fallback rules.
 
 ## Error Normalization
 
@@ -131,8 +135,10 @@ route code while moving these data calls behind `/api/market/*`:
 - finance platforms and products
 - derivatives
 
-The search bar now uses `/api/market/search` instead of the previous browser
-request to `https://localstorage.one/crypto/data/search.json`.
+The market gateway still exposes `/api/market/search` and
+`/api/market/search/trending` for provider compatibility. The visible search bar
+uses the first-party `/api/search` smart search service, which replaces the
+previous browser request to `https://localstorage.one/crypto/data/search.json`.
 
 ## Tests
 
@@ -149,6 +155,13 @@ normalization, timeout normalization, invalid-symbol normalization, and freshnes
 metadata. The browser smoke test also stubs `/api/market/*` and fails if the app
 makes direct data requests to `api.coingecko.com`, `pro-api.coingecko.com`, or
 `localstorage.one`.
+
+Cache and rate-limit regression coverage lives in
+`tests/cache-rate-limit-check.sh` and runs through:
+
+```sh
+npm run test:cache-rate-limit
+```
 
 ## References
 

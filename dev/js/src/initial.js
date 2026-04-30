@@ -88,6 +88,59 @@
 
     GeckoClient.getOptions = (path, defaultValue) => _.get(GeckoClient.options, path, defaultValue);
 
+    GeckoClient.analytics = {
+        events: [],
+        allowedEvents: ['search_opened', 'search_result_selected'],
+        allowedProperties: [
+            'trigger',
+            'query_present',
+            'surface',
+            'result_type',
+            'coin_id',
+            'exchange_id',
+            'category_id',
+            'rank',
+            'query_length_bucket'
+        ],
+        newEventId: function () {
+            return 'evt_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+        },
+        surface: function () {
+            if (_.get(GeckoClient, 'runtime.profile') === 'telegram') return 'telegram_mini_app';
+            return utils.isMobileUserAgent() ? 'mobile_web' : 'public_web';
+        },
+        queryLengthBucket: function (query) {
+            const length = _.replace(_.trim(_.toLower(query || '')), /\s+/g, '').length;
+            if (length === 0) return 'empty';
+            if (length <= 2) return '1-2';
+            if (length <= 5) return '3-5';
+            if (length <= 10) return '6-10';
+            return '11-plus';
+        },
+        sanitizeProperties: function (properties) {
+            return _.pick(properties || {}, this.allowedProperties);
+        },
+        emit: function (eventName, properties) {
+            if (this.allowedEvents.indexOf(eventName) === -1) return null;
+
+            const event = Object.assign(
+                {
+                    event_id: this.newEventId(),
+                    event_name: eventName,
+                    occurred_at: new Date().toISOString(),
+                    surface: this.surface()
+                },
+                this.sanitizeProperties(properties)
+            );
+
+            this.events.push(event);
+            if (typeof window.CustomEvent === 'function') {
+                window.dispatchEvent(new CustomEvent('tonbankcard:analytics', {detail: event}));
+            }
+            return event;
+        }
+    };
+
     GeckoClient.getVuetifyOptions = () => {
         const options = _.cloneDeep(GeckoClient.vuetifyOptions);
         options.theme.dark = GeckoClient.preferences.theme() === 'dark';
