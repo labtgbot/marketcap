@@ -60,6 +60,7 @@ npm run test:architecture
 npm run test:analytics
 npm run test:database
 npm run test:api
+npm run test:telegram-session
 npm run validate:bundle
 npm run test:smoke
 ```
@@ -102,3 +103,5 @@ See [docs/v2-analytics-privacy-metrics.md](docs/v2-analytics-privacy-metrics.md)
 See [docs/v2-database-schema-and-migrations.md](docs/v2-database-schema-and-migrations.md) for the MySQL/MariaDB V2 schema, migration runner conventions, indexes, retention policy, and backup/restore expectations from issue #11.
 
 See [docs/v2-api-routing-layer.md](docs/v2-api-routing-layer.md) for the `/api/*` JSON envelope, health and readiness checks, CORS policy, middleware hooks, and backend test conventions from issue #12.
+
+See [docs/v2-telegram-session.md](docs/v2-telegram-session.md) for the `/api/telegram/session` initData validation, session storage, local browser fallback, and regression coverage from issue #13.

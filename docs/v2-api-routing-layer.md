@@ -23,6 +23,7 @@ Initial routes:
 | `GET` | `/api` | Service metadata and registered route list. |
 | `GET` | `/api/health` | Liveness response with app boot, configuration, database, Redis, and upstream provider checks. |
 | `GET` | `/api/ready` | Readiness response. Returns `503` when required configuration or required dependency checks fail. |
+| `POST` | `/api/telegram/session` | Validates raw Telegram Mini App `initData` and creates or refreshes a server session. |
 | `OPTIONS` | `/api/*` | CORS preflight response for configured website and Mini App origins. |
 
 Unknown routes return `404` with a JSON error envelope. Unsupported methods
@@ -118,6 +119,10 @@ hooks are intentionally small:
 
 These hooks are the extension points for the Telegram session, provider gateway,
 watchlist, alert, and admin issues that follow this routing layer.
+
+Issue #13 adds `/api/telegram/session` on top of this routing layer. See
+`docs/v2-telegram-session.md` for the Telegram-specific validation, storage,
+and local browser fallback contract.
 
 ## Secret Handling
 
