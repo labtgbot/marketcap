@@ -8,6 +8,7 @@
 
 defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 
+require_once __DIR__ . '/cache.php';
 require_once __DIR__ . '/market.php';
 require_once __DIR__ . '/search.php';
 
@@ -133,6 +134,26 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
         ];
     }
 
+    $rate_limit = tonbankcard_api_rate_limit_check( $request, $runtime, $config );
+    if ( ! empty( $rate_limit['headers'] ) && is_array( $rate_limit['headers'] ) ) {
+        $headers = array_merge( $headers, $rate_limit['headers'] );
+    }
+    if ( empty( $rate_limit['allowed'] ) ) {
+        return tonbankcard_api_error_response(
+            429,
+            'rate_limited',
+            'Too many requests. Try again after the retry window resets.',
+            [
+                'policy'              => isset( $rate_limit['policy'] ) ? $rate_limit['policy'] : 'anonymous_web',
+                'limit'               => isset( $rate_limit['limit'] ) ? (int) $rate_limit['limit'] : null,
+                'window_seconds'      => isset( $rate_limit['window'] ) ? (int) $rate_limit['window'] : null,
+                'retry_after_seconds' => isset( $rate_limit['retry_after'] ) ? (int) $rate_limit['retry_after'] : null,
+            ],
+            $request_id,
+            $headers
+        );
+    }
+
     $body_error = tonbankcard_api_validate_json_body( $request );
     if ( null !== $body_error ) {
         if ( 'unsupported_media_type' === $body_error ) {
@@ -170,6 +191,7 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
                 'version'    => GECKO_CLIENT_VERSION,
                 'routes'     => [
                     '/api/health',
+                    '/api/metrics',
                     '/api/ready',
                     '/api/search',
                     '/api/search/refresh',
@@ -179,6 +201,18 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
                 ],
                 'middleware' => $context['hooks'],
             ],
+            $request_id,
+            $headers
+        );
+    }
+
+    if ( '/api/metrics' === $path ) {
+        if ( 'GET' !== $request['method'] ) {
+            return tonbankcard_api_method_not_allowed_response( [ 'GET', 'OPTIONS' ], $request_id, $headers );
+        }
+
+        return tonbankcard_api_success_response(
+            tonbankcard_api_metrics_payload( $runtime, $config ),
             $request_id,
             $headers
         );
@@ -1276,19 +1310,21 @@ function tonbankcard_api_iso_datetime( int $timestamp ) {
 }
 
 /**
- * Returns configured rate limit policy. Enforcement is added by later issues.
+ * Returns configured rate limit policy without exposing identity keys.
  *
  * @param array $config
  * @return array
  */
 function tonbankcard_api_rate_limit_context( array $config ) {
-    $rate_limit = isset( $config['rate_limit'] ) && is_array( $config['rate_limit'] ) ? $config['rate_limit'] : [];
+    $settings = tonbankcard_api_rate_limit_settings( $config );
+    $anonymous = isset( $settings['policies']['anonymous_web'] ) ? $settings['policies']['anonymous_web'] : [ 'window_seconds' => 60, 'max_requests' => 60 ];
 
     return [
-        'enabled'        => ! empty( $rate_limit['enabled'] ),
-        'state'          => empty( $rate_limit['enabled'] ) ? 'not_enforced' : 'configured',
-        'window_seconds' => isset( $rate_limit['window_seconds'] ) ? (int) $rate_limit['window_seconds'] : 60,
-        'max_requests'   => isset( $rate_limit['max_requests'] ) ? (int) $rate_limit['max_requests'] : 60,
+        'enabled'        => ! empty( $settings['enabled'] ),
+        'state'          => empty( $settings['enabled'] ) ? 'not_enforced' : 'enforced',
+        'window_seconds' => isset( $anonymous['window_seconds'] ) ? (int) $anonymous['window_seconds'] : 60,
+        'max_requests'   => isset( $anonymous['max_requests'] ) ? (int) $anonymous['max_requests'] : 60,
+        'policies'       => array_keys( $settings['policies'] ),
     ];
 }
 

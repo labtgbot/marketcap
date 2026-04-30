@@ -50,7 +50,7 @@ matches so copied jetton addresses can resolve directly to the relevant asset.
 
 The search index cache uses Upstash Redis REST when
 `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are configured. The
-default cache key is `tonbankcard:v2:search:index`, and the default TTL is 900
+default cache key is `tonbankcard:v2:search:index`, and the default TTL is 3600
 seconds. Without Redis, the API still builds an index on demand and reports a
 `pass` cache status.
 
