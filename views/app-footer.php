@@ -17,7 +17,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
  */
 
 ?>
-<v-footer dark color="primary">
+<v-footer dark color="primary" class="tbc-footer">
     <v-row justify="center" no-gutters>
         <?php
             /*
