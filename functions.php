@@ -628,6 +628,54 @@ function tonbankcard_env_bool_is_valid( string $name ) {
 }
 
 /**
+ * Returns TRUE when an environment value is a supported integer range.
+ *
+ * @param string $name
+ * @param int $min
+ * @param int $max
+ * @return bool
+ */
+function tonbankcard_env_int_is_valid( string $name, int $min, int $max ) {
+    if ( ! tonbankcard_env_has( $name ) ) {
+        return TRUE;
+    }
+
+    $value = trim( (string) tonbankcard_env( $name, '' ) );
+    if ( '' === $value || ! preg_match( '/^-?[0-9]+$/', $value ) ) {
+        return FALSE;
+    }
+
+    $int_value = (int) $value;
+    return $int_value >= $min && $int_value <= $max;
+}
+
+/**
+ * Returns TRUE when an environment value is a comma-separated allowed list.
+ *
+ * @param string $name
+ * @param array $allowed
+ * @return bool
+ */
+function tonbankcard_env_list_is_valid( string $name, array $allowed ) {
+    if ( ! tonbankcard_env_has( $name ) ) {
+        return TRUE;
+    }
+
+    $value = trim( (string) tonbankcard_env( $name, '' ) );
+    if ( '' === $value ) {
+        return FALSE;
+    }
+
+    foreach ( explode( ',', $value ) as $item ) {
+        if ( ! in_array( strtolower( trim( $item ) ), $allowed, TRUE ) ) {
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}
+
+/**
  * @since 1.0.0
  * Returns invalid constants
  *
@@ -723,7 +771,7 @@ function validate_runtime_config() {
         'TONBANKCARD_FEATURE_PREMIUM',
     ];
 
-    foreach ( $feature_flags as $flag ) {
+    foreach ( array_merge( $feature_flags, [ 'TONBANKCARD_VERBOSE_TRACING', 'TONBANKCARD_CLIENT_ERROR_REPORTING' ] ) as $flag ) {
         if ( ! tonbankcard_env_bool_is_valid( $flag ) ) {
             $invalid[] = tonbankcard_env_error(
                 $flag,
@@ -731,6 +779,15 @@ function validate_runtime_config() {
                 "'false'"
             );
         }
+    }
+
+    $observability_log_level = strtolower( trim( (string) tonbankcard_env( 'TONBANKCARD_OBSERVABILITY_LOG_LEVEL', 'warning' ) ) );
+    if ( ! in_array( $observability_log_level, [ 'debug', 'info', 'warning', 'warn', 'error', 'critical', 'off' ], TRUE ) ) {
+        $invalid[] = tonbankcard_env_error(
+            'TONBANKCARD_OBSERVABILITY_LOG_LEVEL',
+            "Enter 'debug', 'info', 'warning', 'error', 'critical', or 'off'.",
+            "'warning'"
+        );
     }
 
     $coingecko_plan = strtolower( trim( (string) tonbankcard_env( 'COINGECKO_API_PLAN', 'demo' ) ) );
@@ -746,6 +803,62 @@ function validate_runtime_config() {
             'COINGECKO_API_KEY',
             'Set the CoinGecko Pro API key when COINGECKO_API_PLAN is pro. The value is not exposed to browser JavaScript.'
         );
+    }
+
+    $ai_provider = strtolower( trim( (string) tonbankcard_env( 'TONBANKCARD_AI_PROVIDER', 'groq' ) ) );
+    if ( ! in_array( $ai_provider, [ 'groq' ], TRUE ) ) {
+        $invalid[] = tonbankcard_env_error(
+            'TONBANKCARD_AI_PROVIDER',
+            "Enter 'groq'. Future providers can be added behind this selector without changing calling code.",
+            "'groq'"
+        );
+    }
+
+    $ai_fallback_behavior = strtolower( trim( (string) tonbankcard_env( 'TONBANKCARD_AI_FALLBACK_BEHAVIOR', 'unavailable' ) ) );
+    if ( ! in_array( $ai_fallback_behavior, [ 'unavailable' ], TRUE ) ) {
+        $invalid[] = tonbankcard_env_error(
+            'TONBANKCARD_AI_FALLBACK_BEHAVIOR',
+            "Enter 'unavailable' so provider failures degrade to a safe unavailable state.",
+            "'unavailable'"
+        );
+    }
+
+    if ( ! tonbankcard_env_list_is_valid( 'TONBANKCARD_AI_ENABLED_FEATURES', [ 'summary', 'sentiment', 'insight' ] ) ) {
+        $invalid[] = tonbankcard_env_error(
+            'TONBANKCARD_AI_ENABLED_FEATURES',
+            'Enter a comma-separated subset of summary, sentiment, and insight.',
+            "'summary,sentiment,insight'"
+        );
+    }
+
+    if ( tonbankcard_env_has( 'GROQ_MODEL_ID' ) && ! preg_match( '/^[A-Za-z0-9._\/:-]{1,160}$/', (string) tonbankcard_env( 'GROQ_MODEL_ID', '' ) ) ) {
+        $invalid[] = tonbankcard_env_error(
+            'GROQ_MODEL_ID',
+            'Enter a safe Groq model id.',
+            "'llama-3.3-70b-versatile'"
+        );
+    }
+
+    if ( ! tonbankcard_valid_absolute_url( $runtime['providers']['groq']['base_url'] ) ) {
+        $invalid[] = tonbankcard_env_error(
+            'GROQ_BASE_URL',
+            'Enter the Groq OpenAI-compatible API root URL.',
+            "'https://api.groq.com/openai/v1/'"
+        );
+    }
+
+    foreach ( [
+        'GROQ_TIMEOUT_SECONDS'           => [ 1, 120, "'10'" ],
+        'GROQ_RATE_LIMIT_WINDOW_SECONDS' => [ 1, 3600, "'60'" ],
+        'GROQ_RATE_LIMIT_MAX_REQUESTS'   => [ 1, 10000, "'20'" ],
+    ] as $name => $bounds ) {
+        if ( ! tonbankcard_env_int_is_valid( $name, $bounds[0], $bounds[1] ) ) {
+            $invalid[] = tonbankcard_env_error(
+                $name,
+                'Enter an integer in the supported range.',
+                $bounds[2]
+            );
+        }
     }
 
     if ( 'local' !== $profile ) {

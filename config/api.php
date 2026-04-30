@@ -98,6 +98,12 @@ $api = [
         'enabled' => tonbankcard_env_bool( 'TONBANKCARD_API_AUDIT_LOG', FALSE ),
         'sink'    => 'error_log',
     ],
+    'observability' => [
+        'log_level'              => $api_runtime['observability']['log_level'],
+        'verbose_tracing'        => (bool) $api_runtime['observability']['verbose_tracing'],
+        'client_error_reporting' => (bool) $api_runtime['observability']['client_error_reporting'],
+        'sink'                   => $api_runtime['observability']['sink'],
+    ],
     'telegram_session' => [
         'init_data_max_age_seconds'     => 86400,
         'auth_date_future_skew_seconds' => 60,
@@ -107,6 +113,25 @@ $api = [
     'readiness'  => [
         'active_checks'   => tonbankcard_env_bool( 'TONBANKCARD_API_ACTIVE_READINESS', FALSE ),
         'timeout_seconds' => 2,
+    ],
+    'ai'          => [
+        'provider'          => $api_runtime['ai']['provider'],
+        'prompt_version'    => $api_runtime['ai']['prompt_version'],
+        'enabled_features'  => $api_runtime['ai']['enabled_features'],
+        'fallback_behavior' => $api_runtime['ai']['fallback_behavior'],
+        'safety'            => [
+            'require_not_financial_advice' => TRUE,
+            'require_uncertainty'          => TRUE,
+            'require_market_data_age'      => TRUE,
+        ],
+        'groq'              => [
+            'api_key'            => $api_runtime['providers']['groq']['api_key'],
+            'api_key_configured' => $api_runtime['providers']['groq']['api_key_configured'],
+            'model_id'           => $api_runtime['providers']['groq']['model_id'],
+            'base_url'           => $api_runtime['providers']['groq']['base_url'],
+            'timeout_seconds'    => $api_runtime['providers']['groq']['timeout_seconds'],
+            'rate_limit'         => $api_runtime['providers']['groq']['rate_limit'],
+        ],
     ],
     'market_data' => [
         'provider'          => 'coingecko',

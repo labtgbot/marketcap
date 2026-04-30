@@ -1,6 +1,7 @@
 [
   "echarts-dark.js",
   "initial.js",
+  "observability.js",
   "coingecko.js",
   "components/cookies-dialog.js",
   "components/currency-chart.js",

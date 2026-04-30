@@ -70,6 +70,32 @@ authentication header. Set `COINGECKO_API_KEY` only when more quota is needed;
 `x-cg-pro-api-key`. The key is inserted only by the PHP backend and is never
 included in `window.GeckoClient` or browser request parameters.
 
+## Observability
+
+Operational logging defaults to warning-and-error records so failures are
+traceable without noisy success logs:
+
+- `TONBANKCARD_OBSERVABILITY_LOG_LEVEL`: defaults to `warning`; supports
+  `debug`, `info`, `warning`, `error`, `critical`, and `off`.
+- `TONBANKCARD_VERBOSE_TRACING`: defaults to `false`; when enabled, emits safe
+  request/provider debug and info records with secrets redacted.
+- `TONBANKCARD_CLIENT_ERROR_REPORTING`: defaults to `true`; allows browser boot,
+  Vue, unhandled promise, and API errors to post to
+  `/api/observability/client-error`.
+
+See `docs/v2-observability-operational-logging.md` for the runbook and query
+examples.
+
+## AI Provider
+
+The V2 AI provider layer is disabled by default through
+`TONBANKCARD_FEATURE_AI=false`. When enabled, `/api/ai/insight` uses the
+server-side Groq settings above, validates structured JSON before returning an
+insight, and falls back to `insight unavailable` when the provider is missing,
+rate-limited, unavailable, or returns unsafe output. Groq API keys and raw
+prompts are not emitted in health responses, readiness responses, browser
+configuration, or normal error payloads.
+
 ## Debug and Assets
 
 Debug display defaults to on only for `local`. It defaults to off for staging,

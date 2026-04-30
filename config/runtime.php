@@ -129,6 +129,61 @@ if ( ! function_exists( 'tonbankcard_env_bool' ) ) {
     }
 }
 
+if ( ! function_exists( 'tonbankcard_env_int' ) ) {
+    /**
+     * Reads an environment variable as a bounded integer.
+     *
+     * @param string $key
+     * @param int $default
+     * @param int $min
+     * @param int $max
+     * @return int
+     */
+    function tonbankcard_env_int( string $key, int $default, int $min, int $max ) {
+        $value = tonbankcard_env( $key, null );
+        if ( null === $value || '' === trim( (string) $value ) || ! is_numeric( $value ) ) {
+            return $default;
+        }
+
+        $int_value = (int) $value;
+        if ( $int_value < $min ) {
+            return $min;
+        }
+        if ( $int_value > $max ) {
+            return $max;
+        }
+
+        return $int_value;
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_env_list' ) ) {
+    /**
+     * Reads an environment variable as a comma-separated safe list.
+     *
+     * @param string $key
+     * @param array $default
+     * @param array $allowed
+     * @return array
+     */
+    function tonbankcard_env_list( string $key, array $default, array $allowed ) {
+        $value = tonbankcard_env( $key, null );
+        if ( null === $value || '' === trim( (string) $value ) ) {
+            return $default;
+        }
+
+        $items = [];
+        foreach ( explode( ',', (string) $value ) as $item ) {
+            $item = strtolower( trim( $item ) );
+            if ( '' !== $item && in_array( $item, $allowed, TRUE ) && ! in_array( $item, $items, TRUE ) ) {
+                $items[] = $item;
+            }
+        }
+
+        return empty( $items ) ? $default : $items;
+    }
+}
+
 if ( ! function_exists( 'tonbankcard_normalize_url' ) ) {
     /**
      * Normalizes configured absolute URLs while preserving empty values.
@@ -206,9 +261,39 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
         if ( ! in_array( $coingecko_api_plan, [ 'demo', 'pro' ], TRUE ) ) {
             $coingecko_api_plan = 'demo';
         }
+        $ai_provider = strtolower( trim( (string) tonbankcard_env( 'TONBANKCARD_AI_PROVIDER', 'groq' ) ) );
+        if ( ! in_array( $ai_provider, [ 'groq' ], TRUE ) ) {
+            $ai_provider = 'groq';
+        }
+        $ai_prompt_version = trim( (string) tonbankcard_env( 'TONBANKCARD_AI_PROMPT_VERSION', 'v1' ) );
+        if ( '' === $ai_prompt_version ) {
+            $ai_prompt_version = 'v1';
+        }
+        $ai_fallback_behavior = strtolower( trim( (string) tonbankcard_env( 'TONBANKCARD_AI_FALLBACK_BEHAVIOR', 'unavailable' ) ) );
+        if ( ! in_array( $ai_fallback_behavior, [ 'unavailable' ], TRUE ) ) {
+            $ai_fallback_behavior = 'unavailable';
+        }
+        $ai_enabled_features = tonbankcard_env_list(
+            'TONBANKCARD_AI_ENABLED_FEATURES',
+            [ 'summary', 'sentiment', 'insight' ],
+            [ 'summary', 'sentiment', 'insight' ]
+        );
+
         $groq_api_key       = (string) tonbankcard_env( 'GROQ_API_KEY', '' );
+        $groq_model_id      = trim( (string) tonbankcard_env( 'GROQ_MODEL_ID', 'llama-3.3-70b-versatile' ) );
+        if ( '' === $groq_model_id ) {
+            $groq_model_id = 'llama-3.3-70b-versatile';
+        }
+        $groq_base_url      = tonbankcard_normalize_url( (string) tonbankcard_env( 'GROQ_BASE_URL', 'https://api.groq.com/openai/v1/' ) );
         $upstash_token      = (string) tonbankcard_env( 'UPSTASH_REDIS_REST_TOKEN', '' );
         $mysql_password     = (string) tonbankcard_env( 'MYSQL_PASSWORD', '' );
+        $observability_log_level = strtolower( trim( (string) tonbankcard_env( 'TONBANKCARD_OBSERVABILITY_LOG_LEVEL', 'warning' ) ) );
+        if ( ! in_array( $observability_log_level, [ 'debug', 'info', 'warning', 'warn', 'error', 'critical', 'off' ], TRUE ) ) {
+            $observability_log_level = 'warning';
+        }
+        if ( 'warn' === $observability_log_level ) {
+            $observability_log_level = 'warning';
+        }
 
         return [
             'profile'       => $profile,
@@ -231,6 +316,12 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
                 'bot_token'             => $telegram_bot_token,
                 'bot_token_configured'  => '' !== trim( $telegram_bot_token ),
             ],
+            'ai'            => [
+                'provider'          => $ai_provider,
+                'prompt_version'    => $ai_prompt_version,
+                'enabled_features'  => $ai_enabled_features,
+                'fallback_behavior' => $ai_fallback_behavior,
+            ],
             'providers'     => [
                 'coingecko' => [
                     'api_key'            => $coingecko_api_key,
@@ -240,6 +331,13 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
                 'groq'      => [
                     'api_key'            => $groq_api_key,
                     'api_key_configured' => '' !== trim( $groq_api_key ),
+                    'model_id'           => $groq_model_id,
+                    'base_url'           => $groq_base_url,
+                    'timeout_seconds'    => tonbankcard_env_int( 'GROQ_TIMEOUT_SECONDS', 10, 1, 120 ),
+                    'rate_limit'         => [
+                        'window_seconds' => tonbankcard_env_int( 'GROQ_RATE_LIMIT_WINDOW_SECONDS', 60, 1, 3600 ),
+                        'max_requests'   => tonbankcard_env_int( 'GROQ_RATE_LIMIT_MAX_REQUESTS', 20, 1, 10000 ),
+                    ],
                 ],
                 'upstash'   => [
                     'rest_url'          => (string) tonbankcard_env( 'UPSTASH_REDIS_REST_URL', '' ),
@@ -255,6 +353,12 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
                 'changenow' => [
                     'link_id' => (string) tonbankcard_env( 'CHANGENOW_LINK_ID', '' ),
                 ],
+            ],
+            'observability' => [
+                'log_level'              => $observability_log_level,
+                'verbose_tracing'        => tonbankcard_env_bool( 'TONBANKCARD_VERBOSE_TRACING', FALSE ),
+                'client_error_reporting' => tonbankcard_env_bool( 'TONBANKCARD_CLIENT_ERROR_REPORTING', TRUE ),
+                'sink'                   => 'error_log',
             ],
             'feature_flags' => $feature_flags,
         ];
