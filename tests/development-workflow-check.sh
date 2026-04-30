@@ -36,6 +36,7 @@ assert_file tests/php-lint.sh
 assert_file tests/generated-bundle-check.js
 assert_file tests/browser-smoke.js
 assert_file .github/workflows/ci.yml
+assert_file docs/v2-search-and-routing-behavior.md
 
 assert_contains README.md 'php -S 127\.0\.0\.1:8888 dev/php/router\.php' 'the local PHP router startup command'
 assert_contains README.md 'http://127\.0\.0\.1:8888/' 'the local home URL'
@@ -47,6 +48,7 @@ assert_contains README.md 'npm run validate:bundle' 'the generated bundle valida
 assert_contains README.md 'npm run test:smoke' 'the browser smoke test command'
 assert_contains README.md 'test-logs' 'where check logs are written'
 assert_contains README.md 'Troubleshooting' 'local troubleshooting guidance'
+assert_contains README.md 'docs/v2-search-and-routing-behavior\.md' 'the smart search and route compatibility baseline'
 
 assert_contains package.json '"lint:php"' 'the PHP lint npm script'
 assert_contains package.json '"test:content"' 'the branding and content npm script'
@@ -58,6 +60,10 @@ assert_contains .github/workflows/ci.yml 'npm ci' 'dependency installation in CI
 assert_contains .github/workflows/ci.yml 'npx playwright install --with-deps chromium' 'browser installation in CI'
 assert_contains .github/workflows/ci.yml 'npm test' 'the aggregate local checks in CI'
 assert_contains .github/workflows/ci.yml 'test-logs' 'CI log artifact collection'
+
+assert_contains docs/v2-search-and-routing-behavior.md 'localstorage\.one/crypto/data/search\.json' 'the current hidden smart search data source'
+assert_contains docs/v2-search-and-routing-behavior.md '/currency/:id' 'coin detail route compatibility'
+assert_contains docs/v2-search-and-routing-behavior.md 'npm run test:smoke' 'the regression command for search and route coverage'
 
 if [ "$failures" -gt 0 ]; then
     exit 1

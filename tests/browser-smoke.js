@@ -34,6 +34,27 @@ function fail(message) {
     throw new Error(message);
 }
 
+function assertEqual(actual, expected, label) {
+    if (actual !== expected) {
+        fail(`${label}: expected ${expected}, received ${actual === undefined ? 'undefined' : actual}`);
+    }
+}
+
+function lastRequest(requests, label) {
+    if (!requests.length) {
+        fail(`${label}: expected a matching API request`);
+    }
+
+    return requests[requests.length - 1];
+}
+
+function requestRecord(url) {
+    return {
+        path: url.pathname.replace('/api/v3/', ''),
+        params: Object.fromEntries(url.searchParams.entries()),
+    };
+}
+
 function fulfillJson(route, data) {
     return route.fulfill({
         status: 200,
@@ -179,7 +200,7 @@ async function stopServer() {
     });
 }
 
-async function installRoutes(context) {
+async function installRoutes(context, requestLog) {
     await context.route('https://localstorage.one/crypto/data/search.json', route => fulfillJson(route, {
         coins: [
             ['bitcoin', 'btc', 'Bitcoin', transparentPixel],
@@ -216,6 +237,7 @@ async function installRoutes(context) {
         }
 
         if (apiPath === 'coins/markets') {
+            requestLog.coinsMarkets.push(requestRecord(url));
             return fulfillJson(route, [
                 marketCurrency('bitcoin', 'btc', 'Bitcoin', 1, 61000),
                 marketCurrency('toncoin', 'ton', 'Toncoin', 12, 6.5),
@@ -223,18 +245,22 @@ async function installRoutes(context) {
         }
 
         if (apiPath === 'coins/bitcoin') {
+            requestLog.coinDetails.push(requestRecord(url));
             return fulfillJson(route, coinDetail('bitcoin', 'btc', 'Bitcoin', 1, 61000));
         }
 
         if (apiPath === 'coins/toncoin') {
+            requestLog.coinDetails.push(requestRecord(url));
             return fulfillJson(route, coinDetail('toncoin', 'ton', 'Toncoin', 12, 6.5));
         }
 
         if (apiPath === 'coins/bitcoin/market_chart' || apiPath === 'coins/toncoin/market_chart') {
+            requestLog.marketCharts.push(requestRecord(url));
             return fulfillJson(route, marketChart());
         }
 
         if (apiPath === 'exchanges') {
+            requestLog.exchanges.push(requestRecord(url));
             return fulfillJson(route, [
                 {
                     id: 'binance',
@@ -260,12 +286,76 @@ async function assertNoErrors(errors, label) {
     }
 }
 
-async function smokePage(page, errors, urlPath, selector, text) {
-    log(`Checking ${urlPath}`);
-    await page.goto(`${baseURL}${urlPath}`, {waitUntil: 'domcontentloaded'});
-    await page.locator(selector).waitFor({state: 'visible'});
-    await page.getByText(text, {exact: false}).first().waitFor({state: 'visible'});
-    await assertNoErrors(errors, urlPath);
+async function checkCurrenciesList(page, errors, requestLog) {
+    log('Checking currencies list regression coverage');
+    requestLog.coinsMarkets = [];
+
+    await page.goto(`${baseURL}/`, {waitUntil: 'domcontentloaded'});
+    await page.locator('#currencies-table').waitFor({state: 'visible'});
+    await page.locator('#currencies-table tbody tr', {hasText: 'Bitcoin'}).first().waitFor({state: 'visible'});
+    await page.locator('#currencies-table tbody tr', {hasText: 'Toncoin'}).first().waitFor({state: 'visible'});
+
+    const request = lastRequest(requestLog.coinsMarkets, 'currencies list request');
+    assertEqual(request.params.vs_currency, 'usd', 'currencies list vs_currency');
+    assertEqual(request.params.per_page, '100', 'currencies list per_page');
+    assertEqual(request.params.page, '1', 'currencies list page');
+    await assertNoErrors(errors, 'currencies list');
+}
+
+async function checkCoinDetail(page, errors, requestLog) {
+    log('Checking coin detail, chart tab, and converter regression coverage');
+    requestLog.coinDetails = [];
+    requestLog.marketCharts = [];
+
+    await page.goto(`${baseURL}/currency/bitcoin`, {waitUntil: 'domcontentloaded'});
+    await page.locator('#currency').waitFor({state: 'visible'});
+    await page.getByText('Bitcoin Price', {exact: false}).first().waitFor({state: 'visible'});
+    await page.getByText('Rank #1', {exact: false}).first().waitFor({state: 'visible'});
+    await page.locator('.gc-currency-chart-container canvas').first().waitFor({state: 'visible'});
+    await page.locator('.gc-currency-converter').waitFor({state: 'visible'});
+    await page.locator('.gc-currency-converter input').first().waitFor({state: 'visible'});
+    await page.getByText('Buy', {exact: true}).first().waitFor({state: 'visible'});
+    await page.getByText('Sell', {exact: true}).first().waitFor({state: 'visible'});
+
+    const detailRequest = lastRequest(requestLog.coinDetails, 'coin detail request');
+    assertEqual(detailRequest.path, 'coins/bitcoin', 'coin detail path');
+    assertEqual(detailRequest.params.market_data, 'true', 'coin detail market_data');
+    assertEqual(detailRequest.params.localization, 'false', 'coin detail localization');
+    assertEqual(detailRequest.params.tickers, 'false', 'coin detail tickers');
+    assertEqual(detailRequest.params.sparkline, 'false', 'coin detail sparkline');
+
+    const chartRequest = lastRequest(requestLog.marketCharts, 'coin chart request');
+    assertEqual(chartRequest.path, 'coins/bitcoin/market_chart', 'coin chart path');
+    assertEqual(chartRequest.params.vs_currency, 'usd', 'coin chart vs_currency');
+    assertEqual(chartRequest.params.days, '30', 'coin chart default interval');
+    await assertNoErrors(errors, 'coin detail');
+}
+
+async function checkExchangesList(page, errors, requestLog) {
+    log('Checking exchanges list regression coverage');
+    requestLog.exchanges = [];
+
+    await page.goto(`${baseURL}/exchanges`, {waitUntil: 'domcontentloaded'});
+    await page.locator('#exchanges-table').waitFor({state: 'visible'});
+    await page.getByText('Binance', {exact: false}).first().waitFor({state: 'visible'});
+
+    const request = lastRequest(requestLog.exchanges, 'exchanges list request');
+    assertEqual(request.params.per_page, '100', 'exchanges list per_page');
+    assertEqual(request.params.page, '1', 'exchanges list page');
+    await assertNoErrors(errors, 'exchanges list');
+}
+
+async function checkSearchInteraction(page, errors) {
+    log('Checking search interaction');
+    await page.goto(`${baseURL}/`, {waitUntil: 'domcontentloaded'});
+    const search = page.locator('.gc-search-bar input[type="text"]');
+    await search.waitFor({state: 'visible'});
+    await search.fill('ton');
+    await page.locator('.v-menu__content.menuable__content__active .v-list-item', {hasText: 'Toncoin'}).click();
+    await page.waitForURL(`${baseURL}/currency/toncoin`);
+    await page.locator('#currency').waitFor({state: 'visible'});
+    await page.getByText('Toncoin Price', {exact: false}).first().waitFor({state: 'visible'});
+    await assertNoErrors(errors, 'search interaction');
 }
 
 async function run() {
@@ -274,7 +364,13 @@ async function run() {
 
     const browser = await chromium.launch();
     const context = await browser.newContext();
-    await installRoutes(context);
+    const requestLog = {
+        coinsMarkets: [],
+        coinDetails: [],
+        marketCharts: [],
+        exchanges: [],
+    };
+    await installRoutes(context, requestLog);
 
     const errors = [];
     const page = await context.newPage();
@@ -289,20 +385,10 @@ async function run() {
     });
 
     try {
-        await smokePage(page, errors, '/', '#currencies-table', 'Bitcoin');
-        await smokePage(page, errors, '/currency/bitcoin', '#currency', 'Bitcoin Price');
-        await smokePage(page, errors, '/exchanges', '#exchanges-table', 'Binance');
-
-        log('Checking search interaction');
-        await page.goto(`${baseURL}/`, {waitUntil: 'domcontentloaded'});
-        const search = page.locator('.gc-search-bar input[type="text"]');
-        await search.waitFor({state: 'visible'});
-        await search.fill('ton');
-        await page.locator('.v-menu__content.menuable__content__active .v-list-item', {hasText: 'Toncoin'}).click();
-        await page.waitForURL(`${baseURL}/currency/toncoin`);
-        await page.locator('#currency').waitFor({state: 'visible'});
-        await page.getByText('Toncoin Price', {exact: false}).first().waitFor({state: 'visible'});
-        await assertNoErrors(errors, 'search interaction');
+        await checkCurrenciesList(page, errors, requestLog);
+        await checkCoinDetail(page, errors, requestLog);
+        await checkExchangesList(page, errors, requestLog);
+        await checkSearchInteraction(page, errors);
     } catch (err) {
         const screenshotPath = path.join(logDir, 'browser-smoke-failure.png');
         await page.screenshot({path: screenshotPath, fullPage: true}).catch(() => {});
