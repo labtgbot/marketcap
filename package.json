@@ -4,10 +4,11 @@
   "scripts": {
     "lint:php": "sh tests/php-lint.sh",
     "test:content": "sh tests/branding-content-check.sh",
+    "test:architecture": "sh tests/architecture-decision-check.sh",
     "validate:bundle": "node tests/generated-bundle-check.js",
     "test:workflow": "sh tests/development-workflow-check.sh",
     "test:smoke": "node tests/browser-smoke.js",
-    "test": "npm run test:workflow && npm run lint:php && npm run test:content && npm run validate:bundle && npm run test:smoke"
+    "test": "npm run test:workflow && npm run lint:php && npm run test:content && npm run test:architecture && npm run validate:bundle && npm run test:smoke"
   },
   "devDependencies": {
     "playwright": "^1.59.1"

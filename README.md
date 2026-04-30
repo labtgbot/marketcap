@@ -46,6 +46,7 @@ Individual checks:
 npm run test:workflow
 npm run lint:php
 npm run test:content
+npm run test:architecture
 npm run validate:bundle
 npm run test:smoke
 ```
@@ -76,6 +77,8 @@ See [docs/v2-implementation-roadmap.md](docs/v2-implementation-roadmap.md) for t
 See [docs/v2-product-requirements.md](docs/v2-product-requirements.md) for the TONBANKCARD V2 product requirements and information architecture from issue #4.
 
 See [docs/v2-search-and-routing-behavior.md](docs/v2-search-and-routing-behavior.md) for the verified V1 smart search and route compatibility baseline that V2 must preserve.
+
+See [docs/adr/0001-v2-migration-architecture.md](docs/adr/0001-v2-migration-architecture.md) for the accepted V2 migration architecture decision covering parallel V2 routes, PHP templates, Alpine.js, Tailwind CDN, Chart.js, routing compatibility, and rollback.
 
 See [docs/legal-license-inventory.md](docs/legal-license-inventory.md) for the current legal notice and license inventory, and [docs/release-checklist.md](docs/release-checklist.md) for the public launch legal review checkpoint.
 
