@@ -34,9 +34,24 @@ $routes['currencies'] = [
     // always enabled
 ];
 
+$routes['markets'] = [
+    'path' => '/markets',
+    'enabled' => TRUE,
+];
+
 $routes['currency'] = [
     'path' => '/currency/:id',
     // always enabled
+];
+
+$routes['ton'] = [
+    'path' => '/ton',
+    'enabled' => TRUE,
+];
+
+$routes['watchlist'] = [
+    'path' => '/watchlist',
+    'enabled' => TRUE,
 ];
 
 $routes['exchanges'] = [

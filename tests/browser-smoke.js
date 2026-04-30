@@ -329,6 +329,7 @@ async function installRoutes(context, requestLog) {
         const apiPath = url.pathname.replace(/^\/api\/market\/?/, '').replace(/\/$/, '');
 
         if (apiPath === 'global') {
+            requestLog.globals.push(requestRecord(url));
             return fulfillMarketJson(route, {
                 data: {
                     active_cryptocurrencies: 12000,
@@ -341,6 +342,7 @@ async function installRoutes(context, requestLog) {
         }
 
         if (apiPath === 'search/trending') {
+            requestLog.trending.push(requestRecord(url));
             return fulfillMarketJson(route, {
                 coins: [
                     {item: {id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', small: transparentPixel}},
@@ -419,20 +421,46 @@ async function assertNoDirectProviderRequests(requests) {
     }
 }
 
-async function checkCurrenciesList(page, errors, requestLog) {
-    log('Checking currencies list regression coverage');
+async function checkMarketPulseHome(page, errors, requestLog) {
+    log('Checking market pulse homepage');
+    requestLog.globals = [];
+    requestLog.trending = [];
     requestLog.coinsMarkets = [];
 
     await page.goto(`${baseURL}/`, {waitUntil: 'domcontentloaded'});
+    await page.locator('#market-pulse').waitFor({state: 'visible'});
+    await page.getByRole('heading', {name: /Market Pulse/i}).first().waitFor({state: 'visible'});
+    await page.getByText('TON ecosystem pulse', {exact: false}).first().waitFor({state: 'visible'});
+    await page.getByText('Top gainers', {exact: false}).first().waitFor({state: 'visible'});
+    await page.getByText('Top losers', {exact: false}).first().waitFor({state: 'visible'});
+    await page.getByText('AI market summary', {exact: false}).first().waitFor({state: 'visible'});
+    await page.getByText('Fresh', {exact: false}).first().waitFor({state: 'visible'});
+    await page.getByRole('link', {name: /Full table/i}).waitFor({state: 'visible'});
+    await page.getByRole('link', {name: 'Watchlist'}).first().waitFor({state: 'visible'});
+    await page.getByRole('link', {name: 'TON view'}).first().waitFor({state: 'visible'});
+    await page.locator('#market-pulse a', {hasText: 'Bitcoin'}).first().waitFor({state: 'visible'});
+
+    const request = lastRequest(requestLog.coinsMarkets, 'market pulse coins request');
+    assertEqual(request.params.vs_currency, 'usd', 'market pulse vs_currency');
+    assertEqual(request.params.per_page, '50', 'market pulse per_page');
+    assertEqual(request.params.page, '1', 'market pulse page');
+    await assertNoErrors(errors, 'market pulse homepage');
+}
+
+async function checkMarketsList(page, errors, requestLog) {
+    log('Checking markets table regression coverage');
+    requestLog.coinsMarkets = [];
+
+    await page.goto(`${baseURL}/markets`, {waitUntil: 'domcontentloaded'});
     await page.locator('#currencies-table').waitFor({state: 'visible'});
     await page.locator('#currencies-table tbody tr', {hasText: 'Bitcoin'}).first().waitFor({state: 'visible'});
     await page.locator('#currencies-table tbody tr', {hasText: 'Toncoin'}).first().waitFor({state: 'visible'});
 
-    const request = lastRequest(requestLog.coinsMarkets, 'currencies list request');
-    assertEqual(request.params.vs_currency, 'usd', 'currencies list vs_currency');
-    assertEqual(request.params.per_page, '100', 'currencies list per_page');
-    assertEqual(request.params.page, '1', 'currencies list page');
-    await assertNoErrors(errors, 'currencies list');
+    const request = lastRequest(requestLog.coinsMarkets, 'markets table request');
+    assertEqual(request.params.vs_currency, 'usd', 'markets table vs_currency');
+    assertEqual(request.params.per_page, '100', 'markets table per_page');
+    assertEqual(request.params.page, '1', 'markets table page');
+    await assertNoErrors(errors, 'markets table');
 }
 
 async function checkCoinDetail(page, errors, requestLog) {
@@ -502,10 +530,12 @@ async function run() {
     const browser = await chromium.launch();
     const context = await browser.newContext();
     const requestLog = {
+        globals: [],
         coinsMarkets: [],
         coinDetails: [],
         marketCharts: [],
         exchanges: [],
+        trending: [],
         searches: [],
     };
     await installRoutes(context, requestLog);
@@ -530,7 +560,8 @@ async function run() {
     });
 
     try {
-        await checkCurrenciesList(page, errors, requestLog);
+        await checkMarketPulseHome(page, errors, requestLog);
+        await checkMarketsList(page, errors, requestLog);
         await checkCoinDetail(page, errors, requestLog);
         await checkExchangesList(page, errors, requestLog);
         await checkSearchInteraction(page, errors, requestLog);

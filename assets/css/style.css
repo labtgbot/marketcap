@@ -42,10 +42,34 @@ v-app {
     max-width: 100%;
 }
 
-#currencies {
-    max-width: 1800px;
+.market-pulse #market-pulse {
+    max-width: 1440px;
 }
-#currencies {
+.market-pulse-hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+}
+.market-pulse-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 280px;
+}
+.market-pulse-stat {
+    min-height: 112px;
+}
+.market-pulse-panel {
+    height: 100%;
+}
+.market-pulse-panel .v-list-item__action {
+    min-width: 72px;
+    text-align: right;
+}
+#markets {
     max-width: 1800px;
 }
 #currencies-table tbody tr {
@@ -73,9 +97,26 @@ v-app {
 #currencies-table .name-xs .c-rank {
     padding: 0 6px;
 }
+#watchlist,
+#ton {
+    max-width: 1200px;
+}
+@media only screen and (max-width: 959px) {
+    .market-pulse-hero {
+        display: block;
+    }
+    .market-pulse-actions {
+        justify-content: flex-start;
+        min-width: 0;
+        margin-top: 16px;
+    }
+}
 @media only screen and (max-width: 599px) {
     #currencies-table td {
         padding: 0 8px;
+    }
+    .market-pulse-actions .v-btn {
+        flex: 1 1 calc(50% - 8px);
     }
 }
 #currency {

@@ -12,249 +12,261 @@
 
 defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 
-/*
-| -------------------------------------------------------------------------
-| TITLE
-| -------------------------------------------------------------------------
-| TYPE: string
-| DESCRIPTION: Route title.
-|
-*/
-$frontend_options['currencies']['title'] = __( 'Cryptocurrencies' );
-
-/*
-| -------------------------------------------------------------------------
-| PRICE CHANGES
-| -------------------------------------------------------------------------
-| TYPE: array
-| DESCRIPTION: Values passed to CoinGecko API query param "price_change_percentage".
-|
-*/
+$frontend_options['currencies']['title'] = __( 'Market Pulse' );
+$frontend_options['currencies']['description'] = __( 'Fast market context for TONBANKCARD users across web and Telegram.' );
+$frontend_options['currencies']['perPage'] = 50;
 $frontend_options['currencies']['priceChanges'] = [
     '24h',
     '7d',
     '30d',
 ];
-
-/*
-| -------------------------------------------------------------------------
-| TABLE HEADERS
-| -------------------------------------------------------------------------
-| TYPE: array[]
-| DESCRIPTION: Data table header and column options.
-| REFERENCE: https://vuetifyjs.com/en/api/v-data-table/#props-headers
-|
-| -------------------------------------------------------------------------
-| EXPLANATION OF HEADER PARAMETERS
-| -------------------------------------------------------------------------
-|
-|   ['text']        (string)            The header title
-|   ['name']        (string)            The property name to get value
-|   ['sortable']    (bool)              set TRUE to allow column sorting
-|   ['align']       (string)            Defines the column text alignment. Can be 'start', 'center' or 'end'.
-|   ['width']       (int|float|string)  The header width
-|   ['show']        (bool)              set TRUE to show column
-|
-*/
-$frontend_options['currencies']['tableHeaders'] = [
-    [
-        'text' => '#',
-        'value' => 'market_cap_rank',
-        'sortable' => TRUE,
-        'align' => 'start',
-        'width' => 80,
-        'show' => TRUE, // always hide in xs (600px)
-    ],
-    [
-        'text' => 'Name',
-        'value' => 'name',
-        'sortable' => TRUE,
-        'align' => 'start',
-        'show' => TRUE,
-    ],
-    [
-        'text' => 'Price',
-        'value' => 'current_price',
-        'sortable' => TRUE,
-        'align' => 'end',
-        'show' => TRUE,
-    ],
-    [
-        'text' => '24h %',
-        'value' => 'price_change_percentage_24h_in_currency',
-        'sortable' => TRUE,
-        'align' => 'end',
-        'show' => TRUE,
-    ],
-    [
-        'text' => '7d %',
-        'value' => 'price_change_percentage_7d_in_currency',
-        'sortable' => TRUE,
-        'align' => 'end',
-        'show' => TRUE,
-    ],
-    [
-        'text' => '30d %',
-        'value' => 'price_change_percentage_30d_in_currency',
-        'sortable' => TRUE,
-        'align' => 'end',
-        'show' => TRUE,
-    ],
-    [
-        'text' => 'Market Cap',
-        'value' => 'market_cap',
-        'sortable' => TRUE,
-        'align' => 'end',
-        'show' => TRUE,
-    ],
-    [
-        'text' => 'Volume 24h',
-        'value' => 'total_volume',
-        'sortable' => TRUE,
-        'align' => 'end',
-        'show' => TRUE,
-    ],
-    [
-        'text' => 'Circulating Supply',
-        'value' => 'circulating_supply',
-        'sortable' => TRUE,
-        'align' => 'end',
-        'show' => TRUE,
-    ],
-    [
-        'text' => 'Last 7d',
-        'value' => 'last_7d',
-        'sortable' => FALSE,
-        'align' => 'center',
-        'width' => 250,
-        'show' => TRUE,
-    ],
+$frontend_options['currencies']['order'] = 'market_cap_desc';
+$frontend_options['currencies']['tonCoinIds'] = [
+    'toncoin',
+    'the-open-network',
+    'notcoin',
+    'dogs-2',
+    'ston',
+    'dedust',
+    'tether',
 ];
 
-/*
-| -------------------------------------------------------------------------
-| PER PAGE
-| -------------------------------------------------------------------------
-| TYPE: int
-| DESCRIPTION: CoinGecko API query param "per_page".
-| MAX: 250
-| DEFAULT: 100
-|
-*/
-$frontend_options['currencies']['perPage'] = 100;
-
-/*
-| -------------------------------------------------------------------------
-| ORDER
-| -------------------------------------------------------------------------
-| TYPE: string
-| DESCRIPTION: CoinGecko API query param order.
-| DEFAULT: 'market_cap_desc'
-| OPTIONS: 'market_cap_desc', 'market_cap_asc', 'gecko_desc', 'gecko_asc',
-|   'volume_asc', 'volume_desc', 'id_asc' or 'id_desc'
-|
-*/
-$frontend_options['currencies']['order'] = 'market_cap_desc';
-
 ?>
-<section class="mt-8 mb-16">
-    <v-container id="currencies" fluid>
-        <h1 class="text-center text-h4 text-sm-h4 mb-8">
-            <?php echo esc_html( $frontend_options['currencies']['title'] ); ?>
-        </h1>
-
-        <v-data-table
-            id="currencies-table"
-            :headers="tableHeaders"
-            :items="currencies"
-            :mobile-breakpoint="0"
-            :disable-pagination="true"
-            :hide-default-footer="true"
-            :loading="loading"
-            dense
-            @click:row="toCurrency"
-        >
-            <template v-slot:item.name="{ item }">
-                <router-link :to="item.route" class="name-xs d-flex align-center d-sm-none">
-                    <v-avatar v-if="item.image" left color="white" size="28">
-                        <v-img :src="item.image" :alt="item.name" :title="item.name"></v-img>
-                    </v-avatar>
-                    <div class="c-text d-flex flex-column">
-                        <div class="c-name font-weight-medium" v-text="item.name"></div>
-                        <div>
-                            <v-chip label small :ripple="false" :to="item.route" class="c-rank d-sm-none" v-text="item.market_cap_rank"></v-chip>
-                            <span class="c-symbol text-uppercase font-weight-medium text--secondary" v-text="item.symbol"></span>
-                        </div>
-                    </div>
-                </router-link>
-                <v-chip :ripple="false" color="transparent" :to="item.route" class="d-none d-sm-inline-flex">
-                    <v-avatar left v-if="item.image" color="white">
-                        <v-img :src="item.image" :alt="item.name" :title="item.name"></v-img>
-                    </v-avatar>
-                    <span class="font-weight-medium">
-                        {{ item.name }}
-                        <span class="text--secondary text-uppercase" v-text="item.symbol"></span>
-                    </span>
-                </v-chip>
-            </template>
-            <template v-slot:item.current_price="{ item }">
-                <span class="font-weight-medium" v-text="$root.priceFormat(item.current_price)"></span>
-            </template>
-            <template v-slot:item.price_change_percentage_24h_in_currency="{ item }">
-                <span class="font-weight-bold" :class="$root.changeColorClass(item.price_change_percentage_24h_in_currency)">
-                    <v-icon
-                        :color="$root.changeColor(item.price_change_percentage_24h_in_currency)"
-                        v-text="$root.changeIcon(item.price_change_percentage_24h_in_currency)"
-                    ></v-icon>
-                    {{ $root.changeFormat(item.price_change_percentage_24h_in_currency) }}
-                </span>
-            </template>
-            <template v-slot:item.price_change_percentage_7d_in_currency="{ item }">
-                <span class="font-weight-bold" :class="$root.changeColorClass(item.price_change_percentage_7d_in_currency)">
-                    <v-icon
-                        :color="$root.changeColor(item.price_change_percentage_7d_in_currency)"
-                        v-text="$root.changeIcon(item.price_change_percentage_7d_in_currency)"
-                    ></v-icon>
-                    {{ $root.changeFormat(item.price_change_percentage_7d_in_currency) }}
-                </span>
-            </template>
-            <template v-slot:item.price_change_percentage_30d_in_currency="{ item }">
-                <span class="font-weight-bold" :class="$root.changeColorClass(item.price_change_percentage_30d_in_currency)">
-                    <v-icon
-                        :color="$root.changeColor(item.price_change_percentage_30d_in_currency)"
-                        v-text="$root.changeIcon(item.price_change_percentage_30d_in_currency)"
-                    ></v-icon>
-                    {{ $root.changeFormat(item.price_change_percentage_30d_in_currency) }}
-                </span>
-            </template>
-            <template v-slot:item.market_cap="{ item }">
-                <span class="font-weight-medium" v-text="$root.marketCapFormat(item.market_cap)"></span>
-            </template>
-            <template v-slot:item.total_volume="{ item }">
-                <span class="font-weight-medium" v-text="$root.volumeFormat(item.total_volume)"></span>
-            </template>
-            <template v-slot:item.circulating_supply="{ item }">
-                <span class="font-weight-medium">
-                    {{ $root.bigNumberFormat(item.circulating_supply) }}
-                    <span class="text-uppercase" v-text="item.symbol"></span>
-                </span>
-            </template>
-            <template v-slot:item.last_7d="{ item }">
-                <v-sparkline
-                    :fill="false"
-                    :radius="8"
-                    :value="item.sparkline_in_7d.price"
-                    :color="$root.changeColor(item.price_change_percentage_7d_in_currency)"
-                    style="width: 100%;"
-                ></v-sparkline>
-            </template>
-        </v-data-table>
-
-        <div v-if="!loading && loadMore">
-            <v-btn block text large :loading="loadMoreLoading" @click="fetchMoreCurrencies">
-                <?php echo esc_html( __( 'Load More' ) ); ?>
-            </v-btn>
+<section class="market-pulse py-6 py-sm-8">
+    <v-container id="market-pulse" fluid>
+        <div class="market-pulse-hero mb-5">
+            <div>
+                <div class="overline primary--text font-weight-bold mb-2">TONBANKCARD</div>
+                <h1 class="text-h4 text-sm-h3 font-weight-bold mb-3">
+                    <?php echo esc_html( $frontend_options['currencies']['title'] ); ?>
+                </h1>
+                <p class="text-subtitle-1 text--secondary mb-0">
+                    <?php echo esc_html( $frontend_options['currencies']['description'] ); ?>
+                </p>
+            </div>
+            <div class="market-pulse-actions">
+                <v-btn color="primary" depressed @click="focusSearch">
+                    <v-icon left>mdi-magnify</v-icon>
+                    <?php echo esc_html( __( 'Search' ) ); ?>
+                </v-btn>
+                <v-btn :to="{name:'watchlist'}" outlined color="primary">
+                    <v-icon left>mdi-star-outline</v-icon>
+                    <?php echo esc_html( __( 'Watchlist' ) ); ?>
+                </v-btn>
+                <v-btn :to="{name:'ton'}" outlined color="primary">
+                    <v-icon left>mdi-diamond-stone</v-icon>
+                    <?php echo esc_html( __( 'TON view' ) ); ?>
+                </v-btn>
+                <v-btn :to="{name:'markets'}" text color="primary">
+                    <v-icon left>mdi-table-large</v-icon>
+                    <?php echo esc_html( __( 'Full table' ) ); ?>
+                </v-btn>
+            </div>
         </div>
 
+        <div class="d-flex flex-wrap align-center mb-4">
+            <v-chip small label :color="freshnessColor" text-color="white" class="mr-2 mb-2">
+                <v-icon small left>mdi-clock-check-outline</v-icon>
+                {{ freshnessLabel }}
+            </v-chip>
+            <v-chip small label class="mr-2 mb-2">
+                <v-icon small left>mdi-cash-multiple</v-icon>
+                {{ $root.vsCurrency.id }}
+            </v-chip>
+            <v-chip small label class="mb-2" v-if="marketCurrencies.length">
+                <v-icon small left>mdi-database-check</v-icon>
+                {{ marketCurrencies.length }} assets
+            </v-chip>
+        </div>
+
+        <v-progress-linear v-if="loading" indeterminate color="primary" height="3" class="mb-4"></v-progress-linear>
+
+        <v-alert v-if="upstreamError" type="error" outlined class="mb-4">
+            <?php echo esc_html( __( 'Upstream market data is unavailable. Try again after the provider recovers.' ) ); ?>
+        </v-alert>
+        <v-alert v-else-if="partialError" type="warning" outlined class="mb-4">
+            <?php echo esc_html( __( 'Some market pulse sections could not refresh. Available sections remain visible.' ) ); ?>
+        </v-alert>
+        <v-alert v-else-if="isStale" type="warning" outlined class="mb-4">
+            <?php echo esc_html( __( 'Market data is stale. Use the freshness label before acting on prices.' ) ); ?>
+        </v-alert>
+
+        <v-row dense class="mb-4">
+            <v-col cols="6" md="3" v-for="stat in globalStats" :key="stat.label">
+                <v-sheet class="market-pulse-stat pa-4" rounded outlined>
+                    <div class="d-flex align-center justify-space-between mb-2">
+                        <span class="text-caption text-uppercase text--secondary" v-text="stat.label"></span>
+                        <v-icon color="primary" small v-text="stat.icon"></v-icon>
+                    </div>
+                    <div class="text-h6 font-weight-bold text-truncate" v-text="stat.value || 'Loading'"></div>
+                </v-sheet>
+            </v-col>
+        </v-row>
+
+        <v-alert v-if="!loading && !upstreamError && !marketCurrencies.length" type="info" outlined class="mb-4">
+            <?php echo esc_html( __( 'No market data is available right now.' ) ); ?>
+        </v-alert>
+
+        <v-row dense>
+            <v-col cols="12" md="6" lg="4">
+                <v-card class="market-pulse-panel" outlined>
+                    <v-card-title class="text-subtitle-1 font-weight-bold">
+                        <v-icon left color="primary">mdi-diamond-stone</v-icon>
+                        <?php echo esc_html( __( 'TON ecosystem pulse' ) ); ?>
+                        <v-spacer></v-spacer>
+                        <v-btn icon small :to="{name:'ton'}" aria-label="TON view">
+                            <v-icon>mdi-arrow-right</v-icon>
+                        </v-btn>
+                    </v-card-title>
+                    <v-divider></v-divider>
+                    <v-list dense v-if="tonCurrencies.length">
+                        <v-list-item v-for="currency in tonCurrencies" :key="currency.id" :to="currency.route">
+                            <v-list-item-avatar size="32" color="white">
+                                <v-img v-if="currency.image" :src="currency.image" :alt="currency.name"></v-img>
+                            </v-list-item-avatar>
+                            <v-list-item-content>
+                                <v-list-item-title v-text="currency.name"></v-list-item-title>
+                                <v-list-item-subtitle class="text-uppercase" v-text="currency.symbol"></v-list-item-subtitle>
+                            </v-list-item-content>
+                            <v-list-item-action class="font-weight-bold" :class="$root.changeColorClass(currency.price_change_percentage_24h_in_currency)">
+                                {{ $root.changeFormat(currency.price_change_percentage_24h_in_currency) || 'N/A' }}
+                            </v-list-item-action>
+                        </v-list-item>
+                    </v-list>
+                    <v-card-text v-else>
+                        <?php echo esc_html( __( 'TON assets will appear here when market data is available.' ) ); ?>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+
+            <v-col cols="12" md="6" lg="4">
+                <v-card class="market-pulse-panel" outlined>
+                    <v-card-title class="text-subtitle-1 font-weight-bold">
+                        <v-icon left color="high">mdi-trending-up</v-icon>
+                        <?php echo esc_html( __( 'Top gainers' ) ); ?>
+                    </v-card-title>
+                    <v-divider></v-divider>
+                    <v-list dense v-if="topGainers.length">
+                        <v-list-item v-for="currency in topGainers" :key="currency.id" :to="currency.route">
+                            <v-list-item-avatar size="32" color="white">
+                                <v-img v-if="currency.image" :src="currency.image" :alt="currency.name"></v-img>
+                            </v-list-item-avatar>
+                            <v-list-item-content>
+                                <v-list-item-title v-text="currency.name"></v-list-item-title>
+                                <v-list-item-subtitle v-text="$root.priceFormat(currency.current_price)"></v-list-item-subtitle>
+                            </v-list-item-content>
+                            <v-list-item-action class="high--text font-weight-bold">
+                                {{ $root.changeFormat(currency.price_change_percentage_24h_in_currency) }}
+                            </v-list-item-action>
+                        </v-list-item>
+                    </v-list>
+                    <v-card-text v-else>
+                        <?php echo esc_html( __( 'No positive movers are available.' ) ); ?>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+
+            <v-col cols="12" md="6" lg="4">
+                <v-card class="market-pulse-panel" outlined>
+                    <v-card-title class="text-subtitle-1 font-weight-bold">
+                        <v-icon left color="low">mdi-trending-down</v-icon>
+                        <?php echo esc_html( __( 'Top losers' ) ); ?>
+                    </v-card-title>
+                    <v-divider></v-divider>
+                    <v-list dense v-if="topLosers.length">
+                        <v-list-item v-for="currency in topLosers" :key="currency.id" :to="currency.route">
+                            <v-list-item-avatar size="32" color="white">
+                                <v-img v-if="currency.image" :src="currency.image" :alt="currency.name"></v-img>
+                            </v-list-item-avatar>
+                            <v-list-item-content>
+                                <v-list-item-title v-text="currency.name"></v-list-item-title>
+                                <v-list-item-subtitle v-text="$root.priceFormat(currency.current_price)"></v-list-item-subtitle>
+                            </v-list-item-content>
+                            <v-list-item-action class="low--text font-weight-bold">
+                                {{ $root.changeFormat(currency.price_change_percentage_24h_in_currency) }}
+                            </v-list-item-action>
+                        </v-list-item>
+                    </v-list>
+                    <v-card-text v-else>
+                        <?php echo esc_html( __( 'No negative movers are available.' ) ); ?>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+
+            <v-col cols="12" md="6" lg="4">
+                <v-card class="market-pulse-panel" outlined>
+                    <v-card-title class="text-subtitle-1 font-weight-bold">
+                        <v-icon left color="primary">mdi-fire</v-icon>
+                        <?php echo esc_html( __( 'Trending coins' ) ); ?>
+                    </v-card-title>
+                    <v-divider></v-divider>
+                    <v-list dense v-if="trendingCoins.length">
+                        <v-list-item v-for="coin in trendingCoins" :key="coin.id" :to="coin.route">
+                            <v-list-item-avatar size="32" color="white">
+                                <v-img v-if="coin.small || coin.image" :src="coin.small || coin.image" :alt="coin.name"></v-img>
+                            </v-list-item-avatar>
+                            <v-list-item-content>
+                                <v-list-item-title v-text="coin.name"></v-list-item-title>
+                                <v-list-item-subtitle class="text-uppercase" v-text="coin.symbol"></v-list-item-subtitle>
+                            </v-list-item-content>
+                        </v-list-item>
+                    </v-list>
+                    <v-card-text v-else>
+                        <?php echo esc_html( __( 'Trending coins are loading or temporarily unavailable.' ) ); ?>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+
+            <v-col cols="12" md="6" lg="4">
+                <v-card class="market-pulse-panel" outlined>
+                    <v-card-title class="text-subtitle-1 font-weight-bold">
+                        <v-icon left color="primary">mdi-star-outline</v-icon>
+                        <?php echo esc_html( __( 'Watchlist preview' ) ); ?>
+                        <v-spacer></v-spacer>
+                        <v-btn icon small :to="{name:'watchlist'}" aria-label="Watchlist">
+                            <v-icon>mdi-arrow-right</v-icon>
+                        </v-btn>
+                    </v-card-title>
+                    <v-divider></v-divider>
+                    <v-list dense v-if="watchlistCurrencies.length">
+                        <v-list-item v-for="currency in watchlistCurrencies" :key="currency.id" :to="currency.route">
+                            <v-list-item-avatar size="32" color="white">
+                                <v-img v-if="currency.image" :src="currency.image" :alt="currency.name"></v-img>
+                            </v-list-item-avatar>
+                            <v-list-item-content>
+                                <v-list-item-title v-text="currency.name"></v-list-item-title>
+                                <v-list-item-subtitle v-text="$root.priceFormat(currency.current_price)"></v-list-item-subtitle>
+                            </v-list-item-content>
+                        </v-list-item>
+                    </v-list>
+                    <v-card-text v-else>
+                        <div class="text--secondary mb-3">
+                            <?php echo esc_html( __( 'No watched coins yet.' ) ); ?>
+                        </div>
+                        <v-btn small outlined color="primary" :to="{name:'watchlist'}">
+                            <?php echo esc_html( __( 'Open Watchlist' ) ); ?>
+                        </v-btn>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+
+            <v-col cols="12" md="6" lg="4">
+                <v-card class="market-pulse-panel" outlined>
+                    <v-card-title class="text-subtitle-1 font-weight-bold">
+                        <v-icon left color="primary">mdi-brain</v-icon>
+                        <?php echo esc_html( __( 'AI market summary' ) ); ?>
+                    </v-card-title>
+                    <v-divider></v-divider>
+                    <v-card-text>
+                        <div class="font-weight-medium mb-2">
+                            <?php echo esc_html( __( 'Provider-backed insight placeholder' ) ); ?>
+                        </div>
+                        <div class="text--secondary">
+                            <?php echo esc_html( __( 'AI summaries will appear here after validated market signals, cache freshness, and safety checks are available.' ) ); ?>
+                        </div>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+        </v-row>
     </v-container>
 </section>
