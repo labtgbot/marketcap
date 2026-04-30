@@ -43,6 +43,8 @@ For staging, production, and telegram profiles, set explicit values for:
 | `TONBANKCARD_TELEGRAM_BASE_URL` | `telegram` profile | Mini App URL configured in BotFather. |
 | `TONBANKCARD_BOT_USERNAME` | Non-local profiles | Username only, without secret token. |
 | `TONBANKCARD_BOT_TOKEN` | `telegram` profile or alerts enabled | Secret; server-side only. |
+| `COINGECKO_API_PLAN` | Optional | `demo` for CoinGecko Public/Demo API or `pro` for CoinGecko Pro API. Defaults to `demo`. |
+| `COINGECKO_API_KEY` | `COINGECKO_API_PLAN=pro` | Secret; server-side only. Optional for `demo`. |
 | `GROQ_API_KEY` | AI feature enabled | Secret; server-side only. |
 | `UPSTASH_REDIS_REST_URL` | Non-local profiles | Cache/rate-limit endpoint. |
 | `UPSTASH_REDIS_REST_TOKEN` | Non-local profiles | Secret; server-side only. |
@@ -61,9 +63,12 @@ Set explicit production feature flags with `true` or `false`:
 - `TONBANKCARD_FEATURE_GAMIFICATION`
 - `TONBANKCARD_FEATURE_PREMIUM`
 
-`COINGECKO_API_KEY` is defined for the future V2 API gateway, but it is optional
-in this stage. The first-source browser integration calls CoinGecko's public API
-directly and continues to work without an API key.
+The V2 market data gateway uses `COINGECKO_API_PLAN` to select the upstream
+CoinGecko root URL and authentication header. `demo` uses the Public/Demo API
+root and sends `COINGECKO_API_KEY` as `x-cg-demo-api-key` when configured. `pro`
+uses the Pro API root and requires `COINGECKO_API_KEY`, sent as
+`x-cg-pro-api-key`. The key is inserted only by the PHP backend and is never
+included in `window.GeckoClient` or browser request parameters.
 
 ## Debug and Assets
 

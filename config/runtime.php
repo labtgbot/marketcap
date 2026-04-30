@@ -202,6 +202,10 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
 
         $telegram_bot_token = (string) tonbankcard_env( 'TONBANKCARD_BOT_TOKEN', '' );
         $coingecko_api_key  = (string) tonbankcard_env( 'COINGECKO_API_KEY', '' );
+        $coingecko_api_plan = strtolower( trim( (string) tonbankcard_env( 'COINGECKO_API_PLAN', 'demo' ) ) );
+        if ( ! in_array( $coingecko_api_plan, [ 'demo', 'pro' ], TRUE ) ) {
+            $coingecko_api_plan = 'demo';
+        }
         $groq_api_key       = (string) tonbankcard_env( 'GROQ_API_KEY', '' );
         $upstash_token      = (string) tonbankcard_env( 'UPSTASH_REDIS_REST_TOKEN', '' );
         $mysql_password     = (string) tonbankcard_env( 'MYSQL_PASSWORD', '' );
@@ -231,6 +235,7 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
                 'coingecko' => [
                     'api_key'            => $coingecko_api_key,
                     'api_key_configured' => '' !== trim( $coingecko_api_key ),
+                    'api_plan'           => $coingecko_api_plan,
                 ],
                 'groq'      => [
                     'api_key'            => $groq_api_key,

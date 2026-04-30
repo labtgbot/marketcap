@@ -74,9 +74,8 @@ $linked_data = [
 
         // Add Preconnect Tags
         if ( GECKO_CLIENT_PRECONNECT ) {
-            // CoinGecko Origins
+            // CoinGecko image asset origin
             ?>
-            <link rel="preconnect" href="https://api.coingecko.com" />
             <link rel="preconnect" href="https://assets.coingecko.com" />
             <?php
         }
