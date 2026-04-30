@@ -495,6 +495,100 @@ async function checkSearchInteraction(page, errors, requestLog) {
     await assertNoErrors(errors, 'search interaction');
 }
 
+async function checkResponsiveDesignSystem(page, errors) {
+    log('Checking responsive design system and Telegram theme adaptation');
+
+    await page.addInitScript(() => {
+        try {
+            window.localStorage.removeItem('GeckoClient:theme');
+        } catch (err) {
+            // Ignore storage access failures in browser privacy modes.
+        }
+
+        window.Telegram = {
+            WebApp: {
+                colorScheme: 'dark',
+                themeParams: {
+                    bg_color: '#10131a',
+                    secondary_bg_color: '#151a23',
+                    text_color: '#f4f7fb',
+                    hint_color: '#8f9aae',
+                    link_color: '#54c8e8',
+                    button_color: '#1bb2da',
+                    button_text_color: '#071018',
+                    header_bg_color: '#10131a',
+                    bottom_bar_bg_color: '#151a23',
+                    destructive_text_color: '#ff6b6b',
+                },
+                __events: {},
+                onEvent(name, callback) {
+                    this.__events[name] = callback;
+                },
+                ready() {},
+                expand() {},
+                setHeaderColor(color) {
+                    this.__headerColor = color;
+                },
+                setBackgroundColor(color) {
+                    this.__backgroundColor = color;
+                },
+                setBottomBarColor(color) {
+                    this.__bottomBarColor = color;
+                },
+            },
+        };
+    });
+
+    await page.setViewportSize({width: 360, height: 760});
+    await page.goto(`${baseURL}/`, {waitUntil: 'domcontentloaded'});
+    await page.locator('#currencies-table').waitFor({state: 'visible'});
+    await page.locator('#currencies-table tbody tr', {hasText: 'Bitcoin'}).first().waitFor({state: 'visible'});
+
+    const result = await page.evaluate(() => {
+        const root = document.documentElement;
+        const app = document.querySelector('.v-application');
+        const rootStyles = getComputedStyle(root);
+        const appBar = document.querySelector('.v-app-bar');
+        const themeColor = document.querySelector('meta[name="theme-color"]');
+
+        return {
+            viewportWidth: window.innerWidth,
+            scrollWidth: Math.max(root.scrollWidth, document.body.scrollWidth),
+            telegramClass: root.classList.contains('tbc-telegram-webview'),
+            darkClass: root.classList.contains('tbc-theme-dark') || (app && app.classList.contains('theme--dark')),
+            telegramBg: rootStyles.getPropertyValue('--tbc-tg-bg').trim(),
+            telegramButton: rootStyles.getPropertyValue('--tbc-tg-button').trim(),
+            appBarBg: appBar ? getComputedStyle(appBar).backgroundColor : '',
+            themeColor: themeColor ? themeColor.content : '',
+            nativeHeaderColor: window.Telegram.WebApp.__headerColor || '',
+            nativeBackgroundColor: window.Telegram.WebApp.__backgroundColor || '',
+            nativeBottomBarColor: window.Telegram.WebApp.__bottomBarColor || '',
+        };
+    });
+
+    if (result.scrollWidth > result.viewportWidth) {
+        fail(`360px viewport overflowed: scrollWidth ${result.scrollWidth}, viewport ${result.viewportWidth}`);
+    }
+
+    if (!result.telegramClass || !result.darkClass) {
+        fail(`Telegram webview dark theme did not activate: ${JSON.stringify(result)}`);
+    }
+
+    if (result.telegramBg !== '#10131A' || result.telegramButton !== '#1BB2DA') {
+        fail(`Telegram CSS theme parameters were not applied: ${JSON.stringify(result)}`);
+    }
+
+    if (result.nativeHeaderColor !== '#10131A' || result.nativeBackgroundColor !== '#10131A' || result.nativeBottomBarColor !== '#151A23') {
+        fail(`Telegram native color APIs were not synchronized: ${JSON.stringify(result)}`);
+    }
+
+    if (!['#10131A', '#1BB2DA'].includes(result.themeColor)) {
+        fail(`Theme color meta did not follow Telegram or Vuetify theme: ${JSON.stringify(result)}`);
+    }
+
+    await assertNoErrors(errors, 'responsive design system');
+}
+
 async function run() {
     startServer();
     await waitForServer();
@@ -534,6 +628,7 @@ async function run() {
         await checkCoinDetail(page, errors, requestLog);
         await checkExchangesList(page, errors, requestLog);
         await checkSearchInteraction(page, errors, requestLog);
+        await checkResponsiveDesignSystem(page, errors);
         await assertNoDirectProviderRequests(directProviderRequests);
     } catch (err) {
         const screenshotPath = path.join(logDir, 'browser-smoke-failure.png');
