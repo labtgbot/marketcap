@@ -35,19 +35,24 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 */
 $navigation['items'] = [
     [
-        'text' => 'Cryptocurrencies',
-        'icon' => 'mdi-cash-lock',
+        'text' => 'Market Pulse',
+        'icon' => 'mdi-pulse',
         'route' => 'currencies',
     ],
     [
         'text' => 'Markets',
-        'icon' => 'mdi-chart-line',
+        'icon' => 'mdi-table-large',
         'route' => 'markets',
     ],
     [
         'text' => 'TON Ecosystem',
         'icon' => 'mdi-diamond-stone',
         'route' => 'ton',
+    ],
+    [
+        'text' => 'Watchlist',
+        'icon' => 'mdi-star-outline',
+        'route' => 'watchlist',
     ],
     [
         'text' => 'Exchanges',

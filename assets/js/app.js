@@ -1701,110 +1701,248 @@
 
 })(window, GeckoClient);
 
-(function (window, CoinGecko, GeckoClient) {
+(function (window, _, CoinGecko, GeckoClient) {
     'use strict';
 
     const setTitle = GeckoClient.setTitle;
+    const options = GeckoClient.getOptions('currencies');
+    const route = GeckoClient.routesConfig.currencies;
+    const perPage = Math.min(100, options.perPage) || 50;
+    const watchlistStorageKeys = ['TONBANKCARD:watchlist', 'GeckoClient:watchlist'];
 
-    const currenciesRouteConfig = GeckoClient.routesConfig.currencies;
-    const marketsRouteConfig = GeckoClient.routesConfig.markets;
-    const currenciesOptions = GeckoClient.getOptions('currencies');
-    const marketsOptions = GeckoClient.getOptions('markets', {});
-    const tableHeaders = currenciesOptions.tableHeaders.filter(header => header.show);
-    const perPage = Math.min(250, currenciesOptions.perPage) || 100;
+    function percentChange(currency) {
+        return parseFloat(currency.price_change_percentage_24h_in_currency);
+    }
 
-    function currenciesComponent(routeTitle) {
-        return {
-            template: '#route-currencies',
-            data: function () {
-                return {
-                    order: currenciesOptions.order,
-                    priceChanges: currenciesOptions.priceChanges,
-                    currencies: [],
-                    page: 0,
-                    perPage: perPage,
-                    loading: false,
-                    loadMore: true,
-                    loadMoreLoading: false,
-                };
-            },
-            created: function () {
-                this.fetchFirstCurrencies();
-                // update title meta tags
-                setTitle(routeTitle || currenciesOptions.title);
-            },
-            watch: {
-                '$root.vsCurrencyId': function () {
-                    // refresh values with new vs currency
-                    this.fetchFirstCurrencies();
-                }
-            },
-            computed: {
-                tableHeaders: function () {
-                    if (this.$vuetify.breakpoint.xs) {
-                        // hide rank column in smartphones
-                        return _.reject(tableHeaders, ['value', 'market_cap_rank']);
-                    }
-                    return tableHeaders;
-                }
-            },
-            methods: {
-                fetchCurrencies: function () {
-                    const params = {
-                        per_page: this.perPage,
-                        page: ++this.page,
-                        order: this.order,
-                        vs_currency: this.$root.vsCurrencyId,
-                        price_change_percentage: this.priceChanges.join(','),
-                        sparkline: true
-                    };
-                    return CoinGecko.coinsMarkets(params)
-                        .then(currencies => {
-                            _.each(currencies, currency => {
-                                currency.route = {name: 'currency', params: {id: currency.id}};
-                                this.currencies.push(currency);
-                            })
-                            this.loadMore = currencies.length === this.perPage;
-                            return currencies;
-                        })
-                        .catch(err => this.loadMore = false);
-                },
-                fetchFirstCurrencies: function () {
-                    // reset
-                    this.currencies = [];
-                    this.page = 0;
-                    this.loadMore = true;
-                    this.loadMoreLoading = false;
-
-                    this.loading = true;
-                    return this.fetchCurrencies().finally(() => this.loading = false);
-                },
-                fetchMoreCurrencies: function () {
-                    this.loadMoreLoading = true;
-                    return this.fetchCurrencies().finally(() => this.loadMoreLoading = false);
-                },
-                toCurrency: function (currency) {
-                    this.$router.push(currency.route);
-                }
-            }
-        };
+    function hasFiniteChange(currency) {
+        return _.isFinite(percentChange(currency));
     }
 
     GeckoClient.router.addRoute({
         name: 'currencies',
-        path: currenciesRouteConfig.path,
-        component: currenciesComponent(currenciesOptions.title)
+        path: route.path,
+        component: {
+            template: '#route-currencies',
+            data: function () {
+                return {
+                    global: null,
+                    marketCurrencies: [],
+                    trendingCoins: [],
+                    watchlistIds: [],
+                    loadingGlobal: false,
+                    loadingMarkets: false,
+                    loadingTrending: false,
+                    globalError: false,
+                    marketError: false,
+                    trendingError: false,
+                    globalMeta: null,
+                    marketMeta: null,
+                    marketConfig: null
+                };
+            },
+            created: function () {
+                this.loadWatchlist();
+                this.fetchPulse();
+                setTitle(options.title);
+            },
+            watch: {
+                '$root.vsCurrencyId': function () {
+                    this.fetchPulse();
+                }
+            },
+            computed: {
+                loading: function () {
+                    return this.loadingGlobal || this.loadingMarkets || this.loadingTrending;
+                },
+                upstreamError: function () {
+                    return this.marketError && !this.marketCurrencies.length;
+                },
+                partialError: function () {
+                    return !this.upstreamError && (this.globalError || this.marketError || this.trendingError);
+                },
+                freshnessMeta: function () {
+                    return this.marketMeta || this.globalMeta || null;
+                },
+                freshnessStatus: function () {
+                    return _.get(this.freshnessMeta, 'freshness.cache_status', null);
+                },
+                freshnessLabel: function () {
+                    const status = this.freshnessStatus || 'fresh';
+                    const label = ['pass', 'hit', 'fresh'].indexOf(status) >= 0 ? 'Fresh' : _.startCase(status);
+                    const timestamp = _.get(this.freshnessMeta, 'freshness.last_updated_at')
+                        || _.get(this.freshnessMeta, 'freshness.fetched_at');
+
+                    return timestamp ? label + ' ' + this.relativeTime(timestamp) : label;
+                },
+                freshnessColor: function () {
+                    return this.isStale ? 'warning' : 'success';
+                },
+                isStale: function () {
+                    return ['stale', 'expired', 'fallback'].indexOf(this.freshnessStatus) >= 0;
+                },
+                globalStats: function () {
+                    return [
+                        {
+                            label: 'Market cap',
+                            icon: 'mdi-finance',
+                            value: this.$root.marketCapFormat(_.get(this.global, ['total_market_cap', this.$root.vsCurrencyId], null))
+                        },
+                        {
+                            label: '24h volume',
+                            icon: 'mdi-chart-bar',
+                            value: this.$root.volumeFormat(_.get(this.global, ['total_volume', this.$root.vsCurrencyId], null))
+                        },
+                        {
+                            label: 'Assets',
+                            icon: 'mdi-database',
+                            value: this.$root.bigNumberFormat(_.get(this.global, 'active_cryptocurrencies', null))
+                        },
+                        {
+                            label: 'BTC dominance',
+                            icon: 'mdi-bitcoin',
+                            value: this.$root.dominanceFormat(_.get(this.global, ['market_cap_percentage', 'btc'], null))
+                        }
+                    ];
+                },
+                tonCurrencies: function () {
+                    const tonCoinIds = options.tonCoinIds || ['toncoin'];
+                    return this.marketCurrencies.filter(currency => {
+                        const id = _.toLower(currency.id);
+                        const symbol = _.toLower(currency.symbol);
+                        const name = _.toLower(currency.name);
+                        return tonCoinIds.indexOf(id) >= 0 || symbol === 'ton' || name.indexOf('ton') >= 0;
+                    }).slice(0, 4);
+                },
+                topGainers: function () {
+                    return this.marketCurrencies
+                        .filter(currency => hasFiniteChange(currency) && percentChange(currency) > 0)
+                        .slice()
+                        .sort((a, b) => percentChange(b) - percentChange(a))
+                        .slice(0, 4);
+                },
+                topLosers: function () {
+                    return this.marketCurrencies
+                        .filter(currency => hasFiniteChange(currency) && percentChange(currency) < 0)
+                        .slice()
+                        .sort((a, b) => percentChange(a) - percentChange(b))
+                        .slice(0, 4);
+                },
+                watchlistCurrencies: function () {
+                    if (!this.watchlistIds.length) return [];
+
+                    return this.marketCurrencies.filter(currency => {
+                        return this.watchlistIds.indexOf(currency.id) >= 0 || this.watchlistIds.indexOf(currency.symbol) >= 0;
+                    }).slice(0, 4);
+                }
+            },
+            methods: {
+                fetchPulse: function () {
+                    this.fetchGlobal();
+                    this.fetchMarketCurrencies();
+                    this.fetchTrendingCoins();
+                },
+                fetchGlobal: function () {
+                    this.loadingGlobal = true;
+                    this.globalError = false;
+
+                    return CoinGecko.global()
+                        .then(global => {
+                            this.global = global;
+                            this.globalMeta = CoinGecko.metaGet('global', undefined) || null;
+                        })
+                        .catch(() => this.globalError = true)
+                        .finally(() => this.loadingGlobal = false);
+                },
+                fetchMarketCurrencies: function () {
+                    const params = {
+                        per_page: perPage,
+                        page: 1,
+                        order: options.order,
+                        vs_currency: this.$root.vsCurrencyId,
+                        price_change_percentage: options.priceChanges.join(','),
+                        sparkline: true
+                    };
+
+                    this.marketConfig = {params: params};
+                    this.loadingMarkets = true;
+                    this.marketError = false;
+
+                    return CoinGecko.coinsMarkets(params)
+                        .then(currencies => {
+                            this.marketCurrencies = currencies.map(currency => this.extendCurrency(currency));
+                            this.marketMeta = CoinGecko.metaGet('coins/markets', this.marketConfig) || null;
+                        })
+                        .catch(() => {
+                            this.marketError = true;
+                            this.marketCurrencies = [];
+                        })
+                        .finally(() => this.loadingMarkets = false);
+                },
+                fetchTrendingCoins: function () {
+                    this.loadingTrending = true;
+                    this.trendingError = false;
+
+                    return CoinGecko.searchTrending()
+                        .then(trending => {
+                            this.trendingCoins = (trending.coins || [])
+                                .slice(0, 6)
+                                .map(coin => this.extendCurrency(coin));
+                        })
+                        .catch(() => this.trendingError = true)
+                        .finally(() => this.loadingTrending = false);
+                },
+                extendCurrency: function (currency) {
+                    currency.route = {name: 'currency', params: {id: currency.id}};
+                    return currency;
+                },
+                readWatchlistIds: function () {
+                    for (let i = 0; i < watchlistStorageKeys.length; i++) {
+                        const raw = window.localStorage.getItem(watchlistStorageKeys[i]);
+                        if (!raw) continue;
+
+                        try {
+                            const parsed = JSON.parse(raw);
+                            if (_.isArray(parsed)) {
+                                return parsed.map(item => {
+                                    const id = _.isString(item) ? item : _.get(item, 'id') || _.get(item, 'coin_id');
+                                    return _.toLower(id);
+                                }).filter(Boolean);
+                            }
+                            if (_.isObject(parsed)) {
+                                return _.keys(parsed).map(id => _.toLower(id));
+                            }
+                        } catch (err) {
+                            return [];
+                        }
+                    }
+
+                    return [];
+                },
+                loadWatchlist: function () {
+                    this.watchlistIds = this.readWatchlistIds();
+                },
+                relativeTime: function (timestamp) {
+                    const date = new Date(timestamp);
+                    if (!GeckoClient.utils.isValidDate(date)) return '';
+
+                    const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+                    if (seconds < 60) return 'now';
+                    if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+                    if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+                    return Math.floor(seconds / 86400) + 'd ago';
+                },
+                focusSearch: function () {
+                    const input = document.querySelector('.gc-search-bar input[type="text"]');
+                    if (input) {
+                        input.focus();
+                        input.click();
+                    }
+                }
+            }
+        }
     });
 
-    if (marketsRouteConfig) {
-        GeckoClient.router.addRoute({
-            name: 'markets',
-            path: marketsRouteConfig.path,
-            component: currenciesComponent(marketsOptions.title || currenciesOptions.title)
-        });
-    }
-
-})(window, CoinGecko, GeckoClient);
+})(window, _, CoinGecko, GeckoClient);
 
 (function (window, CoinGecko, GeckoClient) {
     'use strict';
@@ -2453,6 +2591,99 @@
 
 })(window, _, CoinGecko, GeckoClient);
 
+(function (window, CoinGecko, GeckoClient) {
+    'use strict';
+
+    const setTitle = GeckoClient.setTitle;
+
+    const marketsRoute = GeckoClient.routesConfig.markets;
+    const marketsOptions = GeckoClient.getOptions('markets');
+    const tableHeaders = marketsOptions.tableHeaders.filter(header => header.show);
+    const perPage = Math.min(250, marketsOptions.perPage) || 100;
+
+    if (!marketsRoute) return;
+
+    GeckoClient.router.addRoute({
+        name: 'markets',
+        path: marketsRoute.path,
+        component: {
+            template: '#route-markets',
+            data: function () {
+                return {
+                    order: marketsOptions.order,
+                    priceChanges: marketsOptions.priceChanges,
+                    currencies: [],
+                    page: 0,
+                    perPage: perPage,
+                    loading: false,
+                    loadMore: true,
+                    loadMoreLoading: false,
+                };
+            },
+            created: function () {
+                this.fetchFirstCurrencies();
+                // update title meta tags
+                setTitle(marketsOptions.title);
+            },
+            watch: {
+                '$root.vsCurrencyId': function () {
+                    // refresh values with new vs currency
+                    this.fetchFirstCurrencies();
+                }
+            },
+            computed: {
+                tableHeaders: function () {
+                    if (this.$vuetify.breakpoint.xs) {
+                        // hide rank column in smartphones
+                        return _.reject(tableHeaders, ['value', 'market_cap_rank']);
+                    }
+                    return tableHeaders;
+                }
+            },
+            methods: {
+                fetchCurrencies: function () {
+                    const params = {
+                        per_page: this.perPage,
+                        page: ++this.page,
+                        order: this.order,
+                        vs_currency: this.$root.vsCurrencyId,
+                        price_change_percentage: this.priceChanges.join(','),
+                        sparkline: true
+                    };
+                    return CoinGecko.coinsMarkets(params)
+                        .then(currencies => {
+                            _.each(currencies, currency => {
+                                currency.route = {name: 'currency', params: {id: currency.id}};
+                                this.currencies.push(currency);
+                            })
+                            this.loadMore = currencies.length === this.perPage;
+                            return currencies;
+                        })
+                        .catch(err => this.loadMore = false);
+                },
+                fetchFirstCurrencies: function () {
+                    // reset
+                    this.currencies = [];
+                    this.page = 0;
+                    this.loadMore = true;
+                    this.loadMoreLoading = false;
+
+                    this.loading = true;
+                    return this.fetchCurrencies().finally(() => this.loading = false);
+                },
+                fetchMoreCurrencies: function () {
+                    this.loadMoreLoading = true;
+                    return this.fetchCurrencies().finally(() => this.loadMoreLoading = false);
+                },
+                toCurrency: function (currency) {
+                    this.$router.push(currency.route);
+                }
+            }
+        }
+    });
+
+})(window, CoinGecko, GeckoClient);
+
 (function (window, GeckoClient) {
     'use strict';
 
@@ -2482,7 +2713,7 @@
 
     const setTitle = GeckoClient.setTitle;
 
-    ['ton', 'screener', 'support'].forEach(routeName => {
+    ['screener', 'support'].forEach(routeName => {
         const routeConfig = GeckoClient.routesConfig[routeName];
         if (!routeConfig) return;
 
@@ -2505,6 +2736,25 @@
 (function (window, GeckoClient) {
     'use strict';
 
+    const route = GeckoClient.routesConfig.ton;
+    if (!route) return;
+
+    GeckoClient.router.addRoute({
+        name: 'ton',
+        path: route.path,
+        component: {
+            template: '#route-ton',
+            created: function () {
+                GeckoClient.setTitle(GeckoClient.getOptions('ton').title);
+            }
+        }
+    });
+
+})(window, GeckoClient);
+
+(function (window, GeckoClient) {
+    'use strict';
+
     const routeConfig = GeckoClient.routesConfig.terms;
     if (!routeConfig) return;
 
@@ -2520,6 +2770,25 @@
             created: function () {
                 // update title meta tags
                 setTitle(termsOptions.title)
+            }
+        }
+    });
+
+})(window, GeckoClient);
+
+(function (window, GeckoClient) {
+    'use strict';
+
+    const route = GeckoClient.routesConfig.watchlist;
+    if (!route) return;
+
+    GeckoClient.router.addRoute({
+        name: 'watchlist',
+        path: route.path,
+        component: {
+            template: '#route-watchlist',
+            created: function () {
+                GeckoClient.setTitle(GeckoClient.getOptions('watchlist').title);
             }
         }
     });

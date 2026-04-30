@@ -46,9 +46,13 @@ $route_ton_sections = [
         <?php echo esc_html( 'Current public routes' ); ?>
     </h2>
     <p>
-        <?php echo esc_html( 'Use the market table and coin detail pages for live market data while TON-specific lists, tags, and filters are added in later V2 work.' ); ?>
+        <?php echo esc_html( 'Use Market Pulse, the market table, and coin detail pages for live market data while TON-specific lists, tags, and filters are added in later V2 work.' ); ?>
     </p>
-    <v-btn color="primary" depressed <?php to_attr( 'markets' ); ?>>
+    <v-btn color="primary" depressed :to="{name:'currencies'}">
+        <v-icon left>mdi-pulse</v-icon>
+        <?php echo esc_html( 'Open Market Pulse' ); ?>
+    </v-btn>
+    <v-btn text <?php to_attr( 'markets' ); ?>>
         <v-icon left>mdi-chart-line</v-icon>
         <?php echo esc_html( 'Open markets' ); ?>
     </v-btn>

@@ -35,9 +35,8 @@ $routes['currencies'] = [
 ];
 
 $routes['markets'] = [
-    'path'     => '/markets',
-    'enabled'  => TRUE,
-    'template' => 'currencies',
+    'path' => '/markets',
+    'enabled' => TRUE,
 ];
 
 $routes['currency'] = [
@@ -78,6 +77,11 @@ $routes['derivatives'] = [
 
 $routes['ton'] = [
     'path' => '/ton',
+    'enabled' => TRUE,
+];
+
+$routes['watchlist'] = [
+    'path' => '/watchlist',
     'enabled' => TRUE,
 ];
 
