@@ -14,10 +14,11 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 
 /**
  * @var array $site
+ * @var array $v2
  */
 
 ?>
-<v-app-bar app flat absolute dark color="primary darken-1" class="tbc-app-bar">
+<v-app-bar app flat absolute dark color="primary darken-1" class="tbc-app-bar public-web-navigation">
     <?php
         /*
          * NAV ICON BUTTON
@@ -53,6 +54,18 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
             </router-link>
         </v-toolbar-title>
         <?php
+
+        if ( ! empty( $v2['public_navigation'] ) ) {
+            ?>
+            <div class="public-web-navigation-links d-none d-lg-flex align-center ml-4">
+                <?php foreach ( $v2['public_navigation'] as $item ) : ?>
+                    <v-btn text small <?php link_attrs( $item ); ?>>
+                        <?php echo esc_html( $item['text'] ); ?>
+                    </v-btn>
+                <?php endforeach; ?>
+            </div>
+            <?php
+        }
 
         /*
          * SEARCH BAR COMPONENT

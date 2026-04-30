@@ -24,6 +24,7 @@
   "routes/finance-products.js",
   "routes/markets.js",
   "routes/privacy-policy.js",
+  "routes/public-static.js",
   "routes/ton.js",
   "routes/terms.js",
   "routes/watchlist.js",

@@ -1,0 +1,24 @@
+{
+  "name": "TONBANKCARD Crypto Tracker",
+  "short_name": "TONBANKCARD",
+  "description": "Public cryptocurrency market tracker and TON ecosystem shell for TONBANKCARD.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0B1020",
+  "theme_color": "#0B1020",
+  "icons": [
+    {
+      "src": "/assets/images/tonbankcard-icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/images/tonbankcard-apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["finance", "productivity"],
+  "lang": "en"
+}

@@ -272,6 +272,15 @@ v-app {
 .gc-search-bar {
     max-width: 600px;
 }
+.public-web-navigation-links {
+    gap: 4px;
+}
+.public-web-navigation-links .v-btn {
+    padding: 0 8px;
+}
+.public-web-bottom-navigation .v-btn {
+    min-width: 0;
+}
 .gc-page-loader {
     height: 80vh;
 }
@@ -467,6 +476,15 @@ v-app {
 }
 
 #about {
+    max-width: 1200px;
+}
+#ton {
+    max-width: 1200px;
+}
+#screener {
+    max-width: 1200px;
+}
+#support {
     max-width: 1200px;
 }
 #terms {
