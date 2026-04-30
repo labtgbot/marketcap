@@ -1,0 +1,148 @@
+.font-family-monospace {
+    font-family: monospace !important;
+}
+a.link-no-style {
+    color: inherit !important;
+    text-decoration: none !important;
+}
+v-app {
+    visibility: hidden;
+}
+.gc-search-bar {
+    max-width: 600px;
+}
+.gc-page-loader {
+    height: 80vh;
+}
+.gc-stats-bar {
+    white-space: nowrap;
+    overflow-x: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+.gc-stats-bar::-webkit-scrollbar {
+    display: none;
+}
+.gc-stats-bar > span {
+    margin: 0 8px;
+}
+
+.gc-stats-bar > span > a {
+    text-decoration: none;
+    color: #fff;
+    caret-color: #fff;
+}
+.gc-disclaimer-message {
+    max-width: 1200px;
+    margin: 32px auto;
+    padding: 16px;
+}
+
+.gc-trending-coins .coins {
+    max-width: 100%;
+}
+
+#currencies {
+    max-width: 1800px;
+}
+#currencies {
+    max-width: 1800px;
+}
+#currencies-table tbody tr {
+    cursor: pointer;
+}
+#currencies-table tbody td {
+    white-space: nowrap;
+}
+#currencies-table .name-xs {
+    white-space: normal;
+    font-weight: 500;
+    padding: 8px 0;
+    text-decoration: none;
+    color: inherit;
+}
+#currencies-table .name-xs .c-text {
+    margin-left: 6px;
+}
+.v-application--is-rtl #currencies-table .name-xs .c-text {
+    margin-right: 6px;
+}
+#currencies-table .name-xs .c-name {
+    max-width: 100px;
+}
+#currencies-table .name-xs .c-rank {
+    padding: 0 6px;
+}
+@media only screen and (max-width: 599px) {
+    #currencies-table td {
+        padding: 0 8px;
+    }
+}
+#currency {
+    max-width: 1200px;
+}
+#currency-info-menus .v-btn {
+    margin: 0 8px 12px 0;
+}
+#currency-price {
+    word-break: break-all;
+}
+.gc-currency-chart-loader {
+    height: 60vh;
+    min-height: 600px;
+}
+.gc-currency-chart-container {
+    width: 100%;
+    height: 60vh;
+    min-height: 600px;
+}
+#currency-market {
+    min-height: 400px;
+}
+#currency-historical {
+    min-height: 400px;
+}
+
+#exchanges {
+    max-width: 1200px;
+}
+#exchanges-table tbody tr {
+    cursor: pointer;
+}
+#exchange {
+    max-width: 1200px;
+}
+.gc-exchange-chart-loader {
+    height: 40vh;
+    min-height: 200px;
+}
+.gc-exchange-chart-container {
+    width: 100%;
+    height: 40vh;
+    min-height: 200px;
+}
+#derivatives-table tbody td {
+    white-space: nowrap;
+}
+#finance-platforms {
+
+}
+#finance-products {
+    max-width: 1200px;
+}
+#finance-products-table .product-identifier > span {
+    max-width: 200px;
+}
+
+#about {
+    max-width: 1200px;
+}
+#terms {
+    max-width: 1200px;
+}
+#privacy-policy {
+    max-width: 1200px;
+}
+#cookies-policy {
+    max-width: 1200px;
+}
