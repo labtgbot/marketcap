@@ -33,6 +33,18 @@ function file_modified_time( string $file_path ) {
  * @return null|string
  */
 function base_url() {
+    if ( ! empty( $GLOBALS['runtime_config']['urls']['active'] ) ) {
+        return $GLOBALS['runtime_config']['urls']['active'];
+    }
+
+    if ( ! empty( $GLOBALS['site']['active_base_url'] ) ) {
+        return $GLOBALS['site']['active_base_url'];
+    }
+
+    if ( defined( 'TONBANKCARD_PROFILE' ) && ! empty( $GLOBALS['site']['base_url'][ TONBANKCARD_PROFILE ] ) ) {
+        return $GLOBALS['site']['base_url'][ TONBANKCARD_PROFILE ];
+    }
+
     return empty( $GLOBALS['site']['base_url'][ GECKO_CLIENT_ENV ] ) ? null : $GLOBALS['site']['base_url'][ GECKO_CLIENT_ENV ];
 }
 
@@ -289,6 +301,81 @@ function to_attr(string $route, array $params = [], bool $echo = true ) {
 }
 
 /**
+ * Builds a configuration error entry for an environment variable.
+ *
+ * @param string $name
+ * @param string $message
+ * @param string $example
+ * @return array
+ */
+function tonbankcard_env_error( string $name, string $message, string $example = "'value'" ) {
+    return [
+        'file'    => '.env or server environment',
+        'config'  => $name,
+        'message' => $message,
+        'example' => $example,
+    ];
+}
+
+/**
+ * Checks whether a URL is absolute HTTP(S).
+ *
+ * @param string $url
+ * @return bool
+ */
+function tonbankcard_valid_absolute_url( string $url ) {
+    $parts = parse_url( $url );
+    return ! empty( $parts['scheme'] )
+        && ! empty( $parts['host'] )
+        && in_array( strtolower( $parts['scheme'] ), [ 'http', 'https' ], TRUE );
+}
+
+/**
+ * Adds a missing environment variable error.
+ *
+ * @param array $invalid
+ * @param string $name
+ * @param string $message
+ * @param string $example
+ */
+function tonbankcard_require_env( array &$invalid, string $name, string $message, string $example = "'<set in deployment secret store>'" ) {
+    $value = tonbankcard_env( $name, '' );
+    if ( '' === trim( (string) $value ) ) {
+        $invalid[] = tonbankcard_env_error( $name, $message, $example );
+    }
+}
+
+/**
+ * Adds an invalid or missing URL environment variable error.
+ *
+ * @param array $invalid
+ * @param string $name
+ * @param string $url
+ * @param string $message
+ * @param string $example
+ */
+function tonbankcard_require_url( array &$invalid, string $name, string $url, string $message, string $example ) {
+    if ( '' === trim( $url ) || ! tonbankcard_valid_absolute_url( $url ) ) {
+        $invalid[] = tonbankcard_env_error( $name, $message, $example );
+    }
+}
+
+/**
+ * Returns TRUE when an environment value is a supported boolean string.
+ *
+ * @param string $name
+ * @return bool
+ */
+function tonbankcard_env_bool_is_valid( string $name ) {
+    if ( ! tonbankcard_env_has( $name ) ) {
+        return TRUE;
+    }
+
+    $value = strtolower( trim( (string) tonbankcard_env( $name, '' ) ) );
+    return in_array( $value, [ '1', '0', 'true', 'false', 'yes', 'no', 'on', 'off' ], TRUE );
+}
+
+/**
  * @since 1.0.0
  * Returns invalid constants
  *
@@ -306,6 +393,166 @@ function validate_constants() {
         ];
     }
 
+    if ( ! in_array( TONBANKCARD_PROFILE, [ 'local', 'staging', 'production', 'telegram' ], TRUE ) ) {
+        $invalid[] = [
+            'file'     => '.env or server environment',
+            'constant' => 'TONBANKCARD_PROFILE',
+            'message'  => "Enter 'local', 'staging', 'production', or 'telegram'.",
+            'example'  => "'production'"
+        ];
+    }
+
+    return $invalid;
+}
+
+/**
+ * Returns invalid runtime environment configuration.
+ *
+ * @return array
+ */
+function validate_runtime_config() {
+    $invalid = [];
+    $runtime = isset( $GLOBALS['runtime_config'] ) ? $GLOBALS['runtime_config'] : tonbankcard_runtime_config();
+    $profile = isset( $runtime['profile'] ) ? $runtime['profile'] : 'local';
+
+    switch ( $profile ) {
+        case 'local':
+            tonbankcard_require_url(
+                $invalid,
+                'TONBANKCARD_LOCAL_BASE_URL',
+                $runtime['urls']['local'],
+                'Enter a valid local absolute URL.',
+                "'http://localhost:8888/'"
+            );
+            break;
+        case 'staging':
+            tonbankcard_require_url(
+                $invalid,
+                'TONBANKCARD_STAGING_BASE_URL',
+                $runtime['urls']['staging'],
+                'Enter the public staging absolute URL.',
+                "'https://staging-marketcap.tonbankcard.com/'"
+            );
+            break;
+        case 'production':
+            tonbankcard_require_url(
+                $invalid,
+                'TONBANKCARD_PUBLIC_BASE_URL',
+                $runtime['urls']['public'],
+                'Enter the production public website absolute URL.',
+                "'https://marketcap.tonbankcard.com/'"
+            );
+            break;
+        case 'telegram':
+            tonbankcard_require_url(
+                $invalid,
+                'TONBANKCARD_TELEGRAM_BASE_URL',
+                $runtime['urls']['telegram'],
+                'Enter the Telegram Mini App absolute URL.',
+                "'https://miniapp.tonbankcard.com/'"
+            );
+            tonbankcard_require_url(
+                $invalid,
+                'TONBANKCARD_PUBLIC_BASE_URL',
+                $runtime['urls']['public'],
+                'Enter the public website absolute URL used by shared links and fallbacks.',
+                "'https://marketcap.tonbankcard.com/'"
+            );
+            break;
+    }
+
+    $feature_flags = [
+        'TONBANKCARD_FEATURE_AI',
+        'TONBANKCARD_FEATURE_ALERTS',
+        'TONBANKCARD_FEATURE_CHANGENOW',
+        'TONBANKCARD_FEATURE_TON_CONNECT',
+        'TONBANKCARD_FEATURE_REFERRALS',
+        'TONBANKCARD_FEATURE_GAMIFICATION',
+        'TONBANKCARD_FEATURE_PREMIUM',
+    ];
+
+    foreach ( $feature_flags as $flag ) {
+        if ( ! tonbankcard_env_bool_is_valid( $flag ) ) {
+            $invalid[] = tonbankcard_env_error(
+                $flag,
+                "Enter a boolean value: 'true' or 'false'.",
+                "'false'"
+            );
+        }
+    }
+
+    if ( 'local' !== $profile ) {
+        foreach ( $feature_flags as $flag ) {
+            if ( ! tonbankcard_env_has( $flag ) ) {
+                $invalid[] = tonbankcard_env_error(
+                    $flag,
+                    "Set an explicit production feature flag value: 'true' or 'false'.",
+                    "'false'"
+                );
+            }
+        }
+
+        tonbankcard_require_env(
+            $invalid,
+            'TONBANKCARD_BOT_USERNAME',
+            'Set the Telegram bot username used for Mini App and shared-link entry points.',
+            "'tonbankcard_bot'"
+        );
+        tonbankcard_require_env(
+            $invalid,
+            'UPSTASH_REDIS_REST_URL',
+            'Set the Upstash Redis REST URL used by cache and rate-limit services.',
+            "'https://example.upstash.io'"
+        );
+        tonbankcard_require_env(
+            $invalid,
+            'UPSTASH_REDIS_REST_TOKEN',
+            'Set the Upstash Redis REST token. The value is not exposed to browser JavaScript.'
+        );
+        tonbankcard_require_env(
+            $invalid,
+            'MYSQL_DSN',
+            'Set the MySQL or MariaDB DSN used by server-side persistence.',
+            "'mysql:host=127.0.0.1;dbname=marketcap;charset=utf8mb4'"
+        );
+        tonbankcard_require_env(
+            $invalid,
+            'MYSQL_USER',
+            'Set the MySQL or MariaDB application user.',
+            "'marketcap'"
+        );
+        tonbankcard_require_env(
+            $invalid,
+            'MYSQL_PASSWORD',
+            'Set the MySQL or MariaDB application password. The value is not displayed.'
+        );
+    }
+
+    if ( 'telegram' === $profile || ! empty( $runtime['feature_flags']['alerts'] ) ) {
+        tonbankcard_require_env(
+            $invalid,
+            'TONBANKCARD_BOT_TOKEN',
+            'Set the Telegram bot token for trusted Mini App sessions and bot delivery. The value is not displayed.'
+        );
+    }
+
+    if ( ! empty( $runtime['feature_flags']['ai'] ) ) {
+        tonbankcard_require_env(
+            $invalid,
+            'GROQ_API_KEY',
+            'Set the Groq API key when AI features are enabled. The value is not exposed to browser JavaScript.'
+        );
+    }
+
+    if ( ! empty( $runtime['feature_flags']['changenow'] ) ) {
+        tonbankcard_require_env(
+            $invalid,
+            'CHANGENOW_LINK_ID',
+            'Set the ChangeNOW partner link id when the exchange widget is enabled.',
+            "'3cc0024a18fd9d'"
+        );
+    }
+
     return $invalid;
 }
 
@@ -319,23 +566,39 @@ function validate_site_configs() {
     $invalid = [];
 
     // $site['base_url']
-    $base_url_parsed = parse_url( base_url() );
+    $base_url_parsed = parse_url( (string) base_url() );
     if ( empty( $base_url_parsed ) || empty( $base_url_parsed['scheme'] ) || empty( $base_url_parsed['host'] ) ) {
-        switch ( GECKO_CLIENT_ENV ) {
+        switch ( TONBANKCARD_PROFILE ) {
+            case 'local':
+                $invalid[] = [
+                    'file'    => 'config/site.php',
+                    'config'  => '$site[\'base_url\'][\'local\']',
+                    'message' => 'Enter a valid local absolute URL through TONBANKCARD_LOCAL_BASE_URL.',
+                    'example' => "'http://localhost:8888/'"
+                ];
+                break;
+            case 'staging':
+                $invalid[] = [
+                    'file'    => 'config/site.php',
+                    'config'  => '$site[\'base_url\'][\'staging\']',
+                    'message' => 'Enter a valid staging absolute URL through TONBANKCARD_STAGING_BASE_URL.',
+                    'example' => "'https://staging-marketcap.tonbankcard.com/'"
+                ];
+                break;
             case 'production':
                 $invalid[] = [
                     'file'    => 'config/site.php',
                     'config'  => '$site[\'base_url\'][\'production\']',
-                    'message' => 'Enter a valid public absolute URL.',
-                    'example' => "'https://my-domain.tld'"
+                    'message' => 'Enter a valid public absolute URL through TONBANKCARD_PUBLIC_BASE_URL.',
+                    'example' => "'https://marketcap.tonbankcard.com/'"
                 ];
                 break;
-            case 'development':
+            case 'telegram':
                 $invalid[] = [
                     'file'    => 'config/site.php',
-                    'config'  => '$site[\'base_url\'][\'development\']',
-                    'message' => 'Enter a valid absolute URL.',
-                    'example' => "'http://localhost:8888/gecko-client/'"
+                    'config'  => '$site[\'base_url\'][\'telegram\']',
+                    'message' => 'Enter a valid Telegram Mini App absolute URL through TONBANKCARD_TELEGRAM_BASE_URL.',
+                    'example' => "'https://miniapp.tonbankcard.com/'"
                 ];
                 break;
         }

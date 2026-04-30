@@ -32,6 +32,8 @@ require_once __DIR__ . '/vendor.php';
 if ( GECKO_CLIENT_DISPLAY_ERRORS ) {
     error_reporting( -1 );
     ini_set( 'display_errors', 1 );
+} else {
+    ini_set( 'display_errors', 0 );
 }
 
 /*
@@ -89,9 +91,12 @@ require_once __DIR__ . '/functions.php';
 | VALIDATE CONFIGURATION
 | -------------------------------------------------------------------------
 */
-$invalid_configs = validate_constants();
-$invalid_configs += validate_site_configs();
-$invalid_configs += validate_vuetify_configs();
+$invalid_configs = array_merge(
+    validate_constants(),
+    validate_runtime_config(),
+    validate_site_configs(),
+    validate_vuetify_configs()
+);
 // if any config invalid show "Configuration Errors" view
 if ( ! empty( $invalid_configs ) ) {
     header( 'cache-control: no-cache', TRUE, 500 );

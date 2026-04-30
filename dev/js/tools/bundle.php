@@ -17,7 +17,7 @@
 | Read Documentation > Development
 |
 | Notes:
-| - To enabled this the GECKO_CLIENT_ENV in "constants.php" should be set to 'development'.
+| - To enable this, set TONBANKCARD_PROFILE=local in the environment.
 | - If any file in "dev/js/source.json" is missing it will send an alert.
 | - Not recommended for live websites (load time will be affected).
 |
@@ -42,7 +42,7 @@ header( 'pragma: no-cache' );
 
 // Not in development environment
 if ( GECKO_CLIENT_ENV !== 'development' ) {
-    printf( 'alert("Not in development environment\n\nSet in constants.php:\ndefine( \'GECKO_CLIENT_ENV\', \'development\' );")' );
+    printf( 'alert("Not in development environment\n\nSet TONBANKCARD_PROFILE=local in .env or the server environment.")' );
     exit;
 }
 
@@ -84,5 +84,4 @@ if ( empty( $not_found ) ) {
 } else {
     printf( 'alert("%s:\n%s")', 'Missing Files', implode( "\n", $not_found ) );
 }
-
 
