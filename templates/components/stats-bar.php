@@ -72,6 +72,26 @@ $component_stats_bar['dominance'] = TRUE;
     <v-spacer></v-spacer>
     <?php
         /*
+         * Dominance Percentage
+         */
+        if ( ! empty( $component_stats_bar['dominance'] ) ) {
+            ?>
+            <span v-if="dominanceEntries.length">
+                <?php echo esc_html( __( 'Dominance' ) ); ?>:
+                <router-link
+                    class="text-decoration-none mx-1"
+                    v-for="(entry,index) in dominanceEntries"
+                    v-if="$root.marketCapPercentage(entry.symbol)"
+                    :key="index"
+                    :to="entry.route">
+                    <span class="text-uppercase">{{ entry.symbol }}:</span>
+                    <span v-text="$root.dominanceFormat($root.marketCapPercentage(entry.symbol))"></span>
+                </router-link>
+            </span>
+            <?php
+        }
+
+        /*
          * Total Cryptocurrencies
          */
         if ( ! empty( $component_stats_bar['cryptocurrencies'] ) ) {
@@ -122,25 +142,6 @@ $component_stats_bar['dominance'] = TRUE;
             <?php
         }
 
-        /*
-         * Dominance Percentage
-         */
-        if ( ! empty( $component_stats_bar['dominance'] ) ) {
-            ?>
-            <span v-if="dominanceEntries.length">
-                <?php echo esc_html( __( 'Dominance' ) ); ?>:
-                <router-link
-                    class="text-decoration-none mx-1"
-                    v-for="(entry,index) in dominanceEntries"
-                    v-if="$root.marketCapPercentage(entry.symbol)"
-                    :key="index"
-                    :to="entry.route">
-                    <span class="text-uppercase">{{ entry.symbol }}:</span>
-                    <span v-text="$root.dominanceFormat($root.marketCapPercentage(entry.symbol))"></span>
-                </router-link>
-            </span>
-            <?php
-        }
     ?>
     <v-spacer></v-spacer>
 </v-system-bar>

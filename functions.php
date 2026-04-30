@@ -60,6 +60,501 @@ function site_url( string $path = '' ) {
 }
 
 /**
+ * Returns the current browser path normalized for route matching.
+ *
+ * @return string
+ */
+function tonbankcard_current_path() {
+    $path = '/';
+    if ( ! empty( $_SERVER['REQUEST_URI'] ) ) {
+        $parsed_path = parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH );
+        if ( is_string( $parsed_path ) && '' !== $parsed_path ) {
+            $path = $parsed_path;
+        }
+    }
+
+    $base_path = parse_url( (string) base_url(), PHP_URL_PATH );
+    if ( is_string( $base_path ) && '' !== $base_path && '/' !== $base_path ) {
+        $base_path = '/' . trim( $base_path, '/' );
+        if ( $path === $base_path ) {
+            $path = '/';
+        } elseif ( 0 === strpos( $path, $base_path . '/' ) ) {
+            $path = substr( $path, strlen( $base_path ) );
+        }
+    }
+
+    return tonbankcard_normalize_path( $path );
+}
+
+/**
+ * Normalizes a route path for public route matching.
+ *
+ * @param string $path
+ * @return string
+ */
+function tonbankcard_normalize_path( string $path ) {
+    $path = '/' . ltrim( $path, '/' );
+    if ( '/' !== $path ) {
+        $path = rtrim( $path, '/' );
+    }
+    return $path;
+}
+
+/**
+ * Converts a URL slug into readable title text.
+ *
+ * @param string $slug
+ * @return string
+ */
+function tonbankcard_slug_title( string $slug ) {
+    $known = [
+        'bitcoin'       => 'Bitcoin',
+        'ethereum'      => 'Ethereum',
+        'toncoin'       => 'Toncoin',
+        'tether'        => 'Tether',
+        'usd-coin'      => 'USD Coin',
+        'binancecoin'   => 'BNB',
+        'the-open-network' => 'The Open Network',
+    ];
+
+    $slug = strtolower( trim( $slug ) );
+    if ( isset( $known[ $slug ] ) ) {
+        return $known[ $slug ];
+    }
+
+    $words = preg_split( '/[-_]+/', $slug );
+    $words = array_filter( array_map( 'trim', is_array( $words ) ? $words : [] ) );
+    if ( empty( $words ) ) {
+        return 'Coin';
+    }
+
+    return ucwords( implode( ' ', $words ) );
+}
+
+/**
+ * Matches a path against a route pattern with :parameters.
+ *
+ * @param string $pattern
+ * @param string $path
+ * @return array|null
+ */
+function tonbankcard_match_route_pattern( string $pattern, string $path ) {
+    $pattern = tonbankcard_normalize_path( $pattern );
+    $path    = tonbankcard_normalize_path( $path );
+
+    $param_names = [];
+    $regex = preg_replace_callback(
+        '/\\\\?:([A-Za-z_][A-Za-z0-9_]*)/',
+        function ( $matches ) use ( &$param_names ) {
+            $param_names[] = $matches[1];
+            return '([^/]+)';
+        },
+        preg_quote( $pattern, '#' )
+    );
+
+    if ( ! is_string( $regex ) || ! preg_match( '#^' . $regex . '$#', $path, $matches ) ) {
+        return null;
+    }
+
+    $params = [];
+    foreach ( $param_names as $index => $name ) {
+        $params[ $name ] = rawurldecode( $matches[ $index + 1 ] );
+    }
+
+    return $params;
+}
+
+/**
+ * Replaces :parameters in a route path.
+ *
+ * @param string $path
+ * @param array $params
+ * @return string
+ */
+function tonbankcard_fill_route_path( string $path, array $params ) {
+    foreach ( $params as $name => $value ) {
+        $path = str_replace( ':' . $name, rawurlencode( (string) $value ), $path );
+    }
+    return tonbankcard_normalize_path( $path );
+}
+
+/**
+ * Applies a route subject to every %s placeholder in a metadata template.
+ *
+ * @param string $template
+ * @param string $subject
+ * @return string
+ */
+function tonbankcard_subject_template( string $template, string $subject ) {
+    $placeholder_count = substr_count( $template, '%s' );
+    if ( $placeholder_count < 1 ) {
+        return $template;
+    }
+
+    return vsprintf( $template, array_fill( 0, $placeholder_count, $subject ) );
+}
+
+/**
+ * Returns the V2 public route matching a path.
+ *
+ * @param string|null $path
+ * @return array|null
+ */
+function tonbankcard_public_route_for_path( $path = null ) {
+    $routes = isset( $GLOBALS['routes_v2']['public'] ) && is_array( $GLOBALS['routes_v2']['public'] )
+        ? $GLOBALS['routes_v2']['public']
+        : [];
+    $path = null === $path ? tonbankcard_current_path() : tonbankcard_normalize_path( (string) $path );
+
+    foreach ( $routes as $name => $route ) {
+        if ( empty( $route['path'] ) || ! is_string( $route['path'] ) ) {
+            continue;
+        }
+
+        $params = tonbankcard_match_route_pattern( $route['path'], $path );
+        if ( null === $params ) {
+            continue;
+        }
+
+        $route['name']   = $name;
+        $route['params'] = $params;
+        return $route;
+    }
+
+    return null;
+}
+
+/**
+ * Builds server-rendered metadata for the current public route.
+ *
+ * @param string|null $path
+ * @return array
+ */
+function tonbankcard_public_route_meta( $path = null ) {
+    $route = tonbankcard_public_route_for_path( $path );
+    $site  = $GLOBALS['site'];
+    $path  = null === $path ? tonbankcard_current_path() : tonbankcard_normalize_path( (string) $path );
+
+    if ( empty( $route ) ) {
+        $route = [
+            'name'        => 'home',
+            'path'        => '/',
+            'params'      => [],
+            'title'       => $site['name'],
+            'description' => $site['description'],
+            'og_type'     => 'website',
+            'schema_type' => 'WebPage',
+        ];
+    }
+
+    $params      = isset( $route['params'] ) && is_array( $route['params'] ) ? $route['params'] : [];
+    $subject     = isset( $params['id'] ) ? tonbankcard_slug_title( (string) $params['id'] ) : '';
+    $title       = ! empty( $route['title'] ) ? $route['title'] : $site['title'];
+    $description = ! empty( $route['description'] ) ? $route['description'] : $site['description'];
+
+    if ( $subject && ! empty( $route['title_template'] ) ) {
+        $title = tonbankcard_subject_template( $route['title_template'], $subject );
+    }
+    if ( $subject && ! empty( $route['description_template'] ) ) {
+        $description = tonbankcard_subject_template( $route['description_template'], $subject );
+    }
+
+    $canonical_path = ! empty( $route['canonical_path'] ) ? $route['canonical_path'] : $path;
+    $canonical_path = tonbankcard_fill_route_path( $canonical_path, $params );
+    $canonical_url  = site_url( ltrim( $canonical_path, '/' ) );
+    $full_title     = $title === $site['title'] ? $site['title'] : $title . ' - ' . $site['title'];
+
+    return [
+        'route'         => $route,
+        'path'          => $path,
+        'canonical_url' => $canonical_url,
+        'title'         => $title,
+        'full_title'    => $full_title,
+        'description'   => $description,
+        'og_type'       => ! empty( $route['og_type'] ) ? $route['og_type'] : 'website',
+        'schema_type'   => ! empty( $route['schema_type'] ) ? $route['schema_type'] : 'WebPage',
+        'subject'       => $subject,
+        'robots'        => ! empty( $route['robots'] ) ? $route['robots'] : 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1',
+        'image'         => ! empty( $route['image'] ) ? $route['image'] : ( $site['og_image'] ?: $site['logo'] ),
+        'image_alt'     => ! empty( $route['image_alt'] ) ? $route['image_alt'] : $site['name'] . ' Crypto Tracker market dashboard preview',
+        'image_width'   => ! empty( $route['image_width'] ) ? $route['image_width'] : '1200',
+        'image_height'  => ! empty( $route['image_height'] ) ? $route['image_height'] : '627',
+    ];
+}
+
+/**
+ * Returns external profile links used by Organization structured data.
+ *
+ * @return array
+ */
+function tonbankcard_public_same_as_links() {
+    return [
+        'https://tonbankcard.com/',
+        'https://t.me/tonbankcard',
+        'https://t.me/tonbankcard_ru',
+        'https://twitter.com/tonbankcard',
+        'https://vk.com/tonbankcard',
+        'https://www.youtube.com/@tonbankcard',
+    ];
+}
+
+/**
+ * Builds breadcrumb structured-data items for public routes.
+ *
+ * @param array $meta
+ * @return array
+ */
+function tonbankcard_public_breadcrumb_items( array $meta ) {
+    $items = [
+        [
+            '@type'    => 'ListItem',
+            'position' => 1,
+            'name'     => 'Market Overview',
+            'item'     => site_url(),
+        ],
+    ];
+
+    if ( '/' === $meta['path'] ) {
+        return $items;
+    }
+
+    $items[] = [
+        '@type'    => 'ListItem',
+        'position' => 2,
+        'name'     => $meta['subject'] ?: $meta['title'],
+        'item'     => $meta['canonical_url'],
+    ];
+
+    return $items;
+}
+
+/**
+ * Builds JSON-LD objects for the public website shell.
+ *
+ * @param array $meta
+ * @return array
+ */
+function tonbankcard_public_linked_data( array $meta ) {
+    $site = $GLOBALS['site'];
+    $organization_id = site_url( '#organization' );
+    $website_id      = site_url( '#website' );
+    $webpage_id      = $meta['canonical_url'] . '#webpage';
+    $image_url       = get_file_url_for_display( $meta['image'] );
+    $data = [
+        [
+            '@context' => 'https://schema.org',
+            '@type'    => 'Organization',
+            '@id'      => $organization_id,
+            'name'     => $site['name'],
+            'url'      => site_url(),
+            'logo'     => get_file_url_for_display( $site['logo'] ),
+            'sameAs'   => tonbankcard_public_same_as_links(),
+        ],
+        [
+            '@context'  => 'https://schema.org',
+            '@type'     => 'WebSite',
+            '@id'       => $website_id,
+            'name'      => $site['name'],
+            'url'       => site_url(),
+            'publisher' => [
+                '@id' => $organization_id,
+            ],
+            'potentialAction' => [
+                '@type'       => 'SearchAction',
+                'target'      => site_url( 'markets?q={search_term_string}' ),
+                'query-input' => 'required name=search_term_string',
+            ],
+        ],
+        [
+            '@context' => 'https://schema.org',
+            '@type'    => 'WebApplication',
+            'name'     => $site['name'] . ' Crypto Tracker',
+            'url'      => site_url(),
+            'applicationCategory' => 'FinanceApplication',
+            'operatingSystem'     => 'Web',
+            'publisher' => [
+                '@id' => $organization_id,
+            ],
+            'offers' => [
+                '@type'         => 'Offer',
+                'price'         => '0',
+                'priceCurrency' => 'USD',
+            ],
+        ],
+        [
+            '@context'    => 'https://schema.org',
+            '@type'       => $meta['schema_type'],
+            '@id'         => $webpage_id,
+            'name'        => $meta['title'],
+            'description' => $meta['description'],
+            'url'         => $meta['canonical_url'],
+            'isPartOf'    => [
+                '@id' => $website_id,
+            ],
+            'publisher'   => [
+                '@id' => $organization_id,
+            ],
+            'breadcrumb'  => [
+                '@id' => $meta['canonical_url'] . '#breadcrumb',
+            ],
+            'primaryImageOfPage' => [
+                '@type'  => 'ImageObject',
+                'url'    => $image_url,
+                'width'  => $meta['image_width'],
+                'height' => $meta['image_height'],
+            ],
+        ],
+        [
+            '@context'        => 'https://schema.org',
+            '@type'           => 'BreadcrumbList',
+            '@id'             => $meta['canonical_url'] . '#breadcrumb',
+            'itemListElement' => tonbankcard_public_breadcrumb_items( $meta ),
+        ],
+    ];
+
+    if ( 'FinancialProduct' === $meta['schema_type'] ) {
+        $data[] = [
+            '@context'    => 'https://schema.org',
+            '@type'       => 'FinancialProduct',
+            'name'        => $meta['subject'] ?: $meta['title'],
+            'description' => $meta['description'],
+            'url'         => $meta['canonical_url'],
+            'category'    => 'Cryptocurrency',
+        ];
+    }
+
+    return $data;
+}
+
+/**
+ * Escapes XML text for sitemap output.
+ *
+ * @param string $value
+ * @return string
+ */
+function tonbankcard_xml_escape( string $value ) {
+    return htmlspecialchars( $value, ENT_XML1 | ENT_COMPAT, 'UTF-8' );
+}
+
+/**
+ * Returns indexable public route URLs for the XML sitemap.
+ *
+ * @return array
+ */
+function tonbankcard_public_sitemap_entries() {
+    $routes = isset( $GLOBALS['routes_v2']['public'] ) && is_array( $GLOBALS['routes_v2']['public'] )
+        ? $GLOBALS['routes_v2']['public']
+        : [];
+
+    $entries = [];
+    $seen    = [];
+
+    foreach ( $routes as $route ) {
+        if ( empty( $route['path'] ) || ! is_string( $route['path'] ) ) {
+            continue;
+        }
+        if ( array_key_exists( 'sitemap', $route ) && FALSE === (bool) $route['sitemap'] ) {
+            continue;
+        }
+
+        $params_list = [ [] ];
+        if ( FALSE !== strpos( $route['path'], ':' ) ) {
+            if ( empty( $route['sitemap_params'] ) || ! is_array( $route['sitemap_params'] ) ) {
+                continue;
+            }
+            $params_list = $route['sitemap_params'];
+        }
+
+        foreach ( $params_list as $params ) {
+            $params = is_array( $params ) ? $params : [];
+            $path = ! empty( $route['canonical_path'] ) ? $route['canonical_path'] : $route['path'];
+            $path = tonbankcard_fill_route_path( $path, $params );
+            if ( FALSE !== strpos( $path, ':' ) ) {
+                continue;
+            }
+
+            $loc = site_url( ltrim( $path, '/' ) );
+            if ( isset( $seen[ $loc ] ) ) {
+                continue;
+            }
+
+            $seen[ $loc ] = TRUE;
+            $entries[] = [
+                'loc'        => $loc,
+                'changefreq' => ! empty( $route['sitemap_changefreq'] ) ? $route['sitemap_changefreq'] : 'weekly',
+                'priority'   => ! empty( $route['sitemap_priority'] ) ? $route['sitemap_priority'] : '0.5',
+            ];
+        }
+    }
+
+    return $entries;
+}
+
+/**
+ * Renders the XML sitemap for public website routes.
+ *
+ * @return string
+ */
+function tonbankcard_public_sitemap_xml() {
+    $lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ];
+
+    foreach ( tonbankcard_public_sitemap_entries() as $entry ) {
+        $lines[] = '    <url>';
+        $lines[] = '        <loc>' . tonbankcard_xml_escape( $entry['loc'] ) . '</loc>';
+        $lines[] = '        <changefreq>' . tonbankcard_xml_escape( $entry['changefreq'] ) . '</changefreq>';
+        $lines[] = '        <priority>' . tonbankcard_xml_escape( $entry['priority'] ) . '</priority>';
+        $lines[] = '    </url>';
+    }
+
+    $lines[] = '</urlset>';
+    return implode( "\n", $lines ) . "\n";
+}
+
+/**
+ * Renders robots.txt with the dynamic sitemap location.
+ *
+ * @return string
+ */
+function tonbankcard_public_robots_txt() {
+    return implode(
+        "\n",
+        [
+            'User-agent: *',
+            'Allow: /',
+            'Disallow: /api/',
+            'Disallow: /database/',
+            'Disallow: /dev/',
+            'Sitemap: ' . site_url( 'sitemap.xml' ),
+            '',
+        ]
+    );
+}
+
+/**
+ * Sends crawler assets that need runtime-aware canonical URLs.
+ *
+ * @return void
+ */
+function tonbankcard_dispatch_public_seo_assets() {
+    $path = tonbankcard_current_path();
+
+    if ( '/robots.txt' === $path ) {
+        header( 'Content-Type: text/plain; charset=UTF-8' );
+        echo tonbankcard_public_robots_txt();
+        exit;
+    }
+
+    if ( '/sitemap.xml' === $path ) {
+        header( 'Content-Type: application/xml; charset=UTF-8' );
+        echo tonbankcard_public_sitemap_xml();
+        exit;
+    }
+}
+
+/**
  * @since 1.0.0
  * Generates stylesheet URL
  *

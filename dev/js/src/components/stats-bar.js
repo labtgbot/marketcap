@@ -9,12 +9,13 @@
         doge: 'dogecoin',
         dot: 'polkadot',
         eth: 'ethereum',
+        ton: 'toncoin',
         usdc: 'usd-coin',
         usdt: 'tether',
         xrp: 'ripple'
     };
 
-    const defaultSymbols = ['btc', 'eth'];
+    const defaultSymbols = ['btc', 'eth', 'ton'];
 
 
     Vue.component('gc-stats-bar', {

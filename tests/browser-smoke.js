@@ -336,7 +336,7 @@ async function installRoutes(context, requestLog) {
                     markets: 750,
                     total_market_cap: {usd: 1234567890000},
                     total_volume: {usd: 98765432100},
-                    market_cap_percentage: {btc: 51.1, eth: 17.2},
+                    market_cap_percentage: {btc: 51.1, eth: 17.2, ton: 0.42},
                 },
             });
         }
@@ -435,6 +435,8 @@ async function checkMarketPulseHome(page, errors, requestLog) {
     await page.getByText('Top losers', {exact: false}).first().waitFor({state: 'visible'});
     await page.getByText('AI market summary', {exact: false}).first().waitFor({state: 'visible'});
     await page.getByText('Fresh', {exact: false}).first().waitFor({state: 'visible'});
+    await page.locator('.gc-stats-bar').getByText('TON:', {exact: false}).waitFor({state: 'visible'});
+    await page.locator('.gc-stats-bar').getByText('0.4%', {exact: false}).waitFor({state: 'visible'});
     await page.getByRole('link', {name: /Full table/i}).waitFor({state: 'visible'});
     await page.getByRole('link', {name: 'Watchlist'}).first().waitFor({state: 'visible'});
     await page.getByRole('link', {name: 'TON view'}).first().waitFor({state: 'visible'});

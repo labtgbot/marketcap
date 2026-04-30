@@ -587,7 +587,7 @@
         const link = document.querySelector('link[rel="canonical"]')
         if (link) link.href = url;
 
-        const og = document.querySelector('meta[rel="og:url"]')
+        const og = document.querySelector('meta[property="og:url"]')
         if (og) og.content = url;
     }
 
@@ -1574,12 +1574,13 @@
         doge: 'dogecoin',
         dot: 'polkadot',
         eth: 'ethereum',
+        ton: 'toncoin',
         usdc: 'usd-coin',
         usdt: 'tether',
         xrp: 'ripple'
     };
 
-    const defaultSymbols = ['btc', 'eth'];
+    const defaultSymbols = ['btc', 'eth', 'ton'];
 
 
     Vue.component('gc-stats-bar', {
@@ -1949,6 +1950,9 @@
 
     const setTitle = GeckoClient.setTitle;
 
+    const currencyRouteConfig = GeckoClient.routesConfig.currency;
+    const coinsRouteConfig = GeckoClient.routesConfig.coins;
+
     const mainOptions = GeckoClient.getOptions('currency');
 
     const marketOptions = GeckoClient.getOptions('currency-market');
@@ -1960,10 +1964,8 @@
     const historicalToTimestamp = parseInt(new Date() / 1000);
 
 
-    GeckoClient.router.addRoute({
-        name: 'currency',
-        path: GeckoClient.routesConfig.currency.path,
-        component: {
+    function currencyComponent() {
+        return {
             template: '#route-currency',
             data: function () {
                 return {
@@ -2176,8 +2178,22 @@
                     this.fetchHistoricalData().finally(() => this.historicalLoading = false);
                 }
             }
-        }
+        };
+    }
+
+    GeckoClient.router.addRoute({
+        name: 'currency',
+        path: currencyRouteConfig.path,
+        component: currencyComponent()
     });
+
+    if (coinsRouteConfig) {
+        GeckoClient.router.addRoute({
+            name: 'coins',
+            path: coinsRouteConfig.path,
+            component: currencyComponent()
+        });
+    }
 
 })(window, CoinGecko, GeckoClient);
 
@@ -2696,18 +2712,24 @@
 (function (window, GeckoClient) {
     'use strict';
 
-    const route = GeckoClient.routesConfig.ton;
-    if (!route) return;
+    const setTitle = GeckoClient.setTitle;
 
-    GeckoClient.router.addRoute({
-        name: 'ton',
-        path: route.path,
-        component: {
-            template: '#route-ton',
-            created: function () {
-                GeckoClient.setTitle(GeckoClient.getOptions('ton').title);
+    ['ton', 'screener', 'support'].forEach(routeName => {
+        const routeConfig = GeckoClient.routesConfig[routeName];
+        if (!routeConfig) return;
+
+        const routeOptions = GeckoClient.getOptions(routeName, {});
+
+        GeckoClient.router.addRoute({
+            name: routeName,
+            path: routeConfig.path,
+            component: {
+                template: '#route-' + routeName,
+                created: function () {
+                    setTitle(routeOptions.title);
+                }
             }
-        }
+        });
     });
 
 })(window, GeckoClient);

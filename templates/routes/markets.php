@@ -20,7 +20,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 | DESCRIPTION: Route title.
 |
 */
-$frontend_options['markets']['title'] = __( 'Cryptocurrency Markets' );
+$frontend_options['markets']['title'] = __( 'Crypto Markets' );
 
 /*
 | -------------------------------------------------------------------------

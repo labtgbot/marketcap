@@ -44,6 +44,12 @@ $routes['currency'] = [
     // always enabled
 ];
 
+$routes['coins'] = [
+    'path'     => '/coins/:id',
+    'enabled'  => TRUE,
+    'template' => 'currency',
+];
+
 $routes['ton'] = [
     'path' => '/ton',
     'enabled' => TRUE,
@@ -79,8 +85,18 @@ $routes['derivatives'] = [
     'enabled' => TRUE,
 ];
 
+$routes['screener'] = [
+    'path' => '/screener',
+    'enabled' => TRUE,
+];
+
 $routes['about'] = [
     'path' => '/about',
+    'enabled' => TRUE,
+];
+
+$routes['support'] = [
+    'path' => '/support',
     'enabled' => TRUE,
 ];
 

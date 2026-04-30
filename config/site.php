@@ -274,7 +274,7 @@ $site['apple_touch_icons'] = [
 | $site['og_image'] = 'assets/images/og_image.png';
 |
 */
-$site['og_image'] = '';
+$site['og_image'] = 'assets/images/logo.png';
 
 /*
 | -------------------------------------------------------------------------
@@ -288,7 +288,7 @@ $site['og_image'] = '';
 | https://developer.twitter.com/en/docs/twitter-for-websites/cards/overview/abouts-cards
 |
 */
-$site['twitter_card'] = 'summary';
+$site['twitter_card'] = 'summary_large_image';
 
 /*
 | -------------------------------------------------------------------------
@@ -350,7 +350,7 @@ $site['twitter_creator'] = '@tonbankcard';
 | $site['twitter_image'] = 'assets/images/twitter_image.png';
 |
 */
-$site['twitter_image'] = '';
+$site['twitter_image'] = 'assets/images/logo.png';
 
 /*
 | -------------------------------------------------------------------------
