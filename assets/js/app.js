@@ -316,6 +316,59 @@
 
     GeckoClient.getOptions = (path, defaultValue) => _.get(GeckoClient.options, path, defaultValue);
 
+    GeckoClient.analytics = {
+        events: [],
+        allowedEvents: ['search_opened', 'search_result_selected'],
+        allowedProperties: [
+            'trigger',
+            'query_present',
+            'surface',
+            'result_type',
+            'coin_id',
+            'exchange_id',
+            'category_id',
+            'rank',
+            'query_length_bucket'
+        ],
+        newEventId: function () {
+            return 'evt_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+        },
+        surface: function () {
+            if (_.get(GeckoClient, 'runtime.profile') === 'telegram') return 'telegram_mini_app';
+            return utils.isMobileUserAgent() ? 'mobile_web' : 'public_web';
+        },
+        queryLengthBucket: function (query) {
+            const length = _.replace(_.trim(_.toLower(query || '')), /\s+/g, '').length;
+            if (length === 0) return 'empty';
+            if (length <= 2) return '1-2';
+            if (length <= 5) return '3-5';
+            if (length <= 10) return '6-10';
+            return '11-plus';
+        },
+        sanitizeProperties: function (properties) {
+            return _.pick(properties || {}, this.allowedProperties);
+        },
+        emit: function (eventName, properties) {
+            if (this.allowedEvents.indexOf(eventName) === -1) return null;
+
+            const event = Object.assign(
+                {
+                    event_id: this.newEventId(),
+                    event_name: eventName,
+                    occurred_at: new Date().toISOString(),
+                    surface: this.surface()
+                },
+                this.sanitizeProperties(properties)
+            );
+
+            this.events.push(event);
+            if (typeof window.CustomEvent === 'function') {
+                window.dispatchEvent(new CustomEvent('tonbankcard:analytics', {detail: event}));
+            }
+            return event;
+        }
+    };
+
     GeckoClient.getVuetifyOptions = () => {
         const options = _.cloneDeep(GeckoClient.vuetifyOptions);
         options.theme.dark = GeckoClient.preferences.theme() === 'dark';
@@ -982,10 +1035,17 @@
 
 })(window, Vue);
 
-(function (window, _, Vue, GeckoClient, CoinGecko) {
+(function (window, _, axios, Vue, GeckoClient, CoinGecko) {
     'use strict';
 
     const __ = GeckoClient.__;
+    const resultGroups = {
+        coin: __( 'Currencies' ),
+        ton_asset: __( 'TON assets' ),
+        exchange: __( 'Exchanges' ),
+        category: __( 'Categories' ),
+        action: __( 'Actions' )
+    };
 
     Vue.component('gc-search-bar', {
         template: '#component-search-bar',
@@ -995,103 +1055,131 @@
                 search: null,
                 loading: false,
                 items: [],
-                coins: null,
-                exchanges: null
+                requestCounter: 0,
+                searchOpened: false
             };
         },
         watch: {
             model: function (selected) {
                 if (!selected || !selected.route || !selected.id) return;
-                const next = {
-                    name: selected.route,
-                    params: {id: selected.id}
+
+                this.trackSearchSelection(selected);
+
+                const route = selected.route || {};
+                let next = null;
+                if (route.name) {
+                    next = {
+                        name: route.name,
+                        params: route.params || {},
+                        query: route.query || {}
+                    };
+                } else if (route.path) {
+                    next = route.path;
                 }
-                const from = this.$route;
-                if (next.name !== from.name || next.params.id !== from.params.id) {
-                    this.$router.push(next);
-                }
+                if (!next) return;
+
+                const resolved = _.isString(next) ? this.$router.resolve(next).route : this.$router.resolve(next).route;
+                if (resolved.fullPath === this.$route.fullPath) return;
+                this.$router.push(next).catch(() => {});
             }
         },
         methods: {
             avatarChar: function (name) {
-                // result avatar char
                 return _.toUpper(_.first(name)) || '?';
             },
             getQueryText: function () {
-                // strips surrounding whitespaces and converts to lowercase
                 return _.toLower(_.trim(this.search));
             },
-            filterItem: function (item, queryText) {
-                // look for queryText in currency name, symbol and id
-                const itemString = _.toLower(item.name) + ' ' + _.toLower(item.symbol)  + ' ' + _.toLower(item.id);
-                return _.includes(itemString, queryText);
+            searchEndpoint: function () {
+                return _.get(GeckoClient, 'search.apiBaseUrl', '/api/search');
             },
-            filterList: function (list, queryText, size) {
-                // filter list with 'filterItem' and restrict size
-                const filtered = queryText === '' ? list : list.filter(item => this.filterItem(item, queryText));
-                return _.slice(filtered, 0, size);
+            searchSurface: function () {
+                return _.get(GeckoClient, 'analytics.surface', () => 'public_web')();
             },
-            setItems: function () {
-                const queryText = this.getQueryText();
-
-                const categories = [
-                    {
-                        list: 'coins',
-                        header: __( 'Currencies' ),
-                        route: 'currency',
-                        size: 10
-                    },
-                    {
-                        list: 'exchanges',
-                        header: __( 'Exchanges' ),
-                        route: 'exchange',
-                        size: 10
-                    }
-                ];
-
+            setItems: function (results) {
                 const items = [];
-                // get results separated by category
-                _.each(categories, category => {
-                    const listItems = this.filterList(this[category.list], queryText, category.size);
-                    if (listItems.length) {
-                        items.push({header: category.header});
-                        listItems.forEach(item => {
-                            item.route = category.route;
-                            items.push(item);
-                        });
+                const seenTypes = {};
+
+                (results || []).forEach(item => {
+                    const type = item.type || 'action';
+                    if (!seenTypes[type]) {
+                        seenTypes[type] = true;
+                        items.push({header: resultGroups[type] || type});
                     }
-                })
+
+                    items.push(item);
+                });
+
                 this.items = items;
             },
-            fetchData: function () {
-                this.loading = true;
+            searchParams: function () {
+                return {
+                    q: this.getQueryText(),
+                    limit: _.get(GeckoClient, 'search.defaultLimit', 12),
+                    surface: this.searchSurface()
+                };
+            },
+            fetchData: function (requestId) {
+                return axios.get(this.searchEndpoint(), {params: this.searchParams()})
+                    .then(response => {
+                        if (requestId !== this.requestCounter) return;
 
-                return CoinGecko.search()
-                    .then(search => {
-                        this.coins = search.coins;
-                        this.exchanges = search.exchanges;
-                        return search;
+                        const payload = response.data || {};
+                        const data = payload.ok === true ? payload.data : payload;
+                        this.setItems(_.get(data, 'results', []));
                     })
-                    .finally(() => this.loading = false);
+                    .catch(() => {
+                        if (requestId === this.requestCounter) this.items = [];
+                    })
+                    .finally(() => {
+                        if (requestId === this.requestCounter) {
+                            this.loading = false;
+                        }
+                    });
             },
             searchItems: function () {
-                // avoid multiple 'fetchData' calls
-                if (this.loading) return;
+                const requestId = ++this.requestCounter;
+                this.loading = true;
+                return this.fetchData(requestId);
+            },
+            trackSearchOpened: function () {
+                if (!GeckoClient.analytics || this.searchOpened) return;
 
-                // search immediately
-                if (this.coins && this.exchanges) this.setItems();
+                this.searchOpened = true;
+                GeckoClient.analytics.emit('search_opened', {
+                    trigger: 'focus',
+                    query_present: this.getQueryText() !== '',
+                    surface: this.searchSurface()
+                });
+            },
+            trackSearchSelection: function (selected) {
+                if (!GeckoClient.analytics) return;
 
-                // fetch before searching
-                this.fetchData().then(() => this.setItems())
+                const analytics = Object.assign(
+                    {},
+                    selected.analytics || {},
+                    {
+                        event_name: 'search_result_selected',
+                        result_type: selected.type,
+                        coin_id: selected.coin_id || (selected.type === 'coin' ? selected.id : null),
+                        exchange_id: selected.exchange_id || (selected.type === 'exchange' ? selected.id : null),
+                        category_id: selected.category_id || (selected.type === 'category' ? selected.id : null),
+                        rank: selected.rank,
+                        query_length_bucket: _.get(selected, 'analytics.query_length_bucket') || GeckoClient.analytics.queryLengthBucket(this.search),
+                        surface: this.searchSurface()
+                    }
+                );
+
+                GeckoClient.analytics.emit(analytics.event_name, analytics);
             },
             onFocus: function () {
-                // forces download on bar click
-                if (!this.coins || !this.exchanges) this.searchItems();
+                this.trackSearchOpened();
+                this.searchItems();
             }
         }
     });
 
-})(window, _, Vue, GeckoClient, CoinGecko);
+})(window, _, axios, Vue, GeckoClient, CoinGecko);
 
 (function (window, _, Vue) {
     'use strict';
