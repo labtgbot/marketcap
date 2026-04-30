@@ -43,7 +43,6 @@ For staging, production, and telegram profiles, set explicit values for:
 | `TONBANKCARD_TELEGRAM_BASE_URL` | `telegram` profile | Mini App URL configured in BotFather. |
 | `TONBANKCARD_BOT_USERNAME` | Non-local profiles | Username only, without secret token. |
 | `TONBANKCARD_BOT_TOKEN` | `telegram` profile or alerts enabled | Secret; server-side only. |
-| `COINGECKO_API_KEY` | Non-local profiles | Secret reserved for the V2 API gateway. |
 | `GROQ_API_KEY` | AI feature enabled | Secret; server-side only. |
 | `UPSTASH_REDIS_REST_URL` | Non-local profiles | Cache/rate-limit endpoint. |
 | `UPSTASH_REDIS_REST_TOKEN` | Non-local profiles | Secret; server-side only. |
@@ -61,6 +60,10 @@ Set explicit production feature flags with `true` or `false`:
 - `TONBANKCARD_FEATURE_REFERRALS`
 - `TONBANKCARD_FEATURE_GAMIFICATION`
 - `TONBANKCARD_FEATURE_PREMIUM`
+
+`COINGECKO_API_KEY` is defined for the future V2 API gateway, but it is optional
+in this stage. The first-source browser integration calls CoinGecko's public API
+directly and continues to work without an API key.
 
 ## Debug and Assets
 

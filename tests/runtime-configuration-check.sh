@@ -68,6 +68,7 @@ assert_contains docs/runtime-configuration.md 'Missing production values' 'produ
 assert_contains docs/runtime-configuration.md 'Secret values are never rendered' 'secret-safe validation behavior'
 assert_contains docs/runtime-configuration.md 'TONBANKCARD_PUBLIC_BASE_URL' 'public website URL configuration'
 assert_contains docs/runtime-configuration.md 'TONBANKCARD_TELEGRAM_BASE_URL' 'Telegram Mini App URL configuration'
+assert_contains docs/runtime-configuration.md 'COINGECKO_API_KEY.*optional' 'optional CoinGecko key behavior'
 
 php_check 'fresh checkout should default to a local development profile' \
     env -i PATH="$PATH" php <<'PHP'
@@ -116,7 +117,7 @@ $names = array_map(
     $invalid
 );
 
-foreach ( [ 'TONBANKCARD_PUBLIC_BASE_URL', 'TONBANKCARD_BOT_USERNAME', 'COINGECKO_API_KEY', 'UPSTASH_REDIS_REST_URL', 'MYSQL_DSN' ] as $required ) {
+foreach ( [ 'TONBANKCARD_PUBLIC_BASE_URL', 'TONBANKCARD_BOT_USERNAME', 'UPSTASH_REDIS_REST_URL', 'MYSQL_DSN' ] as $required ) {
     if ( ! in_array( $required, $names, TRUE ) ) {
         fwrite( STDERR, "Missing validation entry for $required\n" );
         exit( 1 );
@@ -129,6 +130,43 @@ foreach ( [ 'super-secret-token', 'another-secret-value' ] as $secret ) {
         fwrite( STDERR, "Validation payload leaked a secret value\n" );
         exit( 1 );
     }
+}
+PHP
+
+php_check 'production profile should preserve keyless CoinGecko browser integration' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_PROFILE=production \
+        TONBANKCARD_PUBLIC_BASE_URL='https://marketcap.tonbankcard.com/' \
+        TONBANKCARD_BOT_USERNAME='tonbankcard_bot' \
+        UPSTASH_REDIS_REST_URL='https://example.upstash.io' \
+        UPSTASH_REDIS_REST_TOKEN='upstash-secret-token' \
+        MYSQL_DSN='mysql:host=127.0.0.1;dbname=marketcap;charset=utf8mb4' \
+        MYSQL_USER='marketcap' \
+        MYSQL_PASSWORD='mysql-secret-password' \
+        TONBANKCARD_FEATURE_AI=false \
+        TONBANKCARD_FEATURE_ALERTS=false \
+        TONBANKCARD_FEATURE_CHANGENOW=false \
+        TONBANKCARD_FEATURE_TON_CONNECT=false \
+        TONBANKCARD_FEATURE_REFERRALS=false \
+        TONBANKCARD_FEATURE_GAMIFICATION=false \
+        TONBANKCARD_FEATURE_PREMIUM=false \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/site.php';
+require GECKO_CLIENT_CONFIG_DIR . '/vuetify.php';
+require GECKO_CLIENT_CONFIG_DIR . '/coingecko.php';
+require __DIR__ . '/functions.php';
+
+$invalid = validate_runtime_config();
+if ( ! empty( $invalid ) ) {
+    fwrite( STDERR, 'Expected keyless CoinGecko production config to pass, got: ' . json_encode( $invalid ) . "\n" );
+    exit( 1 );
+}
+
+if ( ! isset( $coingecko['api_key_configured'] ) || $coingecko['api_key_configured'] !== FALSE ) {
+    fwrite( STDERR, "CoinGecko API key should remain optional and marked unconfigured\n" );
+    exit( 1 );
 }
 PHP
 

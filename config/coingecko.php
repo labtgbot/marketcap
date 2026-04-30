@@ -41,8 +41,9 @@ $coingecko['timeout'] = 30000;
 | TYPE: string
 |
 | DESCRIPTION:
-| Server-side CoinGecko API key reserved for the V2 API gateway. The current
-| V1 browser client does not expose or send this value.
+| Optional server-side CoinGecko API key reserved for the V2 API gateway. The
+| current V1 browser client uses CoinGecko's public API directly without a key,
+| and this value is not exposed or sent to browser JavaScript.
 */
 $coingecko['api_key'] = $GLOBALS['runtime_config']['providers']['coingecko']['api_key'];
 

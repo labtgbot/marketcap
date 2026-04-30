@@ -500,11 +500,6 @@ function validate_runtime_config() {
         );
         tonbankcard_require_env(
             $invalid,
-            'COINGECKO_API_KEY',
-            'Set the server-side CoinGecko API key. The value is not exposed to browser JavaScript.'
-        );
-        tonbankcard_require_env(
-            $invalid,
             'UPSTASH_REDIS_REST_URL',
             'Set the Upstash Redis REST URL used by cache and rate-limit services.',
             "'https://example.upstash.io'"
