@@ -21,6 +21,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 |
 */
 $frontend_options['currencies']['title'] = __( 'Cryptocurrencies' );
+$frontend_options['markets']['title'] = __( 'Crypto Markets' );
 
 /*
 | -------------------------------------------------------------------------

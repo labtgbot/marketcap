@@ -35,15 +35,22 @@ assert_file dev/php/router.php
 assert_file tests/php-lint.sh
 assert_file tests/generated-bundle-check.js
 assert_file tests/browser-smoke.js
+assert_file tests/public-website-shell-check.sh
 assert_file .github/workflows/ci.yml
 assert_file docs/v2-search-and-routing-behavior.md
 
 assert_contains README.md 'php -S 127\.0\.0\.1:8888 dev/php/router\.php' 'the local PHP router startup command'
 assert_contains README.md 'http://127\.0\.0\.1:8888/' 'the local home URL'
+assert_contains README.md 'http://127\.0\.0\.1:8888/markets' 'the local markets URL'
 assert_contains README.md 'http://127\.0\.0\.1:8888/currency/bitcoin' 'the local coin detail smoke URL'
+assert_contains README.md 'http://127\.0\.0\.1:8888/coins/bitcoin' 'the local canonical coin detail URL'
+assert_contains README.md 'http://127\.0\.0\.1:8888/ton' 'the local TON ecosystem URL'
+assert_contains README.md 'http://127\.0\.0\.1:8888/screener' 'the local screener URL'
 assert_contains README.md 'http://127\.0\.0\.1:8888/exchanges' 'the local exchanges smoke URL'
+assert_contains README.md 'http://127\.0\.0\.1:8888/support' 'the local support URL'
 assert_contains README.md 'npm run lint:php' 'the PHP lint command'
 assert_contains README.md 'npm run test:content' 'the branding and content check command'
+assert_contains README.md 'npm run test:public-shell' 'the public website shell check command'
 assert_contains README.md 'npm run validate:bundle' 'the generated bundle validation command'
 assert_contains README.md 'npm run test:smoke' 'the browser smoke test command'
 assert_contains README.md 'test-logs' 'where check logs are written'
@@ -52,6 +59,7 @@ assert_contains README.md 'docs/v2-search-and-routing-behavior\.md' 'the smart s
 
 assert_contains package.json '"lint:php"' 'the PHP lint npm script'
 assert_contains package.json '"test:content"' 'the branding and content npm script'
+assert_contains package.json '"test:public-shell"' 'the public shell npm script'
 assert_contains package.json '"validate:bundle"' 'the generated bundle npm script'
 assert_contains package.json '"test:smoke"' 'the browser smoke npm script'
 assert_contains package.json '"test"' 'the aggregate local check script'
