@@ -14,8 +14,9 @@
     "test:telegram-session": "sh tests/telegram-session-check.sh",
     "validate:bundle": "node tests/generated-bundle-check.js",
     "test:workflow": "sh tests/development-workflow-check.sh",
+    "test:design-system": "sh tests/design-system-check.sh",
     "test:smoke": "node tests/browser-smoke.js",
-    "test": "npm run test:workflow && npm run lint:php && npm run test:content && npm run test:architecture && npm run test:analytics && npm run test:database && npm run test:api && npm run test:market-gateway && npm run test:cache-rate-limit && npm run test:search-api && npm run test:telegram-session && npm run validate:bundle && npm run test:smoke"
+    "test": "npm run test:workflow && npm run lint:php && npm run test:content && npm run test:architecture && npm run test:analytics && npm run test:database && npm run test:api && npm run test:market-gateway && npm run test:cache-rate-limit && npm run test:search-api && npm run test:telegram-session && npm run test:design-system && npm run validate:bundle && npm run test:smoke"
   },
   "devDependencies": {
     "playwright": "^1.59.1",
