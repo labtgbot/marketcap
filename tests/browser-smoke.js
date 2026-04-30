@@ -50,7 +50,7 @@ function lastRequest(requests, label) {
 
 function requestRecord(url) {
     return {
-        path: url.pathname.replace('/api/v3/', ''),
+        path: url.pathname.replace(/^\/api\/market\/?/, '').replace(/\/$/, ''),
         params: Object.fromEntries(url.searchParams.entries()),
     };
 }
@@ -60,6 +60,31 @@ function fulfillJson(route, data) {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(data),
+    });
+}
+
+function fulfillMarketJson(route, data) {
+    return fulfillJson(route, {
+        ok: true,
+        data,
+        meta: {
+            request_id: 'browser-smoke',
+            provider: {
+                name: 'coingecko',
+                plan: 'demo',
+                attribution: {
+                    name: 'CoinGecko',
+                    url: 'https://www.coingecko.com/',
+                },
+                credentialed: false,
+            },
+            freshness: {
+                fetched_at: new Date().toISOString(),
+                last_updated_at: new Date().toISOString(),
+                cache_age_seconds: 0,
+                cache_status: 'pass',
+            },
+        },
     });
 }
 
@@ -201,22 +226,12 @@ async function stopServer() {
 }
 
 async function installRoutes(context, requestLog) {
-    await context.route('https://localstorage.one/crypto/data/search.json', route => fulfillJson(route, {
-        coins: [
-            ['bitcoin', 'btc', 'Bitcoin', transparentPixel],
-            ['toncoin', 'ton', 'Toncoin', transparentPixel],
-        ],
-        exchanges: [
-            ['binance', 'Binance', transparentPixel],
-        ],
-    }));
-
-    await context.route('https://api.coingecko.com/api/v3/**', route => {
+    await context.route(`${baseURL}/api/market/**`, route => {
         const url = new URL(route.request().url());
-        const apiPath = url.pathname.replace('/api/v3/', '');
+        const apiPath = url.pathname.replace(/^\/api\/market\/?/, '').replace(/\/$/, '');
 
         if (apiPath === 'global') {
-            return fulfillJson(route, {
+            return fulfillMarketJson(route, {
                 data: {
                     active_cryptocurrencies: 12000,
                     markets: 750,
@@ -228,7 +243,7 @@ async function installRoutes(context, requestLog) {
         }
 
         if (apiPath === 'search/trending') {
-            return fulfillJson(route, {
+            return fulfillMarketJson(route, {
                 coins: [
                     {item: {id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', small: transparentPixel}},
                 ],
@@ -236,9 +251,23 @@ async function installRoutes(context, requestLog) {
             });
         }
 
+        if (apiPath === 'search') {
+            return fulfillMarketJson(route, {
+                coins: [
+                    {id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', large: transparentPixel, market_cap_rank: 1},
+                    {id: 'toncoin', symbol: 'TON', name: 'Toncoin', large: transparentPixel, market_cap_rank: 12},
+                ],
+                exchanges: [
+                    {id: 'binance', name: 'Binance', large: transparentPixel},
+                ],
+                categories: [],
+                icos: [],
+            });
+        }
+
         if (apiPath === 'coins/markets') {
             requestLog.coinsMarkets.push(requestRecord(url));
-            return fulfillJson(route, [
+            return fulfillMarketJson(route, [
                 marketCurrency('bitcoin', 'btc', 'Bitcoin', 1, 61000),
                 marketCurrency('toncoin', 'ton', 'Toncoin', 12, 6.5),
             ]);
@@ -246,22 +275,22 @@ async function installRoutes(context, requestLog) {
 
         if (apiPath === 'coins/bitcoin') {
             requestLog.coinDetails.push(requestRecord(url));
-            return fulfillJson(route, coinDetail('bitcoin', 'btc', 'Bitcoin', 1, 61000));
+            return fulfillMarketJson(route, coinDetail('bitcoin', 'btc', 'Bitcoin', 1, 61000));
         }
 
         if (apiPath === 'coins/toncoin') {
             requestLog.coinDetails.push(requestRecord(url));
-            return fulfillJson(route, coinDetail('toncoin', 'ton', 'Toncoin', 12, 6.5));
+            return fulfillMarketJson(route, coinDetail('toncoin', 'ton', 'Toncoin', 12, 6.5));
         }
 
         if (apiPath === 'coins/bitcoin/market_chart' || apiPath === 'coins/toncoin/market_chart') {
             requestLog.marketCharts.push(requestRecord(url));
-            return fulfillJson(route, marketChart());
+            return fulfillMarketJson(route, marketChart());
         }
 
         if (apiPath === 'exchanges') {
             requestLog.exchanges.push(requestRecord(url));
-            return fulfillJson(route, [
+            return fulfillMarketJson(route, [
                 {
                     id: 'binance',
                     name: 'Binance',
@@ -276,13 +305,19 @@ async function installRoutes(context, requestLog) {
             ]);
         }
 
-        return fulfillJson(route, {});
+        return fulfillMarketJson(route, {});
     });
 }
 
 async function assertNoErrors(errors, label) {
     if (errors.length) {
         fail(`${label} produced browser errors:\n${errors.join('\n')}`);
+    }
+}
+
+async function assertNoDirectProviderRequests(requests) {
+    if (requests.length) {
+        fail(`browser made direct provider data requests:\n${requests.join('\n')}`);
     }
 }
 
@@ -373,6 +408,7 @@ async function run() {
     await installRoutes(context, requestLog);
 
     const errors = [];
+    const directProviderRequests = [];
     const page = await context.newPage();
 
     page.on('console', message => {
@@ -383,12 +419,19 @@ async function run() {
     page.on('pageerror', error => {
         errors.push(`page error: ${error.message}`);
     });
+    page.on('request', request => {
+        const host = new URL(request.url()).host;
+        if (['api.coingecko.com', 'pro-api.coingecko.com', 'localstorage.one'].includes(host)) {
+            directProviderRequests.push(request.url());
+        }
+    });
 
     try {
         await checkCurrenciesList(page, errors, requestLog);
         await checkCoinDetail(page, errors, requestLog);
         await checkExchangesList(page, errors, requestLog);
         await checkSearchInteraction(page, errors);
+        await assertNoDirectProviderRequests(directProviderRequests);
     } catch (err) {
         const screenshotPath = path.join(logDir, 'browser-smoke-failure.png');
         await page.screenshot({path: screenshotPath, fullPage: true}).catch(() => {});

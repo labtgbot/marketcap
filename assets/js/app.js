@@ -412,8 +412,9 @@
     }
 
     const CoinGecko = window.CoinGecko = {
-        baseUrl: 'https://api.coingecko.com/api/v3/',
+        baseUrl: cg.gatewayBaseUrl || '/api/market/',
         cacheMap: new Map(),
+        metaMap: new Map(),
         // cache expiration
         cacheClearTimeout: 5 * 60 * 1000,
         cacheKey: function (path, config) {
@@ -428,8 +429,17 @@
         cacheSet: function (path, config, data) {
             return this.cacheMap.set(this.cacheKey(path, config), data);
         },
+        metaSet: function (path, config, meta) {
+            return this.metaMap.set(this.cacheKey(path, config), meta);
+        },
+        metaGet: function (path, config) {
+            return this.metaMap.get(this.cacheKey(path, config));
+        },
         cacheRegisterClearTimer: function () {
-            this.cacheClearTimer = setInterval(() => this.cacheMap.clear(), this.cacheClearTimeout)
+            this.cacheClearTimer = setInterval(() => {
+                this.cacheMap.clear();
+                this.metaMap.clear();
+            }, this.cacheClearTimeout)
         },
         get: function (path, config, consistency, cache) {
             cache = cache || cg.cache;
@@ -444,7 +454,14 @@
 
             return client.get(path, config)
                 .then((res) => {
-                    let data = res.data
+                    const payload = res.data || {};
+                    let data = payload && payload.ok === true && Object.prototype.hasOwnProperty.call(payload, 'data')
+                        ? payload.data
+                        : payload;
+
+                    if (payload && payload.meta) {
+                        this.metaSet(path, config, payload.meta);
+                    }
 
                     // forces a type or transforms
                     if (consistency) {
@@ -965,7 +982,7 @@
 
 })(window, Vue);
 
-(function (window, _, axios, Vue, GeckoClient) {
+(function (window, _, Vue, GeckoClient, CoinGecko) {
     'use strict';
 
     const __ = GeckoClient.__;
@@ -1049,35 +1066,6 @@
             fetchData: function () {
                 this.loading = true;
 
-                // coingecko disabled CORS in search endpoint, so here is an alternative
-
-                return axios.get('https://localstorage.one/crypto/data/search.json', {timeout: GeckoClient.cg.timeout})
-                    .then(res => {
-                        const search = res.data || {};
-
-                        this.coins = _.map(search.coins, (coin,index) => {
-                            return {
-                                market_cap_rank: index + 1,
-                                id: coin[0],
-                                symbol: coin[1],
-                                name: coin[2],
-                                large: coin[3]
-                            }
-                        });
-
-                        this.exchanges = _.map(search.exchanges, (exchange,index) => {
-                            return {
-                                id: exchange[0],
-                                name: exchange[1],
-                                large: exchange[2]
-                            }
-                        });
-
-                        return search;
-                    })
-                    .finally(() => this.loading = false);
-
-                /*
                 return CoinGecko.search()
                     .then(search => {
                         this.coins = search.coins;
@@ -1085,7 +1073,6 @@
                         return search;
                     })
                     .finally(() => this.loading = false);
-                 */
             },
             searchItems: function () {
                 // avoid multiple 'fetchData' calls
@@ -1104,7 +1091,7 @@
         }
     });
 
-})(window, _, axios, Vue, GeckoClient);
+})(window, _, Vue, GeckoClient, CoinGecko);
 
 (function (window, _, Vue) {
     'use strict';

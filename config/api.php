@@ -57,4 +57,20 @@ $api = [
         'active_checks'   => tonbankcard_env_bool( 'TONBANKCARD_API_ACTIVE_READINESS', FALSE ),
         'timeout_seconds' => 2,
     ],
+    'market_data' => [
+        'provider'          => 'coingecko',
+        'timeout_seconds'   => 10,
+        'cache_ttl_seconds' => 0,
+        'attribution'       => [
+            'name' => 'CoinGecko',
+            'url'  => 'https://www.coingecko.com/',
+        ],
+        'coingecko'         => [
+            'plan'               => $api_runtime['providers']['coingecko']['api_plan'],
+            'api_key'            => $api_runtime['providers']['coingecko']['api_key'],
+            'api_key_configured' => $api_runtime['providers']['coingecko']['api_key_configured'],
+            'demo_base_url'      => 'https://api.coingecko.com/api/v3/',
+            'pro_base_url'       => 'https://pro-api.coingecko.com/api/v3/',
+        ],
+    ],
 ];

@@ -481,6 +481,21 @@ function validate_runtime_config() {
         }
     }
 
+    $coingecko_plan = strtolower( trim( (string) tonbankcard_env( 'COINGECKO_API_PLAN', 'demo' ) ) );
+    if ( ! in_array( $coingecko_plan, [ 'demo', 'pro' ], TRUE ) ) {
+        $invalid[] = tonbankcard_env_error(
+            'COINGECKO_API_PLAN',
+            "Enter 'demo' for CoinGecko Public/Demo API or 'pro' for CoinGecko Pro API.",
+            "'demo'"
+        );
+    }
+    if ( 'pro' === $coingecko_plan && empty( $runtime['providers']['coingecko']['api_key_configured'] ) ) {
+        $invalid[] = tonbankcard_env_error(
+            'COINGECKO_API_KEY',
+            'Set the CoinGecko Pro API key when COINGECKO_API_PLAN is pro. The value is not exposed to browser JavaScript.'
+        );
+    }
+
     if ( 'local' !== $profile ) {
         foreach ( $feature_flags as $flag ) {
             if ( ! tonbankcard_env_has( $flag ) ) {

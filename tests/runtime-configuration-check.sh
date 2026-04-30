@@ -47,6 +47,7 @@ assert_contains .env.example '^TONBANKCARD_PUBLIC_BASE_URL=' 'the public website
 assert_contains .env.example '^TONBANKCARD_TELEGRAM_BASE_URL=' 'the Telegram Mini App base URL'
 assert_contains .env.example '^TONBANKCARD_BOT_USERNAME=' 'the Telegram bot username'
 assert_contains .env.example '^TONBANKCARD_BOT_TOKEN=' 'the Telegram bot token'
+assert_contains .env.example '^COINGECKO_API_PLAN=demo$' 'the CoinGecko API plan'
 assert_contains .env.example '^COINGECKO_API_KEY=' 'the CoinGecko API key'
 assert_contains .env.example '^GROQ_API_KEY=' 'the Groq API key'
 assert_contains .env.example '^UPSTASH_REDIS_REST_URL=' 'the Upstash Redis REST URL'
@@ -68,7 +69,8 @@ assert_contains docs/runtime-configuration.md 'Missing production values' 'produ
 assert_contains docs/runtime-configuration.md 'Secret values are never rendered' 'secret-safe validation behavior'
 assert_contains docs/runtime-configuration.md 'TONBANKCARD_PUBLIC_BASE_URL' 'public website URL configuration'
 assert_contains docs/runtime-configuration.md 'TONBANKCARD_TELEGRAM_BASE_URL' 'Telegram Mini App URL configuration'
-assert_contains docs/runtime-configuration.md 'COINGECKO_API_KEY.*optional' 'optional CoinGecko key behavior'
+assert_contains docs/runtime-configuration.md 'COINGECKO_API_PLAN.*demo' 'CoinGecko API plan behavior'
+assert_contains docs/runtime-configuration.md 'x-cg-pro-api-key' 'CoinGecko Pro key header behavior'
 
 php_check 'fresh checkout should default to a local development profile' \
     env -i PATH="$PATH" php <<'PHP'
@@ -133,7 +135,7 @@ foreach ( [ 'super-secret-token', 'another-secret-value' ] as $secret ) {
 }
 PHP
 
-php_check 'production profile should preserve keyless CoinGecko browser integration' \
+php_check 'production profile should preserve keyless CoinGecko gateway integration' \
     env -i PATH="$PATH" \
         TONBANKCARD_PROFILE=production \
         TONBANKCARD_PUBLIC_BASE_URL='https://marketcap.tonbankcard.com/' \
@@ -166,6 +168,36 @@ if ( ! empty( $invalid ) ) {
 
 if ( ! isset( $coingecko['api_key_configured'] ) || $coingecko['api_key_configured'] !== FALSE ) {
     fwrite( STDERR, "CoinGecko API key should remain optional and marked unconfigured\n" );
+    exit( 1 );
+}
+
+if ( ! isset( $coingecko['api_plan'] ) || 'demo' !== $coingecko['api_plan'] ) {
+    fwrite( STDERR, "CoinGecko API plan should default to demo\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'CoinGecko Pro gateway plan should require a server-side API key' \
+    env -i PATH="$PATH" \
+        COINGECKO_API_PLAN=pro \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/site.php';
+require GECKO_CLIENT_CONFIG_DIR . '/vuetify.php';
+require GECKO_CLIENT_CONFIG_DIR . '/coingecko.php';
+require __DIR__ . '/functions.php';
+
+$invalid = validate_runtime_config();
+$names = array_map(
+    function ( $entry ) {
+        return isset( $entry['config'] ) ? $entry['config'] : '';
+    },
+    $invalid
+);
+
+if ( ! in_array( 'COINGECKO_API_KEY', $names, TRUE ) ) {
+    fwrite( STDERR, "CoinGecko Pro plan should require COINGECKO_API_KEY\n" );
     exit( 1 );
 }
 PHP
