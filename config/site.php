@@ -21,31 +21,24 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 |
 | DESCRIPTION:
 | This is used for creating absolute URLs and "Vue Router" base setting.
-| If used inside subdirectories in your domain director, it should contain
-| the relative path like "/subdirectory".
-|
-| Add one URL for each environment:
-| - production: for live website
-| - development: for development environment
-|
-| -------------------------------------------------------------------------
-| EXAMPLE FOR ROOT
-| -------------------------------------------------------------------------
-|
-| $site['base_url']['production']  = 'https://my-domain.tld/';
-| $site['base_url']['development'] = 'http://localhost:8888/';
-|
-| -------------------------------------------------------------------------
-| EXAMPLE FOR SUBDIRECTORY
-| -------------------------------------------------------------------------
-|
-| $site['base_url']['production']  = 'https://my-domain.tld/gecko-client/';
-| $site['base_url']['development'] = 'http://localhost:8888/gecko-client/';
+| Runtime values are read from environment variables in config/runtime.php.
+| Keep separate public website and Telegram Mini App URLs so both contexts can
+| coexist without editing source files.
 |
 */
-$site['base_url']['production'] = '';
+$runtime_config = isset( $GLOBALS['runtime_config'] ) ? $GLOBALS['runtime_config'] : tonbankcard_runtime_config();
 
-$site['base_url']['development'] = 'http://localhost:8888/gecko-client/';
+$site['base_url'] = [
+    'local'       => $runtime_config['urls']['local'],
+    'staging'     => $runtime_config['urls']['staging'],
+    'production'  => $runtime_config['urls']['public'],
+    'telegram'    => $runtime_config['urls']['telegram'],
+    'development' => $runtime_config['urls']['local'],
+];
+
+$site['active_base_url'] = $runtime_config['urls']['active'];
+$site['public_base_url'] = $runtime_config['urls']['public'];
+$site['telegram_base_url'] = $runtime_config['urls']['telegram'];
 
 /*
 | -------------------------------------------------------------------------

@@ -72,6 +72,21 @@ $gecko_client = [
     'options'               => $frontend_options,
     'formats'               => $formats,
 ];
+// Runtime metadata. Secret values from config/runtime.php are intentionally not
+// included in this browser payload.
+$runtime = isset( $GLOBALS['runtime_config'] ) ? $GLOBALS['runtime_config'] : tonbankcard_runtime_config();
+$gecko_client['runtime'] = [
+    'profile' => $runtime['profile'],
+    'debug'   => (bool) $runtime['debug'],
+    'urls'    => [
+        'publicWeb'       => $runtime['urls']['public'],
+        'telegramMiniApp' => $runtime['urls']['telegram'],
+    ],
+    'telegram' => [
+        'botUsername' => $runtime['telegram']['bot_username'],
+    ],
+    'features' => $runtime['feature_flags'],
+];
 // Website Data
 $gecko_client['website'] = [
     'name'           => $site['name'],
