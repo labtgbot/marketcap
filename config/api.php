@@ -35,6 +35,7 @@ $api = [
             'Authorization',
             'Content-Type',
             'X-Request-ID',
+            'X-TONBANKCARD-Search-Refresh-Token',
             'X-TONBANKCARD-Admin',
             'X-TONBANKCARD-Session',
             'X-Telegram-Init-Data',
@@ -141,5 +142,13 @@ $api = [
             'demo_base_url'      => 'https://api.coingecko.com/api/v3/',
             'pro_base_url'       => 'https://pro-api.coingecko.com/api/v3/',
         ],
+    ],
+    'search'      => [
+        'index_cache_key'        => $api_redis_key_prefix . ':search:index',
+        'index_ttl_seconds'     => 3600,
+        'default_limit'         => 12,
+        'max_limit'             => 30,
+        'redis_timeout_seconds' => $api_redis_timeout,
+        'refresh_token'         => (string) tonbankcard_env( 'TONBANKCARD_SEARCH_REFRESH_TOKEN', '' ),
     ],
 ];

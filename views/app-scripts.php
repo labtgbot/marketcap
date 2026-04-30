@@ -100,6 +100,12 @@ $gecko_client['cg'] = [
     'timeout'        => (int) $coingecko['timeout'],
     'gatewayBaseUrl' => site_url( 'api/market/' ),
 ];
+// Smart Search
+$gecko_client['search'] = [
+    'apiBaseUrl'   => site_url( 'api/search' ),
+    'defaultLimit' => 12,
+    'maxLimit'     => 30,
+];
 // Custom Links
 $gecko_client['links'] = [
     'currencies'         => (object) $links['currencies'],

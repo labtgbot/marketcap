@@ -88,6 +88,24 @@ function fulfillMarketJson(route, data) {
     });
 }
 
+function fulfillSearchJson(route, data) {
+    return fulfillJson(route, {
+        ok: true,
+        data,
+        meta: {
+            request_id: 'browser-smoke-search',
+            search: {
+                cache_status: 'pass',
+                index_built_at: new Date().toISOString(),
+                index_entry_count: data.results.length,
+                query_length_bucket: '3-5',
+                result_count: data.results.length,
+                warnings: [],
+            },
+        },
+    });
+}
+
 function nowSeries() {
     const now = Date.now();
     return [
@@ -226,6 +244,86 @@ async function stopServer() {
 }
 
 async function installRoutes(context, requestLog) {
+    await context.route(`${baseURL}/api/search**`, route => {
+        const url = new URL(route.request().url());
+        requestLog.searches.push({
+            path: url.pathname,
+            params: Object.fromEntries(url.searchParams.entries()),
+        });
+
+        return fulfillSearchJson(route, {
+            query: url.searchParams.get('q') || '',
+            normalized_query: (url.searchParams.get('q') || '').toLowerCase(),
+            surface: url.searchParams.get('surface') || 'public_web',
+            result_count: 2,
+            results: [
+                {
+                    searchId: 'coin:toncoin',
+                    type: 'coin',
+                    id: 'toncoin',
+                    coin_id: 'toncoin',
+                    title: 'Toncoin',
+                    name: 'Toncoin',
+                    subtitle: 'TON',
+                    symbol: 'TON',
+                    rank: 1,
+                    large: transparentPixel,
+                    tags: ['ton_ecosystem'],
+                    contract_addresses: [],
+                    route: {
+                        name: 'currency',
+                        params: {id: 'toncoin'},
+                        path: '/currency/toncoin',
+                    },
+                    links: {
+                        web: '/currency/toncoin',
+                        telegram: '/app/coin/toncoin',
+                    },
+                    analytics: {
+                        event_name: 'search_result_selected',
+                        result_type: 'coin',
+                        coin_id: 'toncoin',
+                        exchange_id: null,
+                        rank: 1,
+                        query_length_bucket: '3-5',
+                        surface: 'public_web',
+                    },
+                },
+                {
+                    searchId: 'exchange:binance',
+                    type: 'exchange',
+                    id: 'binance',
+                    exchange_id: 'binance',
+                    title: 'Binance',
+                    name: 'Binance',
+                    subtitle: 'Exchange',
+                    symbol: '',
+                    rank: 2,
+                    tags: ['exchange'],
+                    contract_addresses: [],
+                    route: {
+                        name: 'exchange',
+                        params: {id: 'binance'},
+                        path: '/exchange/binance',
+                    },
+                    links: {
+                        web: '/exchange/binance',
+                        telegram: '/app/search?type=exchange&id=binance',
+                    },
+                    analytics: {
+                        event_name: 'search_result_selected',
+                        result_type: 'exchange',
+                        coin_id: null,
+                        exchange_id: 'binance',
+                        rank: 2,
+                        query_length_bucket: '3-5',
+                        surface: 'public_web',
+                    },
+                },
+            ],
+        });
+    });
+
     await context.route(`${baseURL}/api/market/**`, route => {
         const url = new URL(route.request().url());
         const apiPath = url.pathname.replace(/^\/api\/market\/?/, '').replace(/\/$/, '');
@@ -380,8 +478,9 @@ async function checkExchangesList(page, errors, requestLog) {
     await assertNoErrors(errors, 'exchanges list');
 }
 
-async function checkSearchInteraction(page, errors) {
+async function checkSearchInteraction(page, errors, requestLog) {
     log('Checking search interaction');
+    requestLog.searches = [];
     await page.goto(`${baseURL}/`, {waitUntil: 'domcontentloaded'});
     const search = page.locator('.gc-search-bar input[type="text"]');
     await search.waitFor({state: 'visible'});
@@ -390,6 +489,9 @@ async function checkSearchInteraction(page, errors) {
     await page.waitForURL(`${baseURL}/currency/toncoin`);
     await page.locator('#currency').waitFor({state: 'visible'});
     await page.getByText('Toncoin Price', {exact: false}).first().waitFor({state: 'visible'});
+    const request = requestLog.searches.find(entry => entry.params.q === 'ton') || lastRequest(requestLog.searches, 'smart search request');
+    assertEqual(request.path, '/api/search', 'smart search path');
+    assertEqual(request.params.q, 'ton', 'smart search query');
     await assertNoErrors(errors, 'search interaction');
 }
 
@@ -404,6 +506,7 @@ async function run() {
         coinDetails: [],
         marketCharts: [],
         exchanges: [],
+        searches: [],
     };
     await installRoutes(context, requestLog);
 
@@ -430,7 +533,7 @@ async function run() {
         await checkCurrenciesList(page, errors, requestLog);
         await checkCoinDetail(page, errors, requestLog);
         await checkExchangesList(page, errors, requestLog);
-        await checkSearchInteraction(page, errors);
+        await checkSearchInteraction(page, errors, requestLog);
         await assertNoDirectProviderRequests(directProviderRequests);
     } catch (err) {
         const screenshotPath = path.join(logDir, 'browser-smoke-failure.png');
