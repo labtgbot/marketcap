@@ -6,4 +6,6 @@ See [docs/improvements-v2-analysis.md](docs/improvements-v2-analysis.md) for the
 
 See [docs/v2-implementation-roadmap.md](docs/v2-implementation-roadmap.md) for the 38-task TONBANKCARD V2 implementation backlog across 5 stages.
 
+See [docs/v2-product-requirements.md](docs/v2-product-requirements.md) for the TONBANKCARD V2 product requirements and information architecture from issue #4.
+
 See [docs/legal-license-inventory.md](docs/legal-license-inventory.md) for the current legal notice and license inventory, and [docs/release-checklist.md](docs/release-checklist.md) for the public launch legal review checkpoint.
