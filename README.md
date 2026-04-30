@@ -62,6 +62,7 @@ npm run test:database
 npm run test:api
 npm run test:market-gateway
 npm run test:telegram-session
+npm run test:ai-provider
 npm run validate:bundle
 npm run test:smoke
 ```
@@ -108,3 +109,5 @@ See [docs/v2-api-routing-layer.md](docs/v2-api-routing-layer.md) for the `/api/*
 See [docs/v2-market-data-gateway.md](docs/v2-market-data-gateway.md) for the `/api/market/*` CoinGecko gateway, Demo/Pro key handling, provider error normalization, and freshness metadata from issue #14.
 
 See [docs/v2-telegram-session.md](docs/v2-telegram-session.md) for the `/api/telegram/session` initData validation, session storage, local browser fallback, and regression coverage from issue #13.
+
+See [docs/v2-ai-provider-foundation.md](docs/v2-ai-provider-foundation.md) for the configurable Groq-first AI provider layer, structured insight validation, safety rules, and fallback behavior from issue #17.
