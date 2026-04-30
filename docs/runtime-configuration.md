@@ -86,6 +86,8 @@ traceable without noisy success logs:
 See `docs/v2-observability-operational-logging.md` for the runbook and query
 examples.
 
+## AI Provider
+
 The V2 AI provider layer is disabled by default through
 `TONBANKCARD_FEATURE_AI=false`. When enabled, `/api/ai/insight` uses the
 server-side Groq settings above, validates structured JSON before returning an

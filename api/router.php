@@ -561,6 +561,9 @@ function tonbankcard_api_route_group( string $path ) {
     if ( tonbankcard_api_market_is_request( $path ) ) {
         return 'market';
     }
+    if ( tonbankcard_api_ai_is_request( $path ) ) {
+        return 'ai';
+    }
     if ( tonbankcard_api_search_is_request( $path ) ) {
         return 'search';
     }
