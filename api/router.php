@@ -8,6 +8,7 @@
 
 defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 
+require_once __DIR__ . '/observability.php';
 require_once __DIR__ . '/cache.php';
 require_once __DIR__ . '/market.php';
 require_once __DIR__ . '/ai.php';
@@ -123,164 +124,352 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
     $runtime = empty( $runtime ) && isset( $GLOBALS['runtime_config'] ) ? $GLOBALS['runtime_config'] : $runtime;
     $config  = empty( $config ) && isset( $GLOBALS['api'] ) ? $GLOBALS['api'] : $config;
     $request = tonbankcard_api_normalize_request( $request );
+    $started_at = microtime( TRUE );
 
     $request_id = tonbankcard_api_request_id( $request['headers'] );
     $headers    = tonbankcard_api_base_headers( $request, $config, $request_id );
 
-    if ( 'OPTIONS' === $request['method'] ) {
-        return [
-            'status'  => 204,
-            'headers' => $headers,
-            'body'    => '',
-        ];
-    }
-
-    $rate_limit = tonbankcard_api_rate_limit_check( $request, $runtime, $config );
-    if ( ! empty( $rate_limit['headers'] ) && is_array( $rate_limit['headers'] ) ) {
-        $headers = array_merge( $headers, $rate_limit['headers'] );
-    }
-    if ( empty( $rate_limit['allowed'] ) ) {
-        return tonbankcard_api_error_response(
-            429,
-            'rate_limited',
-            'Too many requests. Try again after the retry window resets.',
-            [
-                'policy'              => isset( $rate_limit['policy'] ) ? $rate_limit['policy'] : 'anonymous_web',
-                'limit'               => isset( $rate_limit['limit'] ) ? (int) $rate_limit['limit'] : null,
-                'window_seconds'      => isset( $rate_limit['window'] ) ? (int) $rate_limit['window'] : null,
-                'retry_after_seconds' => isset( $rate_limit['retry_after'] ) ? (int) $rate_limit['retry_after'] : null,
-            ],
-            $request_id,
-            $headers
-        );
-    }
-
-    $body_error = tonbankcard_api_validate_json_body( $request );
-    if ( null !== $body_error ) {
-        if ( 'unsupported_media_type' === $body_error ) {
-            return tonbankcard_api_error_response(
-                415,
-                'unsupported_media_type',
-                'Request body must use application/json.',
-                [ 'hint' => 'Send Content-Type: application/json or omit the request body.' ],
+    try {
+        if ( 'OPTIONS' === $request['method'] ) {
+            return tonbankcard_api_finalize_response(
+                [
+                    'status'  => 204,
+                    'headers' => $headers,
+                    'body'    => '',
+                ],
+                $request,
+                $runtime,
+                $config,
                 $request_id,
-                $headers
+                $started_at
             );
         }
 
-        return tonbankcard_api_error_response(
-            400,
-            'invalid_json',
-            'Request body must be valid JSON.',
-            [ 'hint' => 'Send a JSON object or omit the request body.' ],
-            $request_id,
-            $headers
-        );
-    }
-
-    $context = tonbankcard_api_middleware_context( $request, $runtime, $config, $request_id );
-    $path    = tonbankcard_api_normalize_path( $request['path'] );
-
-    if ( '/api' === $path || '/api/' === $path ) {
-        if ( 'GET' !== $request['method'] ) {
-            return tonbankcard_api_method_not_allowed_response( [ 'GET', 'OPTIONS' ], $request_id, $headers );
+        $rate_limit = tonbankcard_api_rate_limit_check( $request, $runtime, $config );
+        if ( ! empty( $rate_limit['headers'] ) && is_array( $rate_limit['headers'] ) ) {
+            $headers = array_merge( $headers, $rate_limit['headers'] );
+        }
+        if ( empty( $rate_limit['allowed'] ) ) {
+            return tonbankcard_api_finalize_response(
+                tonbankcard_api_error_response(
+                    429,
+                    'rate_limited',
+                    'Too many requests. Try again after the retry window resets.',
+                    [
+                        'policy'              => isset( $rate_limit['policy'] ) ? $rate_limit['policy'] : 'anonymous_web',
+                        'limit'               => isset( $rate_limit['limit'] ) ? (int) $rate_limit['limit'] : null,
+                        'window_seconds'      => isset( $rate_limit['window'] ) ? (int) $rate_limit['window'] : null,
+                        'retry_after_seconds' => isset( $rate_limit['retry_after'] ) ? (int) $rate_limit['retry_after'] : null,
+                    ],
+                    $request_id,
+                    $headers
+                ),
+                $request,
+                $runtime,
+                $config,
+                $request_id,
+                $started_at
+            );
         }
 
-        return tonbankcard_api_success_response(
+        $body_error = tonbankcard_api_validate_json_body( $request );
+        if ( null !== $body_error ) {
+            if ( 'unsupported_media_type' === $body_error ) {
+                return tonbankcard_api_finalize_response(
+                    tonbankcard_api_error_response(
+                        415,
+                        'unsupported_media_type',
+                        'Request body must use application/json.',
+                        [ 'hint' => 'Send Content-Type: application/json or omit the request body.' ],
+                        $request_id,
+                        $headers
+                    ),
+                    $request,
+                    $runtime,
+                    $config,
+                    $request_id,
+                    $started_at
+                );
+            }
+
+            return tonbankcard_api_finalize_response(
+                tonbankcard_api_error_response(
+                    400,
+                    'invalid_json',
+                    'Request body must be valid JSON.',
+                    [ 'hint' => 'Send a JSON object or omit the request body.' ],
+                    $request_id,
+                    $headers
+                ),
+                $request,
+                $runtime,
+                $config,
+                $request_id,
+                $started_at
+            );
+        }
+
+        $context = tonbankcard_api_middleware_context( $request, $runtime, $config, $request_id );
+        $path    = tonbankcard_api_normalize_path( $request['path'] );
+
+        if ( '/api' === $path || '/api/' === $path ) {
+            if ( 'GET' !== $request['method'] ) {
+                return tonbankcard_api_finalize_response(
+                    tonbankcard_api_method_not_allowed_response( [ 'GET', 'OPTIONS' ], $request_id, $headers ),
+                    $request,
+                    $runtime,
+                    $config,
+                    $request_id,
+                    $started_at
+                );
+            }
+
+            return tonbankcard_api_finalize_response(
+                tonbankcard_api_success_response(
+                    [
+                        'service'    => 'tonbankcard-api',
+                        'version'    => GECKO_CLIENT_VERSION,
+                        'routes'     => [
+                            '/api/health',
+                            '/api/metrics',
+                            '/api/ready',
+                            '/api/ai',
+                            '/api/ai/insight',
+                            '/api/search',
+                            '/api/search/refresh',
+                            '/api/market',
+                            '/api/market/*',
+                            '/api/observability/client-error',
+                            '/api/telegram/session',
+                        ],
+                        'middleware' => $context['hooks'],
+                    ],
+                    $request_id,
+                    $headers
+                ),
+                $request,
+                $runtime,
+                $config,
+                $request_id,
+                $started_at
+            );
+        }
+
+        if ( '/api/metrics' === $path ) {
+            if ( 'GET' !== $request['method'] ) {
+                return tonbankcard_api_finalize_response(
+                    tonbankcard_api_method_not_allowed_response( [ 'GET', 'OPTIONS' ], $request_id, $headers ),
+                    $request,
+                    $runtime,
+                    $config,
+                    $request_id,
+                    $started_at
+                );
+            }
+
+            return tonbankcard_api_finalize_response(
+                tonbankcard_api_success_response(
+                    tonbankcard_api_metrics_payload( $runtime, $config ),
+                    $request_id,
+                    $headers
+                ),
+                $request,
+                $runtime,
+                $config,
+                $request_id,
+                $started_at
+            );
+        }
+
+        if ( '/api/observability/client-error' === $path ) {
+            if ( 'POST' !== $request['method'] ) {
+                return tonbankcard_api_finalize_response(
+                    tonbankcard_api_method_not_allowed_response( [ 'POST', 'OPTIONS' ], $request_id, $headers ),
+                    $request,
+                    $runtime,
+                    $config,
+                    $request_id,
+                    $started_at
+                );
+            }
+
+            return tonbankcard_api_finalize_response(
+                tonbankcard_api_client_error_response( $request, $runtime, $config, $request_id, $headers ),
+                $request,
+                $runtime,
+                $config,
+                $request_id,
+                $started_at
+            );
+        }
+
+        if ( '/api/telegram/session' === $path ) {
+            if ( 'POST' !== $request['method'] ) {
+                return tonbankcard_api_finalize_response(
+                    tonbankcard_api_method_not_allowed_response( [ 'POST', 'OPTIONS' ], $request_id, $headers ),
+                    $request,
+                    $runtime,
+                    $config,
+                    $request_id,
+                    $started_at
+                );
+            }
+
+            return tonbankcard_api_finalize_response(
+                tonbankcard_api_telegram_session_response( $request, $runtime, $config, $request_id, $headers ),
+                $request,
+                $runtime,
+                $config,
+                $request_id,
+                $started_at
+            );
+        }
+
+        if ( '/api/health' === $path ) {
+            if ( 'GET' !== $request['method'] ) {
+                return tonbankcard_api_finalize_response(
+                    tonbankcard_api_method_not_allowed_response( [ 'GET', 'OPTIONS' ], $request_id, $headers ),
+                    $request,
+                    $runtime,
+                    $config,
+                    $request_id,
+                    $started_at
+                );
+            }
+
+            return tonbankcard_api_finalize_response(
+                tonbankcard_api_success_response(
+                    tonbankcard_api_health_payload( $runtime, $config, $invalid_configs, FALSE ),
+                    $request_id,
+                    $headers
+                ),
+                $request,
+                $runtime,
+                $config,
+                $request_id,
+                $started_at
+            );
+        }
+
+        if ( '/api/ready' === $path ) {
+            if ( 'GET' !== $request['method'] ) {
+                return tonbankcard_api_finalize_response(
+                    tonbankcard_api_method_not_allowed_response( [ 'GET', 'OPTIONS' ], $request_id, $headers ),
+                    $request,
+                    $runtime,
+                    $config,
+                    $request_id,
+                    $started_at
+                );
+            }
+
+            $payload = tonbankcard_api_health_payload( $runtime, $config, $invalid_configs, TRUE );
+            if ( ! empty( $payload['ready'] ) ) {
+                return tonbankcard_api_finalize_response(
+                    tonbankcard_api_success_response( $payload, $request_id, $headers ),
+                    $request,
+                    $runtime,
+                    $config,
+                    $request_id,
+                    $started_at
+                );
+            }
+
+            return tonbankcard_api_finalize_response(
+                tonbankcard_api_error_response(
+                    503,
+                    'not_ready',
+                    'API dependencies are not ready.',
+                    [ 'checks' => $payload['checks'] ],
+                    $request_id,
+                    $headers
+                ),
+                $request,
+                $runtime,
+                $config,
+                $request_id,
+                $started_at
+            );
+        }
+
+        if ( function_exists( 'tonbankcard_api_ai_is_request' ) && tonbankcard_api_ai_is_request( $path ) ) {
+            return tonbankcard_api_finalize_response(
+                tonbankcard_api_ai_handle( $request, $runtime, $config, $request_id, $headers ),
+                $request,
+                $runtime,
+                $config,
+                $request_id,
+                $started_at
+            );
+        }
+
+        if ( tonbankcard_api_search_is_request( $path ) ) {
+            return tonbankcard_api_finalize_response(
+                tonbankcard_api_search_handle( $request, $runtime, $config, $request_id, $headers ),
+                $request,
+                $runtime,
+                $config,
+                $request_id,
+                $started_at
+            );
+        }
+
+        if ( tonbankcard_api_market_is_request( $path ) ) {
+            return tonbankcard_api_finalize_response(
+                tonbankcard_api_market_handle( $request, $runtime, $config, $request_id, $headers ),
+                $request,
+                $runtime,
+                $config,
+                $request_id,
+                $started_at
+            );
+        }
+
+        return tonbankcard_api_finalize_response(
+            tonbankcard_api_error_response(
+                404,
+                'not_found',
+                'No API route matches the request.',
+                [ 'path' => $path ],
+                $request_id,
+                $headers
+            ),
+            $request,
+            $runtime,
+            $config,
+            $request_id,
+            $started_at
+        );
+    } catch ( Throwable $exception ) {
+        tonbankcard_observability_log(
+            $runtime,
+            $config,
+            'error',
+            'api.unhandled_exception',
             [
-                'service'    => 'tonbankcard-api',
-                'version'    => GECKO_CLIENT_VERSION,
-                'routes'     => [
-                    '/api/health',
-                    '/api/metrics',
-                    '/api/ready',
-                    '/api/ai',
-                    '/api/ai/insight',
-                    '/api/search',
-                    '/api/search/refresh',
-                    '/api/market',
-                    '/api/market/*',
-                    '/api/telegram/session',
-                ],
-                'middleware' => $context['hooks'],
-            ],
+                'request_id'      => $request_id,
+                'method'          => $request['method'],
+                'path'            => tonbankcard_api_normalize_path( $request['path'] ),
+                'exception_class' => get_class( $exception ),
+            ]
+        );
+
+        return tonbankcard_api_finalize_response(
+            tonbankcard_api_error_response(
+                500,
+                'internal_error',
+                'The API request failed unexpectedly.',
+                [],
+                $request_id,
+                $headers
+            ),
+            $request,
+            $runtime,
+            $config,
             $request_id,
-            $headers
+            $started_at
         );
     }
-
-    if ( '/api/metrics' === $path ) {
-        if ( 'GET' !== $request['method'] ) {
-            return tonbankcard_api_method_not_allowed_response( [ 'GET', 'OPTIONS' ], $request_id, $headers );
-        }
-
-        return tonbankcard_api_success_response(
-            tonbankcard_api_metrics_payload( $runtime, $config ),
-            $request_id,
-            $headers
-        );
-    }
-
-    if ( '/api/telegram/session' === $path ) {
-        if ( 'POST' !== $request['method'] ) {
-            return tonbankcard_api_method_not_allowed_response( [ 'POST', 'OPTIONS' ], $request_id, $headers );
-        }
-
-        return tonbankcard_api_telegram_session_response( $request, $runtime, $config, $request_id, $headers );
-    }
-
-    if ( '/api/health' === $path ) {
-        if ( 'GET' !== $request['method'] ) {
-            return tonbankcard_api_method_not_allowed_response( [ 'GET', 'OPTIONS' ], $request_id, $headers );
-        }
-
-        return tonbankcard_api_success_response(
-            tonbankcard_api_health_payload( $runtime, $config, $invalid_configs, FALSE ),
-            $request_id,
-            $headers
-        );
-    }
-
-    if ( '/api/ready' === $path ) {
-        if ( 'GET' !== $request['method'] ) {
-            return tonbankcard_api_method_not_allowed_response( [ 'GET', 'OPTIONS' ], $request_id, $headers );
-        }
-
-        $payload = tonbankcard_api_health_payload( $runtime, $config, $invalid_configs, TRUE );
-        if ( ! empty( $payload['ready'] ) ) {
-            return tonbankcard_api_success_response( $payload, $request_id, $headers );
-        }
-
-        return tonbankcard_api_error_response(
-            503,
-            'not_ready',
-            'API dependencies are not ready.',
-            [ 'checks' => $payload['checks'] ],
-            $request_id,
-            $headers
-        );
-    }
-
-    if ( tonbankcard_api_ai_is_request( $path ) ) {
-        return tonbankcard_api_ai_handle( $request, $runtime, $config, $request_id, $headers );
-    }
-
-    if ( tonbankcard_api_search_is_request( $path ) ) {
-        return tonbankcard_api_search_handle( $request, $runtime, $config, $request_id, $headers );
-    }
-
-    if ( tonbankcard_api_market_is_request( $path ) ) {
-        return tonbankcard_api_market_handle( $request, $runtime, $config, $request_id, $headers );
-    }
-
-    return tonbankcard_api_error_response(
-        404,
-        'not_found',
-        'No API route matches the request.',
-        [ 'path' => $path ],
-        $request_id,
-        $headers
-    );
 }
 
 /**
@@ -304,6 +493,141 @@ function tonbankcard_api_emit_response( array $response ) {
     }
 
     echo isset( $response['body'] ) ? $response['body'] : '';
+}
+
+/**
+ * Logs and returns a finished API response.
+ *
+ * @param array $response
+ * @param array $request
+ * @param array $runtime
+ * @param array $config
+ * @param string $request_id
+ * @param float $started_at
+ * @return array
+ */
+function tonbankcard_api_finalize_response( array $response, array $request, array $runtime, array $config, string $request_id, float $started_at ) {
+    $status = isset( $response['status'] ) ? (int) $response['status'] : 500;
+    $error_code = tonbankcard_api_response_error_code( $response );
+    $level = 500 <= $status ? 'error' : ( 400 <= $status ? 'warning' : 'info' );
+
+    tonbankcard_observability_log(
+        $runtime,
+        $config,
+        $level,
+        'api.request_completed',
+        [
+            'request_id'  => $request_id,
+            'method'      => $request['method'],
+            'path'        => tonbankcard_api_normalize_path( $request['path'] ),
+            'route_group' => tonbankcard_api_route_group( $request['path'] ),
+            'status'      => $status,
+            'error_code'  => $error_code,
+            'duration_ms' => max( 0, (int) round( ( microtime( TRUE ) - $started_at ) * 1000 ) ),
+        ]
+    );
+
+    return $response;
+}
+
+/**
+ * Extracts a safe error code from a response body.
+ *
+ * @param array $response
+ * @return string|null
+ */
+function tonbankcard_api_response_error_code( array $response ) {
+    $body = isset( $response['body'] ) ? (string) $response['body'] : '';
+    if ( '' === $body ) {
+        return null;
+    }
+
+    $payload = json_decode( $body, TRUE );
+    if ( ! is_array( $payload ) || empty( $payload['error']['code'] ) ) {
+        return null;
+    }
+
+    return substr( preg_replace( '/[^A-Za-z0-9_.-]/', '_', (string) $payload['error']['code'] ), 0, 80 );
+}
+
+/**
+ * Returns a coarse route group for operational dashboards.
+ *
+ * @param string $path
+ * @return string
+ */
+function tonbankcard_api_route_group( string $path ) {
+    $path = tonbankcard_api_normalize_path( $path );
+    if ( tonbankcard_api_market_is_request( $path ) ) {
+        return 'market';
+    }
+    if ( tonbankcard_api_ai_is_request( $path ) ) {
+        return 'ai';
+    }
+    if ( tonbankcard_api_search_is_request( $path ) ) {
+        return 'search';
+    }
+    if ( '/api/ai' === $path || 0 === strpos( $path, '/api/ai/' ) ) {
+        return 'ai';
+    }
+    if ( 0 === strpos( $path, '/api/telegram/' ) ) {
+        return 'telegram';
+    }
+    if ( 0 === strpos( $path, '/api/observability/' ) ) {
+        return 'observability';
+    }
+    if ( '/api/metrics' === $path ) {
+        return 'metrics';
+    }
+    if ( in_array( $path, [ '/api', '/api/health', '/api/ready' ], TRUE ) ) {
+        return 'core';
+    }
+
+    return 'unknown';
+}
+
+/**
+ * Accepts sanitized browser error reports and emits server-side logs.
+ *
+ * @param array $request
+ * @param array $runtime
+ * @param array $config
+ * @param string $request_id
+ * @param array $headers
+ * @return array
+ */
+function tonbankcard_api_client_error_response( array $request, array $runtime, array $config, string $request_id, array $headers ) {
+    $settings = tonbankcard_observability_config( $runtime, $config );
+    if ( empty( $settings['client_error_reporting'] ) ) {
+        return tonbankcard_api_success_response(
+            [
+                'accepted' => FALSE,
+                'reason'   => 'client_error_reporting_disabled',
+            ],
+            $request_id,
+            $headers,
+            202
+        );
+    }
+
+    $event = tonbankcard_observability_client_event( tonbankcard_api_json_body( $request ), $request_id );
+    tonbankcard_observability_log(
+        $runtime,
+        $config,
+        tonbankcard_observability_client_event_level( $event ),
+        'frontend.' . $event['type'],
+        $event
+    );
+
+    return tonbankcard_api_success_response(
+        [
+            'accepted' => TRUE,
+            'event_id' => $event['client_event_id'],
+        ],
+        $request_id,
+        $headers,
+        202
+    );
 }
 
 /**
@@ -1570,7 +1894,15 @@ function tonbankcard_api_upstream_provider_check( array $runtime, array $config 
             'available'  => null,
             'message'    => ! empty( $providers['coingecko']['api_key_configured'] ) ? 'CoinGecko API key is configured server-side for the market data gateway.' : 'CoinGecko gateway uses keyless public Demo API access until a server-side key is configured.',
         ],
-        'groq'      => tonbankcard_api_ai_provider_health_check( $runtime, $config ),
+        'groq'      => function_exists( 'tonbankcard_api_ai_provider_health_check' )
+            ? tonbankcard_api_ai_provider_health_check( $runtime, $config )
+            : [
+                'status'     => ! empty( $providers['groq']['api_key_configured'] ) ? 'configured' : ( ! empty( $features['ai'] ) ? 'fail' : 'not_configured' ),
+                'required'   => ! empty( $features['ai'] ),
+                'configured' => ! empty( $providers['groq']['api_key_configured'] ),
+                'available'  => null,
+                'message'    => ! empty( $features['ai'] ) ? 'Groq API key is required when AI features are enabled.' : 'Groq is optional while AI features are disabled.',
+            ],
         'changenow' => [
             'status'     => ! empty( $providers['changenow']['link_id'] ) ? 'configured' : ( ! empty( $features['changenow'] ) ? 'fail' : 'not_configured' ),
             'required'   => ! empty( $features['changenow'] ),

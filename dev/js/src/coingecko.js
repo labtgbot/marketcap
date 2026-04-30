@@ -7,6 +7,7 @@
     const validURLString = utils.validURLString;
     const bitcointalkThreadUrl = utils.bitcointalkThreadUrl;
     const getCustomLink = GeckoClient.getCustomLink;
+    const observability = GeckoClient.observability;
 
     function validateUrls(list) {
         return (list || []).map(url => validURLString(url)).filter(url => !!url);
@@ -52,6 +53,9 @@
                 baseURL: this.baseUrl,
                 timeout: cg.timeout > 0 ? cg.timeout : 0
             });
+            if (observability && observability.instrumentAxiosInstance) {
+                observability.instrumentAxiosInstance(client);
+            }
 
             return client.get(path, config)
                 .then((res) => {

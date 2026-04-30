@@ -45,16 +45,7 @@ For staging, production, and telegram profiles, set explicit values for:
 | `TONBANKCARD_BOT_TOKEN` | `telegram` profile or alerts enabled | Secret; server-side only. |
 | `COINGECKO_API_PLAN` | Optional | `demo` for CoinGecko Public/Demo API or `pro` for CoinGecko Pro API. Defaults to `demo`. |
 | `COINGECKO_API_KEY` | `COINGECKO_API_PLAN=pro` | Secret; server-side only. Optional for `demo`. |
-| `TONBANKCARD_AI_PROVIDER` | Optional | Defaults to `groq`; future providers can use the same AI route contract. |
-| `TONBANKCARD_AI_PROMPT_VERSION` | Optional | Prompt contract version, default `v1`. |
-| `TONBANKCARD_AI_ENABLED_FEATURES` | Optional | Comma-separated subset of `summary,sentiment,insight`. |
-| `TONBANKCARD_AI_FALLBACK_BEHAVIOR` | Optional | Defaults to `unavailable` so provider failures return `insight unavailable`. |
 | `GROQ_API_KEY` | AI feature enabled | Secret; server-side only. |
-| `GROQ_MODEL_ID` | Optional | Defaults to `llama-3.3-70b-versatile`. |
-| `GROQ_BASE_URL` | Optional | Defaults to `https://api.groq.com/openai/v1/`. |
-| `GROQ_TIMEOUT_SECONDS` | Optional | Provider request timeout, default `10`. |
-| `GROQ_RATE_LIMIT_WINDOW_SECONDS` | Optional | Configured rate-limit window metadata, default `60`. |
-| `GROQ_RATE_LIMIT_MAX_REQUESTS` | Optional | Configured rate-limit ceiling metadata, default `20`. |
 | `UPSTASH_REDIS_REST_URL` | Non-local profiles | Cache/rate-limit endpoint. |
 | `UPSTASH_REDIS_REST_TOKEN` | Non-local profiles | Secret; server-side only. |
 | `MYSQL_DSN` | Non-local profiles | Example: `mysql:host=127.0.0.1;dbname=marketcap;charset=utf8mb4`. |
@@ -78,6 +69,24 @@ authentication header. Set `COINGECKO_API_KEY` only when more quota is needed;
 `demo` sends it as `x-cg-demo-api-key` and `pro` uses the Pro API root with
 `x-cg-pro-api-key`. The key is inserted only by the PHP backend and is never
 included in `window.GeckoClient` or browser request parameters.
+
+## Observability
+
+Operational logging defaults to warning-and-error records so failures are
+traceable without noisy success logs:
+
+- `TONBANKCARD_OBSERVABILITY_LOG_LEVEL`: defaults to `warning`; supports
+  `debug`, `info`, `warning`, `error`, `critical`, and `off`.
+- `TONBANKCARD_VERBOSE_TRACING`: defaults to `false`; when enabled, emits safe
+  request/provider debug and info records with secrets redacted.
+- `TONBANKCARD_CLIENT_ERROR_REPORTING`: defaults to `true`; allows browser boot,
+  Vue, unhandled promise, and API errors to post to
+  `/api/observability/client-error`.
+
+See `docs/v2-observability-operational-logging.md` for the runbook and query
+examples.
+
+## AI Provider
 
 The V2 AI provider layer is disabled by default through
 `TONBANKCARD_FEATURE_AI=false`. When enabled, `/api/ai/insight` uses the
