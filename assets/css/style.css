@@ -270,7 +270,52 @@ v-app {
     visibility: hidden;
 }
 .gc-search-bar {
+    width: min(600px, 100%);
     max-width: 600px;
+}
+.gc-search-bar-inline,
+.gc-search-autocomplete {
+    width: 100%;
+}
+.gc-search-trigger {
+    background: rgba(255, 255, 255, 0.08);
+}
+.gc-search-menu .v-list {
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+.gc-search-group-header {
+    height: 32px;
+    color: var(--tbc-text-secondary) !important;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 32px;
+    pointer-events: none;
+    text-transform: uppercase;
+}
+.gc-search-result-meta {
+    margin-left: 8px;
+}
+.gc-search-result-meta .v-chip {
+    background: var(--tbc-surface-panel-muted) !important;
+    color: var(--tbc-text-secondary) !important;
+}
+.gc-search-dialog-card {
+    min-height: 100vh;
+    padding-top: var(--tbc-safe-area-top);
+    padding-bottom: var(--tbc-safe-area-bottom);
+    background: var(--tbc-surface-canvas) !important;
+}
+.gc-search-dialog-toolbar {
+    background: var(--tbc-surface-panel) !important;
+    border-bottom: 1px solid var(--tbc-surface-border);
+}
+.gc-search-dialog-field {
+    margin-left: 8px;
+}
+.gc-search-dialog-menu {
+    max-width: calc(100vw - 16px);
 }
 .public-web-navigation-links {
     gap: 4px;
@@ -385,6 +430,12 @@ v-app {
     }
 }
 @media only screen and (max-width: 599px) {
+    .gc-search-bar {
+        width: auto;
+        max-width: 48px;
+        flex: 0 0 auto;
+    }
+
     #currencies-table td {
         padding: 0 8px;
     }
@@ -396,10 +447,6 @@ v-app {
     .v-toolbar__content {
         padding-right: 6px;
         padding-left: 6px;
-    }
-
-    .gc-search-bar {
-        max-width: calc(100vw - 108px);
     }
 
     .gc-stats-bar > span {
