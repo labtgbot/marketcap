@@ -49,10 +49,56 @@
         return null;
     };
 
+    const telegramThemeParamMap = {
+        bg_color: '--tbc-tg-bg',
+        secondary_bg_color: '--tbc-tg-secondary-bg',
+        text_color: '--tbc-tg-text',
+        hint_color: '--tbc-tg-hint',
+        link_color: '--tbc-tg-link',
+        button_color: '--tbc-tg-button',
+        button_text_color: '--tbc-tg-button-text',
+        header_bg_color: '--tbc-tg-header-bg',
+        bottom_bar_bg_color: '--tbc-tg-bottom-bar-bg',
+        accent_text_color: '--tbc-tg-accent-text',
+        destructive_text_color: '--tbc-tg-destructive-text',
+        section_bg_color: '--tbc-tg-section-bg',
+        section_header_text_color: '--tbc-tg-section-header-text',
+        subtitle_text_color: '--tbc-tg-subtitle-text'
+    };
+
+    const telegramVuetifyParamMap = {
+        bg_color: 'background',
+        secondary_bg_color: 'surface',
+        text_color: 'text_primary',
+        hint_color: 'text_muted',
+        link_color: 'info',
+        button_color: 'primary',
+        destructive_text_color: 'low'
+    };
+
+    utils.isValidHexColor = value => _.isString(value) && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(_.trim(value));
+
+    utils.normalizeHexColor = value => {
+        if (!utils.isValidHexColor(value)) return null;
+
+        value = _.toUpper(_.trim(value));
+        if (value.length === 4) {
+            value = '#' + value.charAt(1) + value.charAt(1) + value.charAt(2) + value.charAt(2) + value.charAt(3) + value.charAt(3);
+        }
+
+        return value;
+    };
+
+    utils.getTelegramWebApp = () => _.get(window, 'Telegram.WebApp') || null;
+
     // EXTEND GECKO CLIENT OBJECT
 
     // translate
     GeckoClient.__ = field => _.get(GeckoClient.translation, field, field);
+
+    GeckoClient.setDocumentThemeClass = theme => {
+        document.documentElement.classList.toggle('tbc-theme-dark', theme === 'dark');
+    };
 
     // preference manager uses persistent "Local Storage" object
     GeckoClient.preferences = {
@@ -77,7 +123,14 @@
             this.set('vs_currency', id);
         },
         theme: function (theme) {
-            if (theme === undefined) return this.get('theme') || (GeckoClient.vuetifyOptions.theme.dark ? 'dark' : 'light');
+            if (theme === undefined) {
+                if (GeckoClient.telegram && GeckoClient.telegram.active && GeckoClient.telegram.colorScheme) {
+                    return GeckoClient.telegram.colorScheme;
+                }
+
+                return this.get('theme') || (GeckoClient.vuetifyOptions.theme.dark ? 'dark' : 'light');
+            }
+            if (GeckoClient.telegram && GeckoClient.telegram.active) return;
             this.set('theme', theme);
         },
         cookiesAccepted: function (accepted) {
@@ -85,6 +138,115 @@
             if (accepted === true) return this.set('cookies_accepted', Date.now())
         }
     };
+
+    GeckoClient.telegram = {
+        active: false,
+        webApp: null,
+        colorScheme: null,
+        themeParams: {},
+        callbacks: [],
+        isTelegramSurface: function () {
+            return _.get(GeckoClient, 'runtime.profile') === 'telegram' || !!utils.getTelegramWebApp();
+        },
+        setColorScheme: function (colorScheme) {
+            this.colorScheme = colorScheme === 'dark' ? 'dark' : 'light';
+            GeckoClient.setDocumentThemeClass(this.colorScheme);
+        },
+        applyThemeParams: function (params) {
+            const rootStyle = document.documentElement.style;
+            this.themeParams = {};
+
+            _.forOwn(params || {}, (value, key) => {
+                const color = utils.normalizeHexColor(value);
+                if (!color) return;
+
+                this.themeParams[key] = color;
+                if (telegramThemeParamMap[key]) {
+                    rootStyle.setProperty(telegramThemeParamMap[key], color);
+                }
+            });
+
+            this.syncNativeColors();
+            this.callbacks.forEach(callback => callback(this));
+        },
+        getVuetifyThemePatch: function () {
+            const patch = {};
+
+            _.forOwn(telegramVuetifyParamMap, (vuetifyKey, telegramKey) => {
+                const color = this.themeParams[telegramKey];
+                if (color) patch[vuetifyKey] = color;
+            });
+
+            if (this.themeParams.destructive_text_color) {
+                patch.error = this.themeParams.destructive_text_color;
+            }
+
+            if (this.themeParams.button_text_color) {
+                patch.high_text = this.themeParams.button_text_color;
+            }
+
+            return patch;
+        },
+        syncNativeColors: function () {
+            const webApp = this.webApp;
+            if (!webApp) return;
+
+            const headerColor = this.themeParams.header_bg_color || this.themeParams.bg_color || this.themeParams.button_color;
+            const backgroundColor = this.themeParams.bg_color || this.themeParams.secondary_bg_color;
+            const bottomBarColor = this.themeParams.bottom_bar_bg_color || this.themeParams.secondary_bg_color || backgroundColor;
+
+            if (headerColor && _.isFunction(webApp.setHeaderColor)) {
+                webApp.setHeaderColor(headerColor);
+            }
+            if (backgroundColor && _.isFunction(webApp.setBackgroundColor)) {
+                webApp.setBackgroundColor(backgroundColor);
+            }
+            if (bottomBarColor && _.isFunction(webApp.setBottomBarColor)) {
+                webApp.setBottomBarColor(bottomBarColor);
+            }
+
+            const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+            if (metaThemeColor && (headerColor || backgroundColor)) {
+                metaThemeColor.content = headerColor || backgroundColor;
+            }
+        },
+        onThemeChange: function (callback) {
+            if (_.isFunction(callback)) {
+                this.callbacks.push(callback);
+            }
+        },
+        init: function () {
+            this.webApp = utils.getTelegramWebApp();
+            this.active = this.isTelegramSurface();
+
+            if (!this.active) {
+                GeckoClient.setDocumentThemeClass(GeckoClient.preferences.theme());
+                return this;
+            }
+
+            document.documentElement.classList.add('tbc-telegram-webview');
+            this.setColorScheme(_.get(this.webApp, 'colorScheme', 'light'));
+            this.applyThemeParams(_.get(this.webApp, 'themeParams', {}));
+
+            if (this.webApp && _.isFunction(this.webApp.onEvent)) {
+                this.webApp.onEvent('themeChanged', () => {
+                    this.setColorScheme(_.get(this.webApp, 'colorScheme', this.colorScheme));
+                    this.applyThemeParams(_.get(this.webApp, 'themeParams', this.themeParams));
+                });
+            }
+
+            if (this.webApp && _.isFunction(this.webApp.ready)) {
+                this.webApp.ready();
+            }
+            if (this.webApp && _.isFunction(this.webApp.expand)) {
+                this.webApp.expand();
+            }
+
+            return this;
+        }
+    };
+
+    GeckoClient.telegram.init();
 
     GeckoClient.getOptions = (path, defaultValue) => _.get(GeckoClient.options, path, defaultValue);
 
@@ -143,7 +305,18 @@
 
     GeckoClient.getVuetifyOptions = () => {
         const options = _.cloneDeep(GeckoClient.vuetifyOptions);
-        options.theme.dark = GeckoClient.preferences.theme() === 'dark';
+        const theme = GeckoClient.preferences.theme();
+        options.theme.dark = theme === 'dark';
+        GeckoClient.setDocumentThemeClass(theme);
+
+        if (GeckoClient.telegram.active) {
+            options.theme.themes[theme] = Object.assign(
+                {},
+                options.theme.themes[theme] || {},
+                GeckoClient.telegram.getVuetifyThemePatch()
+            );
+        }
+
         return options;
     }
 

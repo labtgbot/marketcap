@@ -24,7 +24,8 @@ $linked_data = tonbankcard_public_linked_data( $public_meta );
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
     <link rel="canonical" href="<?php echo esc_url( $public_meta['canonical_url'] ); ?>" />
     <meta property="og:type" content="<?php echo esc_attr( $public_meta['og_type'] ); ?>" />
     <meta property="og:url" content="<?php echo esc_url( $public_meta['canonical_url'] ); ?>" />
@@ -61,7 +62,7 @@ $linked_data = tonbankcard_public_linked_data( $public_meta );
          */
         if ( ! empty( $site['theme_color'] ) ) {
             ?>
-            <meta name="theme-color" content="<?php echo esc_attr( $site['theme_color'] ); ?>" />
+            <meta id="tbc-theme-color" content="<?php echo esc_attr( $site['theme_color'] ); ?>" name="theme-color" />
             <?php
         }
 

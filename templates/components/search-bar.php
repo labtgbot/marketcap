@@ -41,6 +41,7 @@ $component_search_bar['placeholder'] = __( 'Search...' );
     item-value="searchId"
     return-object
     label="<?php echo esc_attr( $component_search_bar['placeholder'] ); ?>"
+    aria-label="<?php echo esc_attr( __( 'Search currencies and exchanges' ) ); ?>"
     prepend-inner-icon="mdi-magnify"
     dense
     solo

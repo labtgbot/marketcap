@@ -12,6 +12,7 @@
     const vuetifyOptions = GeckoClient.getVuetifyOptions();
     const supportedVsCurrencies = GeckoClient.supportedVsCurrencies;
     const defaultVsCurrencyId = GeckoClient.defaultVsCurrencyId;
+    const initialTheme = preferences.theme();
 
 
     const vm = new Vue({
@@ -27,8 +28,8 @@
                 vsCurrencyNavDialogModel: false,
                 vsCurrencyBarDialogModel: false,
                 vsCurrency: {},
-                theme: preferences.theme(),
-                darkTheme: preferences.theme() === 'dark',
+                theme: initialTheme,
+                darkTheme: initialTheme === 'dark',
                 isMobileUserAgent: utils.isMobileUserAgent(),
                 hasDownloaded: false,
                 global: null,
@@ -64,6 +65,8 @@
                 // switch theme
                 this.theme = dark ? 'dark' : 'light';
                 this.$vuetify.theme.dark = dark;
+                GeckoClient.setDocumentThemeClass(this.theme);
+                this.applyTelegramVuetifyTheme();
                 preferences.theme(this.theme);
             },
         },
@@ -87,10 +90,42 @@
         created: function () {
             // set initial vs currency
             this.setVsCurrencyObject();
+            this.syncTelegramTheme();
+            GeckoClient.telegram.onThemeChange(() => this.syncTelegramTheme());
             // fetch global data for stats bar
             CoinGecko.global().then(global => this.global = global);
         },
         methods: {
+            syncTelegramTheme: function () {
+                if (!GeckoClient.telegram.active) {
+                    GeckoClient.setDocumentThemeClass(this.theme);
+                    return;
+                }
+
+                const theme = GeckoClient.telegram.colorScheme === 'dark' ? 'dark' : 'light';
+                this.theme = theme;
+                this.$vuetify.theme.dark = theme === 'dark';
+                this.darkTheme = this.$vuetify.theme.dark;
+                GeckoClient.setDocumentThemeClass(theme);
+                this.applyTelegramVuetifyTheme();
+            },
+            applyTelegramVuetifyTheme: function () {
+                if (!GeckoClient.telegram.active) return;
+
+                const themeName = this.$vuetify.theme.dark ? 'dark' : 'light';
+                const target = this.$vuetify.theme.themes[themeName] || {};
+                const patch = GeckoClient.telegram.getVuetifyThemePatch();
+
+                Object.keys(patch).forEach(key => {
+                    this.$set(target, key, patch[key]);
+                });
+
+                const themeColor = patch.primary || patch.background;
+                const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+                if (metaThemeColor && themeColor) {
+                    metaThemeColor.content = themeColor;
+                }
+            },
             setVsCurrencyObject: function () {
                 let defaultCurrency = null;
 
