@@ -287,6 +287,13 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
         $groq_base_url      = tonbankcard_normalize_url( (string) tonbankcard_env( 'GROQ_BASE_URL', 'https://api.groq.com/openai/v1/' ) );
         $upstash_token      = (string) tonbankcard_env( 'UPSTASH_REDIS_REST_TOKEN', '' );
         $mysql_password     = (string) tonbankcard_env( 'MYSQL_PASSWORD', '' );
+        $observability_log_level = strtolower( trim( (string) tonbankcard_env( 'TONBANKCARD_OBSERVABILITY_LOG_LEVEL', 'warning' ) ) );
+        if ( ! in_array( $observability_log_level, [ 'debug', 'info', 'warning', 'warn', 'error', 'critical', 'off' ], TRUE ) ) {
+            $observability_log_level = 'warning';
+        }
+        if ( 'warn' === $observability_log_level ) {
+            $observability_log_level = 'warning';
+        }
 
         return [
             'profile'       => $profile,
@@ -346,6 +353,12 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
                 'changenow' => [
                     'link_id' => (string) tonbankcard_env( 'CHANGENOW_LINK_ID', '' ),
                 ],
+            ],
+            'observability' => [
+                'log_level'              => $observability_log_level,
+                'verbose_tracing'        => tonbankcard_env_bool( 'TONBANKCARD_VERBOSE_TRACING', FALSE ),
+                'client_error_reporting' => tonbankcard_env_bool( 'TONBANKCARD_CLIENT_ERROR_REPORTING', TRUE ),
+                'sink'                   => 'error_log',
             ],
             'feature_flags' => $feature_flags,
         ];
