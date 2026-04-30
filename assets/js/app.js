@@ -1820,12 +1820,13 @@
         doge: 'dogecoin',
         dot: 'polkadot',
         eth: 'ethereum',
+        ton: 'toncoin',
         usdc: 'usd-coin',
         usdt: 'tether',
         xrp: 'ripple'
     };
 
-    const defaultSymbols = ['btc', 'eth'];
+    const defaultSymbols = ['btc', 'eth', 'ton'];
 
 
     Vue.component('gc-stats-bar', {
@@ -3070,6 +3071,12 @@
     const supportedVsCurrencies = GeckoClient.supportedVsCurrencies;
     const defaultVsCurrencyId = GeckoClient.defaultVsCurrencyId;
     const initialTheme = preferences.theme();
+    const derivedDominanceAssets = {
+        ton: {
+            id: 'toncoin',
+            vsCurrencyId: 'usd'
+        }
+    };
 
 
     const vm = new Vue({
@@ -3090,6 +3097,7 @@
                 isMobileUserAgent: utils.isMobileUserAgent(),
                 hasDownloaded: false,
                 global: null,
+                derivedMarketCapPercentages: {},
                 copiedModel: false,
                 // keep "Intl" instances for performance (formats 50-100 times faster)
                 priceFormatter: null,
@@ -3150,7 +3158,10 @@
             this.syncTelegramTheme();
             GeckoClient.telegram.onThemeChange(() => this.syncTelegramTheme());
             // fetch global data for stats bar
-            CoinGecko.global().then(global => this.global = global);
+            CoinGecko.global().then(global => {
+                this.global = global;
+                this.fetchDerivedMarketCapPercentages();
+            });
         },
         methods: {
             syncTelegramTheme: function () {
@@ -3215,7 +3226,43 @@
                 });
             },
             marketCapPercentage: function (symbol) {
-                return _.get(this.global, ['market_cap_percentage', symbol], null);
+                symbol = _.toLower(_.trim(symbol));
+                const upstreamPercentage = _.get(this.global, ['market_cap_percentage', symbol], null);
+
+                return _.isFinite(parseFloat(upstreamPercentage))
+                    ? upstreamPercentage
+                    : _.get(this.derivedMarketCapPercentages, symbol, null);
+            },
+            fetchDerivedMarketCapPercentages: function () {
+                _.forOwn(derivedDominanceAssets, (asset, symbol) => {
+                    if (this.marketCapPercentage(symbol)) return;
+                    this.fetchDerivedMarketCapPercentage(symbol, asset);
+                });
+            },
+            fetchDerivedMarketCapPercentage: function (symbol, asset) {
+                const vsCurrencyId = asset.vsCurrencyId || this.defaultVsCurrencyId || this.vsCurrencyId;
+                const totalMarketCap = parseFloat(_.get(this.global, ['total_market_cap', vsCurrencyId], null));
+
+                if (!_.isFinite(totalMarketCap) || totalMarketCap <= 0) {
+                    return Promise.resolve(null);
+                }
+
+                return CoinGecko.coinsMarkets({
+                    ids: asset.id,
+                    vs_currency: vsCurrencyId,
+                    per_page: 1,
+                    page: 1,
+                    sparkline: false
+                }).then(currencies => {
+                    const currency = _.find(currencies, ['id', asset.id]) || _.first(currencies) || {};
+                    const marketCap = parseFloat(currency.market_cap);
+
+                    if (_.isFinite(marketCap) && marketCap > 0) {
+                        this.$set(this.derivedMarketCapPercentages, symbol, marketCap / totalMarketCap * 100);
+                    }
+
+                    return _.get(this.derivedMarketCapPercentages, symbol, null);
+                }).catch(() => null);
             },
             priceFormat: function (price) {
                 return currencyFormat(this.priceFormatter, price, this.vsCurrency.isFiat ? null : this.vsCurrency.unit);
