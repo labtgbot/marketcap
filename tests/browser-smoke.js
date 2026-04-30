@@ -366,6 +366,14 @@ async function installRoutes(context, requestLog) {
         }
 
         if (apiPath === 'coins/markets') {
+            if (url.searchParams.get('ids') === 'toncoin') {
+                requestLog.tonDominanceMarkets.push(requestRecord(url));
+                const toncoin = marketCurrency('toncoin', 'ton', 'Toncoin', 12, 6.5, -2.4);
+                toncoin.market_cap = 7407407340;
+
+                return fulfillMarketJson(route, [toncoin]);
+            }
+
             requestLog.coinsMarkets.push(requestRecord(url));
             return fulfillMarketJson(route, [
                 marketCurrency('bitcoin', 'btc', 'Bitcoin', 1, 61000, 1.25),
@@ -426,6 +434,7 @@ async function checkMarketPulseHome(page, errors, requestLog) {
     requestLog.globals = [];
     requestLog.trending = [];
     requestLog.coinsMarkets = [];
+    requestLog.tonDominanceMarkets = [];
 
     await page.goto(`${baseURL}/`, {waitUntil: 'domcontentloaded'});
     await page.locator('#market-pulse').waitFor({state: 'visible'});
@@ -439,6 +448,11 @@ async function checkMarketPulseHome(page, errors, requestLog) {
     await page.getByRole('link', {name: 'Watchlist'}).first().waitFor({state: 'visible'});
     await page.getByRole('link', {name: 'TON view'}).first().waitFor({state: 'visible'});
     await page.locator('#market-pulse a', {hasText: 'Bitcoin'}).first().waitFor({state: 'visible'});
+    await page.locator('.gc-stats-bar', {hasText: /ton:\s*0\.6%/i}).waitFor({state: 'visible'});
+
+    const tonDominanceRequest = lastRequest(requestLog.tonDominanceMarkets, 'TON dominance coins request');
+    assertEqual(tonDominanceRequest.params.ids, 'toncoin', 'TON dominance ids');
+    assertEqual(tonDominanceRequest.params.vs_currency, 'usd', 'TON dominance vs_currency');
 
     const request = lastRequest(requestLog.coinsMarkets, 'market pulse coins request');
     assertEqual(request.params.vs_currency, 'usd', 'market pulse vs_currency');
@@ -631,6 +645,7 @@ async function run() {
         marketCharts: [],
         exchanges: [],
         trending: [],
+        tonDominanceMarkets: [],
         searches: [],
     };
     await installRoutes(context, requestLog);
