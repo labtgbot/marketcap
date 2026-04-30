@@ -3,7 +3,7 @@
 
     const setTitle = GeckoClient.setTitle;
 
-    ['ton', 'screener', 'support'].forEach(routeName => {
+    ['screener', 'support'].forEach(routeName => {
         const routeConfig = GeckoClient.routesConfig[routeName];
         if (!routeConfig) return;
 
