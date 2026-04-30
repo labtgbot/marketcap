@@ -6,10 +6,11 @@
     "test:content": "sh tests/branding-content-check.sh",
     "test:architecture": "sh tests/architecture-decision-check.sh",
     "test:analytics": "sh tests/analytics-privacy-metrics-check.sh",
+    "test:database": "sh tests/database-schema-check.sh",
     "validate:bundle": "node tests/generated-bundle-check.js",
     "test:workflow": "sh tests/development-workflow-check.sh",
     "test:smoke": "node tests/browser-smoke.js",
-    "test": "npm run test:workflow && npm run lint:php && npm run test:content && npm run test:architecture && npm run test:analytics && npm run validate:bundle && npm run test:smoke"
+    "test": "npm run test:workflow && npm run lint:php && npm run test:content && npm run test:architecture && npm run test:analytics && npm run test:database && npm run validate:bundle && npm run test:smoke"
   },
   "devDependencies": {
     "playwright": "^1.59.1"

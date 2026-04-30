@@ -32,6 +32,15 @@ Open these browser URLs while the server is running:
 Copy `.env.example` to `.env` only when you need local overrides. A fresh
 checkout defaults to the `local` profile without requiring secrets.
 
+Optional V2 database setup uses the `MYSQL_DSN`, `MYSQL_USER`, and
+`MYSQL_PASSWORD` values from `.env.example`. After creating an empty local MySQL
+or MariaDB database, initialize it with:
+
+```sh
+php database/migrate.php dry-run
+php database/migrate.php up
+```
+
 ## Local Checks
 
 Run all reproducible checks:
@@ -47,6 +56,7 @@ npm run test:workflow
 npm run lint:php
 npm run test:content
 npm run test:architecture
+npm run test:database
 npm run validate:bundle
 npm run test:smoke
 ```
@@ -85,3 +95,5 @@ See [docs/legal-license-inventory.md](docs/legal-license-inventory.md) for the c
 See [docs/runtime-configuration.md](docs/runtime-configuration.md) and [.env.example](.env.example) for local, staging, production, and Telegram Mini App runtime configuration.
 
 See [docs/v2-analytics-privacy-metrics.md](docs/v2-analytics-privacy-metrics.md) for the analytics event taxonomy, privacy rules, KPI definitions, retention windows, and dashboard requirements from issue #10.
+
+See [docs/v2-database-schema-and-migrations.md](docs/v2-database-schema-and-migrations.md) for the MySQL/MariaDB V2 schema, migration runner conventions, indexes, retention policy, and backup/restore expectations from issue #11.
