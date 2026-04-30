@@ -288,7 +288,12 @@ function tonbankcard_public_route_meta( $path = null ) {
  * @return array
  */
 function tonbankcard_public_same_as_links() {
-    return [
+    $configured_links = [];
+    if ( ! empty( $GLOBALS['site']['same_as'] ) && is_array( $GLOBALS['site']['same_as'] ) ) {
+        $configured_links = $GLOBALS['site']['same_as'];
+    }
+
+    $fallback_links = [
         'https://tonbankcard.com/',
         'https://t.me/tonbankcard',
         'https://t.me/tonbankcard_ru',
@@ -296,6 +301,71 @@ function tonbankcard_public_same_as_links() {
         'https://vk.com/tonbankcard',
         'https://www.youtube.com/@tonbankcard',
     ];
+
+    $links = ! empty( $configured_links ) ? $configured_links : $fallback_links;
+    return array_values( array_unique( array_filter( $links, function ( $url ) {
+        return is_string( $url ) && tonbankcard_valid_absolute_url( $url );
+    } ) ) );
+}
+
+/**
+ * Returns a named public route definition.
+ *
+ * @param string $name
+ * @return array|null
+ */
+function tonbankcard_public_route_named( string $name ) {
+    $routes = isset( $GLOBALS['routes_v2']['public'] ) && is_array( $GLOBALS['routes_v2']['public'] )
+        ? $GLOBALS['routes_v2']['public']
+        : [];
+
+    return isset( $routes[ $name ] ) && is_array( $routes[ $name ] ) ? $routes[ $name ] : null;
+}
+
+/**
+ * Builds a canonical URL for a public route definition.
+ *
+ * @param array $route
+ * @param array $params
+ * @return string
+ */
+function tonbankcard_public_route_url( array $route, array $params = [] ) {
+    $path = ! empty( $route['canonical_path'] ) ? $route['canonical_path'] : ( isset( $route['path'] ) ? $route['path'] : '/' );
+    $path = tonbankcard_fill_route_path( (string) $path, $params );
+    return site_url( ltrim( $path, '/' ) );
+}
+
+/**
+ * Builds SiteNavigationElement objects from the public navigation config.
+ *
+ * @return array
+ */
+function tonbankcard_public_navigation_linked_data() {
+    $items      = [];
+    $navigation = ! empty( $GLOBALS['v2']['public_navigation'] ) && is_array( $GLOBALS['v2']['public_navigation'] )
+        ? $GLOBALS['v2']['public_navigation']
+        : [];
+
+    foreach ( $navigation as $item ) {
+        if ( empty( $item['route'] ) || ! is_string( $item['route'] ) ) {
+            continue;
+        }
+
+        $route = tonbankcard_public_route_named( $item['route'] );
+        if ( empty( $route['path'] ) || FALSE !== strpos( $route['path'], ':' ) ) {
+            continue;
+        }
+
+        $items[] = [
+            '@context' => 'https://schema.org',
+            '@type'    => 'SiteNavigationElement',
+            'position' => count( $items ) + 1,
+            'name'     => ! empty( $item['text'] ) ? $item['text'] : $item['route'],
+            'url'      => tonbankcard_public_route_url( $route ),
+        ];
+    }
+
+    return $items;
 }
 
 /**
@@ -305,6 +375,8 @@ function tonbankcard_public_same_as_links() {
  * @return array
  */
 function tonbankcard_public_breadcrumb_items( array $meta ) {
+    $route = isset( $meta['route'] ) && is_array( $meta['route'] ) ? $meta['route'] : [];
+    $name  = ! empty( $route['name'] ) ? $route['name'] : 'home';
     $items = [
         [
             '@type'    => 'ListItem',
@@ -318,9 +390,33 @@ function tonbankcard_public_breadcrumb_items( array $meta ) {
         return $items;
     }
 
+    if ( in_array( $name, [ 'coins', 'currency' ], TRUE ) ) {
+        $markets = tonbankcard_public_route_named( 'markets' );
+        if ( $markets ) {
+            $items[] = [
+                '@type'    => 'ListItem',
+                'position' => count( $items ) + 1,
+                'name'     => 'Crypto Markets',
+                'item'     => tonbankcard_public_route_url( $markets ),
+            ];
+        }
+    }
+
+    if ( 'exchange' === $name ) {
+        $exchanges = tonbankcard_public_route_named( 'exchanges' );
+        if ( $exchanges ) {
+            $items[] = [
+                '@type'    => 'ListItem',
+                'position' => count( $items ) + 1,
+                'name'     => 'Crypto Exchanges',
+                'item'     => tonbankcard_public_route_url( $exchanges ),
+            ];
+        }
+    }
+
     $items[] = [
         '@type'    => 'ListItem',
-        'position' => 2,
+        'position' => count( $items ) + 1,
         'name'     => $meta['subject'] ?: $meta['title'],
         'item'     => $meta['canonical_url'],
     ];
@@ -411,6 +507,10 @@ function tonbankcard_public_linked_data( array $meta ) {
             'itemListElement' => tonbankcard_public_breadcrumb_items( $meta ),
         ],
     ];
+
+    foreach ( tonbankcard_public_navigation_linked_data() as $navigation_item ) {
+        $data[] = $navigation_item;
+    }
 
     if ( 'FinancialProduct' === $meta['schema_type'] ) {
         $data[] = [
