@@ -92,13 +92,13 @@ $frontend_options['currencies']['tonCoinIds'] = [
         </v-alert>
 
         <v-row dense class="mb-4">
-            <v-col cols="6" md="3" v-for="stat in globalStats" :key="stat.label">
+            <v-col cols="12" sm="6" md="3" v-for="stat in globalStats" :key="stat.label">
                 <v-sheet class="market-pulse-stat pa-4" rounded outlined>
                     <div class="d-flex align-center justify-space-between mb-2">
                         <span class="text-caption text-uppercase text--secondary" v-text="stat.label"></span>
                         <v-icon color="primary" small v-text="stat.icon"></v-icon>
                     </div>
-                    <div class="text-h6 font-weight-bold text-truncate" v-text="stat.value || 'Loading'"></div>
+                    <div class="market-pulse-stat-value text-h6 font-weight-bold" v-text="stat.value || 'Loading'"></div>
                 </v-sheet>
             </v-col>
         </v-row>

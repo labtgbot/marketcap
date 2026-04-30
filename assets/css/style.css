@@ -323,6 +323,9 @@ v-app {
 .market-pulse-stat {
     min-height: 112px;
 }
+.market-pulse-stat-value {
+    overflow-wrap: anywhere;
+}
 .market-pulse-panel {
     height: 100%;
 }
