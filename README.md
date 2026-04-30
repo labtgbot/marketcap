@@ -75,6 +75,8 @@ See [docs/v2-implementation-roadmap.md](docs/v2-implementation-roadmap.md) for t
 
 See [docs/v2-product-requirements.md](docs/v2-product-requirements.md) for the TONBANKCARD V2 product requirements and information architecture from issue #4.
 
+See [docs/v2-search-and-routing-behavior.md](docs/v2-search-and-routing-behavior.md) for the verified V1 smart search and route compatibility baseline that V2 must preserve.
+
 See [docs/legal-license-inventory.md](docs/legal-license-inventory.md) for the current legal notice and license inventory, and [docs/release-checklist.md](docs/release-checklist.md) for the public launch legal review checkpoint.
 
 See [docs/runtime-configuration.md](docs/runtime-configuration.md) and [.env.example](.env.example) for local, staging, production, and Telegram Mini App runtime configuration.

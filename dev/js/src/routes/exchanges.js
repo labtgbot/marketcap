@@ -32,7 +32,7 @@
             methods: {
                 fetchExchanges: function () {
                     const params = {
-                        per_page: this.per_page,
+                        per_page: this.perPage,
                         page: ++this.page
                     };
                     return CoinGecko.exchanges(params)
