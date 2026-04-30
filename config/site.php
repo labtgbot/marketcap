@@ -332,6 +332,26 @@ $site['twitter_creator'] = '@tonbankcard';
 
 /*
 | -------------------------------------------------------------------------
+| SAME AS
+| -------------------------------------------------------------------------
+|
+| TYPE: array
+| DESCRIPTION: Official profiles used in Organization structured data.
+|
+*/
+$site['same_as'] = [
+    'https://tonbankcard.com/',
+    'https://t.me/tonbankcard',
+    'https://t.me/tonbankcard_ru',
+    'https://t.me/tonbankcard_chat',
+    'https://t.me/tonbankcard_chat_ru',
+    'https://twitter.com/tonbankcard',
+    'https://vk.com/tonbankcard',
+    'https://www.youtube.com/@tonbankcard',
+];
+
+/*
+| -------------------------------------------------------------------------
 | TWITTER IMAGE
 | -------------------------------------------------------------------------
 |
