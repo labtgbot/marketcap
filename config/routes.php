@@ -122,6 +122,53 @@ $routes['screener'] = [
     'enabled' => TRUE,
 ];
 
+$routes['admin'] = [
+    'path' => '/admin',
+    'enabled' => TRUE,
+];
+
+$routes['admin-providers'] = [
+    'path' => '/admin/providers',
+    'enabled' => TRUE,
+    'template' => 'admin',
+];
+
+$routes['admin-feature-flags'] = [
+    'path' => '/admin/feature-flags',
+    'enabled' => TRUE,
+    'template' => 'admin',
+];
+
+$routes['admin-ton-assets'] = [
+    'path' => '/admin/ton-assets',
+    'enabled' => TRUE,
+    'template' => 'admin',
+];
+
+$routes['admin-legal-copy'] = [
+    'path' => '/admin/legal-copy',
+    'enabled' => TRUE,
+    'template' => 'admin',
+];
+
+$routes['admin-alerts'] = [
+    'path' => '/admin/alerts',
+    'enabled' => TRUE,
+    'template' => 'admin',
+];
+
+$routes['admin-cache'] = [
+    'path' => '/admin/cache',
+    'enabled' => TRUE,
+    'template' => 'admin',
+];
+
+$routes['admin-audit-log'] = [
+    'path' => '/admin/audit-log',
+    'enabled' => TRUE,
+    'template' => 'admin',
+];
+
 $routes['about'] = [
     'path' => '/about',
     'enabled' => TRUE,

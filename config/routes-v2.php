@@ -193,3 +193,36 @@ $routes_v2['public'] = [
         'sitemap_priority'   => '0.4',
     ],
 ];
+
+$routes_v2['admin'] = [
+    'admin' => [
+        'path'        => '/admin',
+        'title'       => 'Admin Panel',
+        'description' => 'Authenticated TONBANKCARD operations panel for provider, feature flag, content, and audit controls.',
+        'og_type'     => 'website',
+        'schema_type' => 'WebApplication',
+        'sitemap'     => FALSE,
+        'robots'      => 'noindex,nofollow',
+    ],
+    'admin-providers' => [
+        'path'        => '/admin/providers',
+        'title'       => 'Admin Providers',
+        'description' => 'Authenticated provider and secret metadata controls.',
+        'sitemap'     => FALSE,
+        'robots'      => 'noindex,nofollow',
+    ],
+    'admin-feature-flags' => [
+        'path'        => '/admin/feature-flags',
+        'title'       => 'Admin Feature Flags',
+        'description' => 'Authenticated feature flag controls.',
+        'sitemap'     => FALSE,
+        'robots'      => 'noindex,nofollow',
+    ],
+    'admin-audit-log' => [
+        'path'        => '/admin/audit-log',
+        'title'       => 'Admin Audit Log',
+        'description' => 'Authenticated read-only audit log.',
+        'sitemap'     => FALSE,
+        'robots'      => 'noindex,nofollow',
+    ],
+];

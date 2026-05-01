@@ -34,6 +34,16 @@ $component_disclaimer_message['title'] = 'Disclaimer';
 */
 $component_disclaimer_message['text'] = 'TONBANKCARD Crypto Tracker provides market data, AI summaries, alerts, and swap widgets for informational purposes only. Prices, liquidity, generated summaries, and alert triggers may be delayed, incomplete, or wrong. Nothing on this website is investment, financial, legal, tax, or trading advice, and TONBANKCARD does not recommend buying, selling, holding, borrowing, lending, swapping, or staking any asset.';
 
+if ( function_exists( 'tonbankcard_runtime_admin_store' ) ) {
+    $component_disclaimer_admin_store = tonbankcard_runtime_admin_store();
+    $component_disclaimer_admin_text = isset( $component_disclaimer_admin_store['content']['legal_copy']['market_data_disclaimer'] )
+        ? trim( (string) $component_disclaimer_admin_store['content']['legal_copy']['market_data_disclaimer'] )
+        : '';
+    if ( '' !== $component_disclaimer_admin_text ) {
+        $component_disclaimer_message['text'] = $component_disclaimer_admin_text;
+    }
+}
+
 ?>
 <section class="gc-disclaimer-message caption">
     <?php

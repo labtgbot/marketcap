@@ -32,6 +32,7 @@ Open these browser URLs while the server is running:
 - Crypto exchange: http://127.0.0.1:8888/crypto-exchange?from=ton&to=usdtton
 - Screener: http://127.0.0.1:8888/screener
 - Alerts: http://127.0.0.1:8888/alerts
+- Admin panel: http://127.0.0.1:8888/admin
 - Achievements: http://127.0.0.1:8888/achievements
 - Exchanges: http://127.0.0.1:8888/exchanges
 - Support: http://127.0.0.1:8888/support
@@ -84,6 +85,7 @@ npm run test:ai-sentiment
 npm run test:observability
 npm run test:design-system
 npm run test:pwa-telegram
+npm run test:admin-panel
 npm run validate:bundle
 npm run test:smoke
 ```
@@ -165,3 +167,5 @@ See [docs/v2-ai-insight-cards.md](docs/v2-ai-insight-cards.md) for the AI insigh
 See [docs/v2-responsive-design-system.md](docs/v2-responsive-design-system.md) for the responsive TONBANKCARD design tokens, Telegram theme behavior, safe-area rules, accessibility states, and dense desktop/mobile UI guidance from issue #19.
 
 See [docs/v2-pwa-telegram-webapp.md](docs/v2-pwa-telegram-webapp.md) for the PWA install shell, service worker strategy, offline fallback, and Telegram WebApp adapter behavior from issue #26.
+
+See [docs/v2-admin-panel.md](docs/v2-admin-panel.md) for the authenticated provider, feature flag, content, operations, and audit controls from issue #35.

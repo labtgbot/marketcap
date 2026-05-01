@@ -35,6 +35,7 @@
   "routes/markets.js",
   "routes/privacy-policy.js",
   "routes/public-static.js",
+  "routes/admin.js",
   "routes/alerts.js",
   "routes/achievements.js",
   "routes/screener.js",

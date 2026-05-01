@@ -118,6 +118,12 @@ $api = [
         'enabled' => tonbankcard_env_bool( 'TONBANKCARD_API_AUDIT_LOG', FALSE ),
         'sink'    => 'error_log',
     ],
+    'admin'      => [
+        'store_path'               => isset( $api_runtime['admin']['store_path'] ) ? (string) $api_runtime['admin']['store_path'] : '',
+        'store_configured'         => ! empty( $api_runtime['admin']['store_configured'] ),
+        'token_configured'         => ! empty( $api_runtime['admin']['token_configured'] ),
+        'support_token_configured' => ! empty( $api_runtime['admin']['support_token_configured'] ),
+    ],
     'observability' => [
         'log_level'              => $api_runtime['observability']['log_level'],
         'verbose_tracing'        => (bool) $api_runtime['observability']['verbose_tracing'],
