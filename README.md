@@ -34,6 +34,7 @@ Open these browser URLs while the server is running:
 - Alerts: http://127.0.0.1:8888/alerts
 - Admin panel: http://127.0.0.1:8888/admin
 - Achievements: http://127.0.0.1:8888/achievements
+- Premium: http://127.0.0.1:8888/premium
 - Exchanges: http://127.0.0.1:8888/exchanges
 - Support: http://127.0.0.1:8888/support
 - API health: http://127.0.0.1:8888/api/health
@@ -80,6 +81,7 @@ npm run test:screener
 npm run test:alerts
 npm run test:share-referrals
 npm run test:achievements
+npm run test:premium
 npm run test:public-shell
 npm run test:ai-provider
 npm run test:ai-sentiment
@@ -156,6 +158,8 @@ See [docs/v2-smart-alerts.md](docs/v2-smart-alerts.md) for Telegram bot smart al
 See [docs/v2-shareable-market-cards.md](docs/v2-shareable-market-cards.md) for shareable market cards, Telegram `startapp` payloads, share fallbacks, and referral attribution from issue #33.
 
 See [docs/v2-gamification-achievements.md](docs/v2-gamification-achievements.md) for opt-in achievement badges, streaks, haptics, dismissible prompts, shareable achievement cards, and admin controls from issue #34.
+
+See [docs/v2-premium-subscriptions.md](docs/v2-premium-subscriptions.md) for Telegram Stars subscriptions, premium entitlement state, server-side limits, and checkout/refund handling from issue #37.
 
 See [docs/v2-charting-and-market-visualization.md](docs/v2-charting-and-market-visualization.md) for the chart rendering decision, advanced coin chart views, lazy ECharts loading, stale state, and accessibility coverage from issue #25.
 

@@ -35,6 +35,10 @@ $v2['public_navigation'] = [
         'route' => 'alerts',
     ],
     [
+        'text'  => 'Premium',
+        'route' => 'premium',
+    ],
+    [
         'text'  => 'About',
         'route' => 'about',
     ],

@@ -86,7 +86,8 @@ Gamification achievement storage added for issue #34 lives in:
 | `provider_settings` | Provider settings for CoinGecko, Groq, Upstash, ChangeNOW, Telegram, and future providers. | Secrets are stored as `secret_ref` references, not plaintext values. |
 | `feature_flags` | Runtime feature controls for AI, alerts, ChangeNOW, TON Connect, referrals, gamification, and premium. | Rule JSON must not contain secrets. |
 | `admin_audit_logs` | Admin and support audit trail. | Stores redacted before/after JSON and hashed request metadata. |
-| `premium_entitlements` | Premium plan state from Telegram Stars, manual grants, partner grants, or tests. | Stores hashed provider customer/subscription references. |
+| `premium_entitlements` | Premium plan state from Telegram Stars, manual grants, partner grants, or tests. | Stores the latest server-side Stars charge id for cancellation plus hashed provider customer/subscription/payment references and cancellation/refund state. |
+| `premium_payment_events` | Coarse Telegram Stars invoice, checkout, renewal, cancellation, and refund audit events. | Stores hashes and amounts only; raw charge ids and bot tokens are excluded. |
 
 ## Query Paths and Indexes
 
@@ -119,6 +120,8 @@ and the issue #10 analytics/privacy baseline:
 | Review audit logs by actor. | `idx_admin_audit_logs_actor` |
 | Review audit logs by subject. | `idx_admin_audit_logs_subject` |
 | Check premium entitlement state by user. | `idx_premium_entitlements_user_status` |
+| Match premium refunds to the last Stars charge hash. | `idx_premium_entitlements_charge` from `0010_premium_payment_state` |
+| Review premium payment audit events by user, event type, charge, or invoice payload. | `idx_premium_payment_events_user_time`, `idx_premium_payment_events_event_time`, `idx_premium_payment_events_charge`, `idx_premium_payment_events_invoice` from `0010_premium_payment_state` |
 
 ## Migration Runner Conventions
 

@@ -23,6 +23,10 @@ $api_alert_max_rules = tonbankcard_env_int( 'TONBANKCARD_ALERT_MAX_RULES_PER_USE
 $api_alert_default_frequency_cap = tonbankcard_env_int( 'TONBANKCARD_ALERT_DEFAULT_FREQUENCY_CAP_SECONDS', 3600, 300, 86400 );
 $api_alert_max_deliveries = tonbankcard_env_int( 'TONBANKCARD_ALERT_MAX_DELIVERIES_PER_DAY', 8, 1, 100 );
 $api_alert_evaluation_interval = tonbankcard_env_int( 'TONBANKCARD_ALERT_EVALUATION_INTERVAL_SECONDS', 300, 60, 3600 );
+$api_premium_plan_code = trim( (string) tonbankcard_env( 'TONBANKCARD_PREMIUM_PLAN_CODE', 'premium_monthly' ) );
+$api_premium_price_stars = tonbankcard_env_int( 'TONBANKCARD_PREMIUM_MONTHLY_STARS', 199, 1, 10000 );
+$api_premium_subscription_period = tonbankcard_env_int( 'TONBANKCARD_PREMIUM_SUBSCRIPTION_PERIOD_SECONDS', 2592000, 2592000, 2592000 );
+$api_premium_signing_secret = trim( (string) tonbankcard_env( 'TONBANKCARD_PREMIUM_SIGNING_SECRET', '' ) );
 $api_achievement_weekly_check_days = tonbankcard_env_int( 'TONBANKCARD_ACHIEVEMENT_WEEKLY_CHECK_DAYS', 7, 2, 30 );
 $api_achievement_share_milestone_count = tonbankcard_env_int( 'TONBANKCARD_ACHIEVEMENT_SHARE_MILESTONE_COUNT', 3, 1, 100 );
 $api_achievement_movement_threshold_percent = tonbankcard_env( 'TONBANKCARD_ACHIEVEMENT_MOVEMENT_THRESHOLD_PERCENT', '7.5' );
@@ -234,6 +238,30 @@ $api = [
         'max_frequency_cap_seconds'       => 86400,
         'default_max_deliveries_per_day'  => $api_alert_max_deliveries,
         'evaluation_interval_seconds'     => $api_alert_evaluation_interval,
+    ],
+    'premium' => [
+        'monthly_plan_code'               => '' !== $api_premium_plan_code ? $api_premium_plan_code : 'premium_monthly',
+        'monthly_plan_name'               => 'TONBANKCARD Premium',
+        'monthly_plan_description'        => 'Telegram Stars monthly subscription for higher limits and priority refresh.',
+        'monthly_price_stars'             => $api_premium_price_stars,
+        'subscription_period_seconds'     => $api_premium_subscription_period,
+        'signing_secret'                  => $api_premium_signing_secret,
+        'free_limits'                     => [
+            'alerts_per_user'        => 3,
+            'watchlist_entries'      => 20,
+            'advanced_ranges'        => [ '24h', '7d' ],
+            'ai_digest_per_day'      => 1,
+            'priority_refresh'       => FALSE,
+            'market_refresh_seconds' => 300,
+        ],
+        'premium_limits'                  => [
+            'alerts_per_user'        => 100,
+            'watchlist_entries'      => 250,
+            'advanced_ranges'        => [ '24h', '7d', '30d', '90d', '1y' ],
+            'ai_digest_per_day'      => 24,
+            'priority_refresh'       => TRUE,
+            'market_refresh_seconds' => 60,
+        ],
     ],
     'achievements' => [
         'weekly_check_days'          => $api_achievement_weekly_check_days,

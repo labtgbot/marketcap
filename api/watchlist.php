@@ -77,11 +77,14 @@ function tonbankcard_api_watchlist_handle( array $request, array $runtime, array
 
     $pdo = $session['pdo'];
     $user_id = (int) $session['user_id'];
+    $premium_state = function_exists( 'tonbankcard_api_premium_limits_for_user' )
+        ? tonbankcard_api_premium_limits_for_user( $pdo, $user_id, $runtime, $config )
+        : null;
     $watchlist_id = tonbankcard_api_watchlist_default_id( $pdo, $user_id );
 
     if ( 'GET' === $method ) {
         return tonbankcard_api_success_response(
-            tonbankcard_api_watchlist_payload( $pdo, $watchlist_id ),
+            tonbankcard_api_watchlist_payload( $pdo, $watchlist_id, $premium_state ),
             $request_id,
             $headers
         );
@@ -94,11 +97,21 @@ function tonbankcard_api_watchlist_handle( array $request, array $runtime, array
         $removed = isset( $payload['removed'] ) && is_array( $payload['removed'] )
             ? tonbankcard_api_watchlist_normalize_removed( $payload['removed'] )
             : [];
+        if ( null !== $premium_state && function_exists( 'tonbankcard_api_premium_limit_allows' ) && ! tonbankcard_api_premium_limit_allows( $premium_state, 'watchlist_entries', count( $entries ) ) ) {
+            return tonbankcard_api_error_response(
+                409,
+                'watchlist_limit_reached',
+                'This Telegram user has reached the watchlist size limit for the current plan.',
+                tonbankcard_api_premium_limit_error_details( $premium_state, 'watchlist_entries', count( $entries ) ),
+                $request_id,
+                $headers
+            );
+        }
 
         tonbankcard_api_watchlist_sync_snapshot( $pdo, $watchlist_id, $user_id, $entries, $removed );
 
         return tonbankcard_api_success_response(
-            tonbankcard_api_watchlist_payload( $pdo, $watchlist_id ),
+            tonbankcard_api_watchlist_payload( $pdo, $watchlist_id, $premium_state ),
             $request_id,
             $headers
         );
@@ -119,7 +132,7 @@ function tonbankcard_api_watchlist_handle( array $request, array $runtime, array
     tonbankcard_api_watchlist_tombstone_entry( $pdo, $watchlist_id, $user_id, $coin_id, tonbankcard_api_watchlist_normalize_timestamp( null ) );
 
     return tonbankcard_api_success_response(
-        tonbankcard_api_watchlist_payload( $pdo, $watchlist_id ),
+        tonbankcard_api_watchlist_payload( $pdo, $watchlist_id, $premium_state ),
         $request_id,
         $headers
     );
@@ -241,9 +254,10 @@ function tonbankcard_api_watchlist_default_id( PDO $pdo, int $user_id ) {
  *
  * @param PDO $pdo
  * @param int $watchlist_id
+ * @param array|null $premium_state
  * @return array
  */
-function tonbankcard_api_watchlist_payload( PDO $pdo, int $watchlist_id ) {
+function tonbankcard_api_watchlist_payload( PDO $pdo, int $watchlist_id, array $premium_state = null ) {
     $entries = tonbankcard_api_watchlist_entries( $pdo, $watchlist_id );
     $removed = tonbankcard_api_watchlist_removed( $pdo, $watchlist_id );
     $updated_at = null;
@@ -258,13 +272,19 @@ function tonbankcard_api_watchlist_payload( PDO $pdo, int $watchlist_id ) {
         }
     }
 
-    return [
+    $payload = [
         'version'    => 1,
         'updated_at' => $updated_at,
         'entries'    => $entries,
         'removed'    => $removed,
         'storage'    => 'mysql',
     ];
+
+    if ( null !== $premium_state && function_exists( 'tonbankcard_api_premium_public_state' ) ) {
+        $payload['premium'] = tonbankcard_api_premium_public_state( $premium_state );
+    }
+
+    return $payload;
 }
 
 /**

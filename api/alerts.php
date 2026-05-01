@@ -101,6 +101,12 @@ function tonbankcard_api_alerts_handle( array $request, array $runtime, array $c
 
     $pdo = $session['pdo'];
     $user_id = (int) $session['user_id'];
+    $premium_state = function_exists( 'tonbankcard_api_premium_limits_for_user' )
+        ? tonbankcard_api_premium_limits_for_user( $pdo, $user_id, $runtime, $config )
+        : null;
+    if ( null !== $premium_state ) {
+        $settings = tonbankcard_api_alerts_apply_premium_limits( $settings, $premium_state );
+    }
 
     if ( '/api/alerts' === $path ) {
         if ( 'GET' === $method ) {
@@ -117,7 +123,9 @@ function tonbankcard_api_alerts_handle( array $request, array $runtime, array $c
                 409,
                 'alerts_limit_reached',
                 'This Telegram user has reached the configured alert rule limit.',
-                [ 'limit' => $settings['max_alerts_per_user'] ],
+                null !== $premium_state && function_exists( 'tonbankcard_api_premium_limit_error_details' )
+                    ? tonbankcard_api_premium_limit_error_details( $premium_state, 'alerts_per_user', $active_count + 1 )
+                    : [ 'limit' => $settings['max_alerts_per_user'] ],
                 $request_id,
                 $headers
             );
@@ -289,7 +297,7 @@ function tonbankcard_api_alerts_settings( array $runtime, array $config ) {
  * @return array
  */
 function tonbankcard_api_alerts_public_settings( array $settings ) {
-    return [
+    $payload = [
         'enabled'                         => (bool) $settings['enabled'],
         'max_alerts_per_user'             => (int) $settings['max_alerts_per_user'],
         'default_frequency_cap_seconds'   => (int) $settings['default_frequency_cap_seconds'],
@@ -297,6 +305,28 @@ function tonbankcard_api_alerts_public_settings( array $settings ) {
         'evaluation_interval_seconds'     => (int) $settings['evaluation_interval_seconds'],
         'telegram_bot_configured'         => '' !== $settings['bot_username'],
     ];
+
+    if ( isset( $settings['premium_state'] ) && is_array( $settings['premium_state'] ) && function_exists( 'tonbankcard_api_premium_public_state' ) ) {
+        $payload['premium'] = tonbankcard_api_premium_public_state( $settings['premium_state'] );
+    }
+
+    return $payload;
+}
+
+/**
+ * Applies premium entitlement limits to alert settings.
+ *
+ * @param array $settings
+ * @param array $premium_state
+ * @return array
+ */
+function tonbankcard_api_alerts_apply_premium_limits( array $settings, array $premium_state ) {
+    if ( function_exists( 'tonbankcard_api_premium_limit_value' ) ) {
+        $settings['max_alerts_per_user'] = tonbankcard_api_premium_limit_value( $premium_state, 'alerts_per_user', $settings['max_alerts_per_user'] );
+    }
+    $settings['premium_state'] = $premium_state;
+
+    return $settings;
 }
 
 /**

@@ -17,6 +17,7 @@ require_once __DIR__ . '/ton.php';
 require_once __DIR__ . '/ai.php';
 require_once __DIR__ . '/search.php';
 require_once __DIR__ . '/telegram-bot.php';
+require_once __DIR__ . '/premium.php';
 require_once __DIR__ . '/watchlist.php';
 require_once __DIR__ . '/alerts.php';
 require_once __DIR__ . '/screener.php';
@@ -251,6 +252,11 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
                             '/api/ton/assets',
                             '/api/share/resolve',
                             '/api/achievements/settings',
+                            '/api/premium',
+                            '/api/premium/plans',
+                            '/api/premium/entitlement',
+                            '/api/premium/checkout',
+                            '/api/premium/entitlement/cancel',
                             '/api/market',
                             '/api/market/*',
                             '/api/watchlist',
@@ -493,6 +499,17 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
             );
         }
 
+        if ( tonbankcard_api_premium_is_request( $path ) ) {
+            return tonbankcard_api_finalize_response(
+                tonbankcard_api_premium_handle( $request, $runtime, $config, $request_id, $headers ),
+                $request,
+                $runtime,
+                $config,
+                $request_id,
+                $started_at
+            );
+        }
+
         if ( tonbankcard_api_watchlist_is_request( $path ) ) {
             return tonbankcard_api_finalize_response(
                 tonbankcard_api_watchlist_handle( $request, $runtime, $config, $request_id, $headers ),
@@ -698,6 +715,9 @@ function tonbankcard_api_route_group( string $path ) {
     }
     if ( tonbankcard_api_achievements_is_request( $path ) ) {
         return 'achievements';
+    }
+    if ( tonbankcard_api_premium_is_request( $path ) ) {
+        return 'premium';
     }
     if ( tonbankcard_api_watchlist_is_request( $path ) ) {
         // Server writes rely on uniq_watchlist_entries_watchlist_coin to prevent duplicate coin rows.

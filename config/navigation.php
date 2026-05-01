@@ -65,6 +65,11 @@ $navigation['items'] = [
         'route' => 'achievements',
     ],
     [
+        'text' => 'Premium',
+        'icon' => 'mdi-star-four-points-outline',
+        'route' => 'premium',
+    ],
+    [
         'text' => 'Wallet Profile',
         'icon' => 'mdi-wallet-outline',
         'route' => 'wallet-profile',

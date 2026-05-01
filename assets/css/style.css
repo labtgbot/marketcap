@@ -1405,6 +1405,72 @@ v-app {
 #cookies-policy {
     max-width: 1200px;
 }
+#premium {
+    max-width: 1280px;
+}
+.premium-header,
+.premium-route-actions,
+.premium-plan-title,
+.premium-plan-actions,
+.premium-status-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.premium-header {
+    justify-content: space-between;
+}
+.premium-route-actions {
+    justify-content: flex-end;
+}
+.premium-plan-card {
+    height: 100%;
+    border-radius: 8px;
+}
+.premium-plan-card--active {
+    border-color: var(--tbc-color-primary);
+}
+.premium-plan-price {
+    min-height: 40px;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+.premium-plan-price-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.premium-benefit-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+.premium-benefit-item {
+    min-height: 56px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+.premium-benefit-item > div {
+    min-width: 0;
+}
+.premium-status-panel {
+    border-radius: 8px;
+}
+@media only screen and (max-width: 759px) {
+    .premium-header {
+        display: block;
+    }
+    .premium-route-actions {
+        justify-content: flex-start;
+        margin-top: 16px;
+    }
+    .premium-benefit-grid {
+        grid-template-columns: 1fr;
+    }
+}
 .admin-shell {
     min-height: calc(100vh - 96px);
 }

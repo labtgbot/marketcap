@@ -156,6 +156,15 @@ $routes_v2['public'] = [
         'sitemap_changefreq' => 'weekly',
         'sitemap_priority'   => '0.6',
     ],
+    'premium' => [
+        'path'        => '/premium',
+        'title'       => 'Premium',
+        'description' => 'Compare TONBANKCARD free and Telegram Stars premium limits for alerts, watchlists, advanced ranges, AI digests, and priority refresh.',
+        'og_type'     => 'website',
+        'schema_type' => 'WebApplication',
+        'sitemap_changefreq' => 'weekly',
+        'sitemap_priority'   => '0.6',
+    ],
     'about' => [
         'path'        => '/about',
         'title'       => 'About TONBANKCARD',

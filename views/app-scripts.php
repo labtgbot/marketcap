@@ -150,6 +150,16 @@ $gecko_client['achievementsConfig'] = [
     'settings'    => $achievement_settings,
     'definitions' => tonbankcard_api_achievements_definitions( $achievement_settings ),
 ];
+// Premium pricing and public entitlement limits are safe to expose; bot tokens
+// and payment references remain server-side.
+$premium_settings = function_exists( 'tonbankcard_api_premium_settings' )
+    ? tonbankcard_api_premium_settings( $runtime, $api )
+    : [];
+$gecko_client['premiumConfig'] = [
+    'apiBaseUrl' => site_url( 'api/premium' ),
+    'settings'   => ! empty( $premium_settings ) ? tonbankcard_api_premium_public_settings( $premium_settings ) : [],
+    'plans'      => ! empty( $premium_settings ) ? tonbankcard_api_premium_public_plans( $premium_settings ) : [],
+];
 // TON Connect wallet profile. The SDK is loaded lazily on user action; private
 // keys and wallet secrets never enter this browser payload.
 $gecko_client['tonConnect'] = [
