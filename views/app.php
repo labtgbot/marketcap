@@ -24,7 +24,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 <?php require_once GECKO_CLIENT_VIEWS_DIR . '/app-head.php'; ?>
 <body>
 <div id="app-wrapper">
-    <v-app>
+    <v-app<?php if ( ! empty( $v2['mobile_navigation'] ) ) echo ' class="tbc-has-bottom-bar"'; ?>>
         <?php
             require_once GECKO_CLIENT_VIEWS_DIR . '/app-navigation.php';
             require_once GECKO_CLIENT_VIEWS_DIR . '/app-top-bar.php';

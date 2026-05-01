@@ -130,6 +130,8 @@ See [docs/v2-smart-search-api.md](docs/v2-smart-search-api.md) for the `/api/sea
 
 See [docs/v2-ton-ecosystem-curation.md](docs/v2-ton-ecosystem-curation.md) for the `/api/ton/assets` curation model, manual TON asset updates, tag filters, and verification-state UI behavior from issue #29.
 
+See [docs/v2-ton-connect-wallet-profile.md](docs/v2-ton-connect-wallet-profile.md) for the TON Connect manifest, wallet profile route, disconnect behavior, and wallet-aware placeholder coverage from issue #30.
+
 See [docs/v2-cache-rate-limit-coalescing.md](docs/v2-cache-rate-limit-coalescing.md) for the Upstash Redis cache TTLs, stale fallback behavior, request coalescing, rate-limit policies, and metrics from issue #15.
 
 See [docs/v2-telegram-session.md](docs/v2-telegram-session.md) for the `/api/telegram/session` initData validation, session storage, local browser fallback, and regression coverage from issue #13.

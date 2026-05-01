@@ -131,6 +131,14 @@ $gecko_client['search'] = [
 $gecko_client['watchlistConfig'] = [
     'apiBaseUrl' => site_url( 'api/watchlist' ),
 ];
+// TON Connect wallet profile. The SDK is loaded lazily on user action; private
+// keys and wallet secrets never enter this browser payload.
+$gecko_client['tonConnect'] = [
+    'enabled'     => ! empty( $runtime['feature_flags']['ton_connect'] ),
+    'manifestUrl' => site_url( 'tonconnect-manifest.json' ),
+    'sdkUrl'      => 'https://unpkg.com/@tonconnect/ui@2.4.4/dist/tonconnect-ui.min.js',
+    'storageKey'  => 'TONBANKCARD:ton-connect-wallet:v1',
+];
 // AI insight and feedback endpoints. Provider secrets and raw prompts stay server-side.
 $gecko_client['aiConfig'] = [
     'apiBaseUrl'    => site_url( 'api/ai' ),

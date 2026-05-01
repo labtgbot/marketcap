@@ -58,6 +58,15 @@ $routes_v2['public'] = [
         'sitemap_changefreq' => 'daily',
         'sitemap_priority'   => '0.8',
     ],
+    'wallet-profile' => [
+        'path'        => '/wallet',
+        'title'       => 'Wallet Profile',
+        'description' => 'Connect a TON wallet through TON Connect for optional wallet-aware watchlist and portfolio context without sharing private keys.',
+        'og_type'     => 'website',
+        'schema_type' => 'ProfilePage',
+        'sitemap_changefreq' => 'weekly',
+        'sitemap_priority'   => '0.7',
+    ],
     'exchanges' => [
         'path'        => '/exchanges',
         'title'       => 'Crypto Exchanges',

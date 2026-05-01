@@ -19,6 +19,10 @@ $v2['public_navigation'] = [
         'route' => 'ton',
     ],
     [
+        'text'  => 'Wallet',
+        'route' => 'wallet-profile',
+    ],
+    [
         'text'  => 'Exchanges',
         'route' => 'exchanges',
     ],
@@ -51,6 +55,11 @@ $v2['mobile_navigation'] = [
         'text'  => 'TON',
         'icon'  => 'mdi-diamond-stone',
         'route' => 'ton',
+    ],
+    [
+        'text'  => 'Wallet',
+        'icon'  => 'mdi-wallet-outline',
+        'route' => 'wallet-profile',
     ],
     [
         'text'  => 'Support',
