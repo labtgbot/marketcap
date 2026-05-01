@@ -112,6 +112,27 @@
                             ]
                         }
                     };
+                },
+                tonShareCard: function () {
+                    const mover = _.first(this.filteredAssets.filter(asset => {
+                        return _.isFinite(parseFloat(_.get(asset, 'market.price_change_percentage_24h_in_currency')));
+                    }));
+
+                    return {
+                        title: 'TON ecosystem movers',
+                        subtitle: this.filteredAssets.length + ' visible assets',
+                        body: 'Curated TON assets with verification state, categories, and 24h market movement.',
+                        route: _.get(this.$route, 'fullPath') || '/ton',
+                        campaign: 'ton-movers',
+                        context: 'ton_movers',
+                        freshness: 'Updated ' + this.curationUpdatedLabel,
+                        metrics: [
+                            {label: 'Assets', value: String(this.tonAssets.length)},
+                            {label: 'Verified', value: String(this.verifiedCount)},
+                            {label: 'Visible', value: String(this.filteredAssets.length)},
+                            {label: 'Top mover', value: mover ? _.toUpper(mover.symbol || mover.id) + ' ' + this.$root.changeFormat(_.get(mover, 'market.price_change_percentage_24h_in_currency')) : 'N/A'}
+                        ]
+                    };
                 }
             },
             methods: {
@@ -247,6 +268,10 @@
                 },
                 marketRoute: function (tag) {
                     return {name: 'markets', query: {tag: normalizeTag(tag)}};
+                },
+                shareTonMovers: function () {
+                    if (!GeckoClient.share) return;
+                    GeckoClient.share.share(this.tonShareCard);
                 }
             }
         }

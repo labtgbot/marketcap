@@ -97,6 +97,24 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
             </template>
             <span v-text="item.label"></span>
         </v-tooltip>
+        <v-tooltip bottom>
+            <template v-slot:activator="{ on, attrs }">
+                <v-btn
+                    icon
+                    small
+                    color="primary"
+                    class="ai-insight-feedback-button"
+                    aria-label="Share insight"
+                    title="Share insight"
+                    v-bind="attrs"
+                    v-on="on"
+                    @click="shareInsight"
+                >
+                    <v-icon small>mdi-share-variant</v-icon>
+                </v-btn>
+            </template>
+            <span><?php echo esc_html( __( 'Share insight' ) ); ?></span>
+        </v-tooltip>
         <v-spacer></v-spacer>
         <v-chip x-small label color="success" text-color="white" v-if="feedbackState === 'saved'">
             <?php echo esc_html( __( 'Feedback saved' ) ); ?>

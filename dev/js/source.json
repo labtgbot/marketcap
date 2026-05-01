@@ -1,6 +1,7 @@
 [
   "echarts-dark.js",
   "initial.js",
+  "share.js",
   "observability.js",
   "coingecko.js",
   "watchlist.js",
@@ -16,6 +17,7 @@
   "components/exchange-chart.js",
   "components/page-loader.js",
   "components/search-bar.js",
+  "components/share-card.js",
   "components/stats-bar.js",
   "components/trending-coins.js",
   "router.js",

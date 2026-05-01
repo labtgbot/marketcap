@@ -473,6 +473,8 @@ foreach ( $route_currency['tabs'] as $tab ) {
             </v-col>
         </v-row>
 
+        <gc-share-card class="my-6" :card="currencyShareCard"></gc-share-card>
+
         <?php
         /*
          * Exchange Widget

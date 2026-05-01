@@ -33,9 +33,17 @@ $frontend_options['ton']['apiBaseUrl'] = site_url( 'api/ton/assets' );
                 <strong v-text="unverifiedCount"></strong>
             </div>
         </div>
+        <div class="ton-route-actions">
+            <v-btn outlined color="primary" @click="shareTonMovers">
+                <v-icon left>mdi-share-variant</v-icon>
+                <?php echo esc_html( __( 'Share' ) ); ?>
+            </v-btn>
+        </div>
     </div>
 
     <v-alert v-if="curationError" type="warning" dense text class="mb-4" v-text="curationError"></v-alert>
+
+    <gc-share-card class="mb-6" dense :card="tonShareCard"></gc-share-card>
 
     <div class="ton-filter-bar mb-6">
         <div class="ton-filter-group">

@@ -98,6 +98,42 @@
             },
             saveLabel: function () {
                 return this.editingId ? 'Update alert' : 'Create alert';
+            },
+            alertsShareCard: function () {
+                return {
+                    title: 'Alert wins',
+                    subtitle: this.activeCount + ' active alerts',
+                    body: 'Smart alert rules with Telegram delivery, test links, and coin context.',
+                    route: '/alerts',
+                    campaign: 'alert-wins',
+                    context: 'alert_win',
+                    freshness: 'Updated in browser session',
+                    metrics: [
+                        {label: 'Active', value: String(this.activeCount)},
+                        {label: 'Paused', value: String(this.pausedCount)},
+                        {label: 'Storage', value: this.storageModeLabel},
+                        {label: 'Delivery', value: this.featureEnabled ? 'Enabled' : 'Flag off'}
+                    ]
+                };
+            },
+            testResultShareCard: function () {
+                const route = _.get(this.testResult, 'links.mini_app_path') || '/alerts';
+
+                return {
+                    title: 'Alert win',
+                    subtitle: 'Test delivery ready',
+                    body: _.get(this.testResult, 'text') || 'A TONBANKCARD alert delivery is ready to open.',
+                    route: route,
+                    campaign: 'alert-wins',
+                    context: 'alert_win',
+                    freshness: 'Generated now',
+                    metrics: [
+                        {label: 'Route', value: route},
+                        {label: 'Channel', value: 'Telegram bot'},
+                        {label: 'Mode', value: 'Test delivery'},
+                        {label: 'Storage', value: this.storageModeLabel}
+                    ]
+                };
             }
         },
         methods: {
@@ -242,8 +278,46 @@
             deliveryPath: function (rule) {
                 return _.get(rule, 'links.mini_app_path') || '/app/alerts?coin=' + encodeURIComponent(rule.coin_id);
             },
+            alertShareCard: function (rule) {
+                if (!rule) return this.alertsShareCard;
+
+                const symbol = this.ruleSymbol(rule);
+                const route = rule.id ? '/app/alert/' + encodeURIComponent(rule.id) : this.deliveryPath(rule);
+
+                return {
+                    title: symbol + ' alert win',
+                    subtitle: this.triggerTypeLabel(rule.trigger_type),
+                    body: symbol + ' alert ' + this.operatorLabel(rule.operator) + ' ' + rule.threshold + ' on TONBANKCARD.',
+                    route: route,
+                    campaign: 'alert-wins',
+                    context: 'alert_win',
+                    freshness: rule.updated_at ? 'Updated ' + this.relativeTime(rule.updated_at) : 'Saved alert rule',
+                    metrics: [
+                        {label: 'Coin', value: rule.coin_id || symbol},
+                        {label: 'Trigger', value: this.triggerTypeLabel(rule.trigger_type)},
+                        {label: 'Status', value: rule.status || 'active'},
+                        {label: 'Cap', value: this.capLabel(rule.frequency_cap_seconds)}
+                    ]
+                };
+            },
+            shareAlert: function (ruleOrCard) {
+                if (!GeckoClient.share) return;
+
+                const card = ruleOrCard && ruleOrCard.context ? ruleOrCard : this.alertShareCard(ruleOrCard);
+                GeckoClient.share.share(card);
+            },
             openCoinRoute: function (rule) {
                 return {name: 'currency', params: {id: rule.coin_id}};
+            },
+            relativeTime: function (timestamp) {
+                const date = new Date(timestamp);
+                if (!GeckoClient.utils.isValidDate(date)) return 'unknown';
+
+                const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+                if (seconds < 60) return 'now';
+                if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+                if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+                return Math.floor(seconds / 86400) + 'd ago';
             },
             showNotice: function (message) {
                 this.notice = message;

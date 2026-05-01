@@ -109,6 +109,27 @@
                             assets: this.sortedCurrencies.slice(0, 20).map(currency => this.aiCurrencySnapshot(currency))
                         }
                     };
+                },
+                watchlistShareCard: function () {
+                    const strongest = _.first(this.sortedCurrencies.filter(currency => _.isFinite(parseFloat(currency.price_change_percentage_24h_in_currency))));
+
+                    return {
+                        title: 'Watchlist snapshot',
+                        subtitle: this.entries.length + ' saved assets',
+                        body: this.isEmpty
+                            ? 'Saved watchlist view on TONBANKCARD.'
+                            : 'Prices, 24h moves, ranks, and saved assets in one watchlist snapshot.',
+                        route: '/watchlist',
+                        campaign: 'watchlist-snapshot',
+                        context: 'watchlist_snapshot',
+                        freshness: !this.isEmpty && this.marketMeta ? this.freshnessLabel : 'Saved watchlist state',
+                        metrics: [
+                            {label: 'Assets', value: String(this.entries.length)},
+                            {label: 'Storage', value: this.storageModeLabel},
+                            {label: 'Sort', value: _.startCase(this.sortKey) + ' ' + this.sortDirection},
+                            {label: 'Top 24h', value: strongest ? this.ruleAssetLabel(strongest) + ' ' + this.changeLabel(strongest.price_change_percentage_24h_in_currency) : 'N/A'}
+                        ]
+                    };
                 }
             },
             methods: {
@@ -217,6 +238,13 @@
                 },
                 changeLabel: function (value) {
                     return _.isFinite(parseFloat(value)) ? this.$root.changeFormat(value) : 'N/A';
+                },
+                ruleAssetLabel: function (currency) {
+                    return _.toUpper(currency.watchlist_symbol || currency.symbol || currency.id || 'asset');
+                },
+                shareWatchlist: function () {
+                    if (!GeckoClient.share) return;
+                    GeckoClient.share.share(this.watchlistShareCard);
                 },
                 relativeTime: function (timestamp) {
                     const date = new Date(timestamp);

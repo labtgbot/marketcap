@@ -49,6 +49,10 @@ $frontend_options['currencies']['tonCoinIds'] = [
                     <v-icon left>mdi-magnify</v-icon>
                     <?php echo esc_html( __( 'Search' ) ); ?>
                 </v-btn>
+                <v-btn outlined color="primary" @click="shareMarketPulse">
+                    <v-icon left>mdi-share-variant</v-icon>
+                    <?php echo esc_html( __( 'Share' ) ); ?>
+                </v-btn>
                 <v-btn :to="{name:'watchlist'}" outlined color="primary">
                     <v-icon left>mdi-star-outline</v-icon>
                     <?php echo esc_html( __( 'Watchlist' ) ); ?>
@@ -63,6 +67,8 @@ $frontend_options['currencies']['tonCoinIds'] = [
                 </v-btn>
             </div>
         </div>
+
+        <gc-share-card class="mb-4" dense :card="marketPulseShareCard"></gc-share-card>
 
         <div class="d-flex flex-wrap align-center mb-4">
             <v-chip small label :color="freshnessColor" text-color="white" class="mr-2 mb-2">

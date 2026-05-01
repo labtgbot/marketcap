@@ -689,7 +689,9 @@
             'alert_updated',
             'alert_paused',
             'alert_deleted',
-            'alert_tested'
+            'alert_tested',
+            'share_started',
+            'referral_opened'
         ],
         allowedProperties: [
             'trigger',
@@ -709,7 +711,11 @@
             'threshold_bucket',
             'quiet_hours_enabled',
             'alert_id',
-            'status'
+            'status',
+            'share_context',
+            'campaign',
+            'route',
+            'share_target'
         ],
         newEventId: function () {
             return 'evt_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);

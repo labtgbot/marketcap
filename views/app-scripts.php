@@ -137,6 +137,11 @@ $gecko_client['alertsConfig'] = [
     'apiBaseUrl'      => site_url( 'api/alerts' ),
     'draftStorageKey' => 'TONBANKCARD:alertDraft',
 ];
+// Share cards generate Telegram startapp payloads and can resolve them from
+// web links without exposing referral persistence details to the browser.
+$gecko_client['shareConfig'] = [
+    'apiBaseUrl' => site_url( 'api/share/resolve' ),
+];
 // TON Connect wallet profile. The SDK is loaded lazily on user action; private
 // keys and wallet secrets never enter this browser payload.
 $gecko_client['tonConnect'] = [

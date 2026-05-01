@@ -932,7 +932,9 @@
             'alert_updated',
             'alert_paused',
             'alert_deleted',
-            'alert_tested'
+            'alert_tested',
+            'share_started',
+            'referral_opened'
         ],
         allowedProperties: [
             'trigger',
@@ -952,7 +954,11 @@
             'threshold_bucket',
             'quiet_hours_enabled',
             'alert_id',
-            'status'
+            'status',
+            'share_context',
+            'campaign',
+            'route',
+            'share_target'
         ],
         newEventId: function () {
             return 'evt_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
@@ -1084,6 +1090,249 @@
 
 
 })(window, navigator, _, Vue, GeckoClient);
+
+(function (window, document, navigator, _, axios, GeckoClient) {
+    'use strict';
+
+    const config = GeckoClient.shareConfig || {};
+    const endpoint = config.apiBaseUrl || '/api/share/resolve';
+    const tokenPattern = /^[a-z0-9._-]{1,80}$/;
+
+    function safeToken(value, fallback) {
+        value = _.toString(value || '').toLowerCase().trim().replace(/[^a-z0-9._-]+/g, '-').replace(/^[._-]+|[._-]+$/g, '');
+        return tokenPattern.test(value) ? value : fallback;
+    }
+
+    function validRoute(route) {
+        route = _.toString(route || '').trim();
+        if (!route || route.charAt(0) !== '/' || route.indexOf('//') === 0) return false;
+        if (/^[A-Za-z][A-Za-z0-9+.-]*:|[\\\r\n\u0000-\u001F]/.test(route)) return false;
+        return /^\/[A-Za-z0-9._~/%:-]*(?:\?[A-Za-z0-9._~%=&:+,-]*)?$/.test(route) && route.length <= 200;
+    }
+
+    function currentRoute() {
+        const routerRoute = _.get(GeckoClient, 'router.currentRoute.fullPath') || _.get(GeckoClient, 'router.currentRoute.path');
+        if (validRoute(routerRoute)) return routerRoute;
+
+        return (window.location.pathname || '/') + (window.location.search || '');
+    }
+
+    function routeUrl(route, baseUrl) {
+        route = validRoute(route) ? route : '/';
+        try {
+            return new URL(route, baseUrl || window.location.origin + '/').toString();
+        } catch (err) {
+            return window.location.origin + route;
+        }
+    }
+
+    function base64UrlEncode(value) {
+        return window.btoa(unescape(encodeURIComponent(value)))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/g, '');
+    }
+
+    function base64UrlDecode(value) {
+        value = _.toString(value || '').replace(/-/g, '+').replace(/_/g, '/');
+        while (value.length % 4) value += '=';
+
+        try {
+            return decodeURIComponent(escape(window.atob(value)));
+        } catch (err) {
+            return null;
+        }
+    }
+
+    function normalizeInviter(value) {
+        value = _.toString(value || '').trim();
+        if (!value) return null;
+        if (/^telegram:[1-9][0-9]{0,19}$/.test(value)) return value;
+        if (/^[1-9][0-9]{0,19}$/.test(value)) return 'telegram:' + value;
+        return null;
+    }
+
+    function telegramUserInviter() {
+        const id = _.get(GeckoClient, 'telegram.webApp.initDataUnsafe.user.id')
+            || _.get(window, 'Telegram.WebApp.initDataUnsafe.user.id');
+        return normalizeInviter(id);
+    }
+
+    function buildStartParam(payload) {
+        payload = payload || {};
+        const compact = {
+            route: validRoute(payload.route) ? payload.route : '/',
+            campaign: safeToken(payload.campaign, 'organic-share'),
+            inviter: normalizeInviter(payload.inviter) || telegramUserInviter(),
+            context: safeToken(payload.context, 'shared_view')
+        };
+
+        return 's_' + base64UrlEncode(JSON.stringify(compact));
+    }
+
+    function parseStartParam(startParam) {
+        startParam = _.toString(startParam || '').trim();
+        if (!/^s_[A-Za-z0-9_-]{1,510}$/.test(startParam)) return null;
+
+        const json = base64UrlDecode(startParam.slice(2));
+        if (!json) return null;
+
+        try {
+            const payload = JSON.parse(json);
+            const route = _.toString(payload.route || '').trim();
+            if (!validRoute(route)) return null;
+
+            return {
+                route: route,
+                campaign: safeToken(payload.campaign, 'organic-share'),
+                inviter: normalizeInviter(payload.inviter),
+                context: safeToken(payload.context, 'shared_view')
+            };
+        } catch (err) {
+            return null;
+        }
+    }
+
+    function startParamFromLaunch() {
+        const search = new URLSearchParams(window.location.search || '');
+        return search.get('startapp')
+            || search.get('tgWebAppStartParam')
+            || _.get(GeckoClient, 'telegram.webApp.initDataUnsafe.start_param')
+            || _.get(window, 'Telegram.WebApp.initDataUnsafe.start_param')
+            || '';
+    }
+
+    function telegramShareUrl(startParam, fallbackRoute) {
+        const username = _.toString(_.get(GeckoClient, 'runtime.telegram.botUsername') || '').replace(/^@+/, '');
+        if (username) {
+            return 'https://t.me/' + encodeURIComponent(username) + '?startapp=' + encodeURIComponent(startParam);
+        }
+
+        const url = new URL(routeUrl(
+            fallbackRoute,
+            _.get(GeckoClient, 'runtime.urls.telegramMiniApp') || _.get(GeckoClient, 'runtime.urls.publicWeb') || window.location.origin + '/'
+        ));
+        url.searchParams.set('startapp', startParam);
+        return url.toString();
+    }
+
+    function webShareUrl(route, startParam) {
+        const url = new URL(routeUrl(route, _.get(GeckoClient, 'runtime.urls.publicWeb') || window.location.origin + '/'));
+        url.searchParams.set('startapp', startParam);
+        return url.toString();
+    }
+
+    function normalizeCard(card) {
+        card = card || {};
+        const route = validRoute(card.route) ? card.route : currentRoute();
+        const context = safeToken(card.context, 'shared_view');
+
+        return {
+            title: _.toString(card.title || 'TONBANKCARD market view').trim(),
+            subtitle: _.toString(card.subtitle || '').trim(),
+            body: _.toString(card.body || card.summary || '').trim(),
+            route: validRoute(route) ? route : '/',
+            campaign: safeToken(card.campaign, context.replace(/_/g, '-') || 'organic-share'),
+            context: context,
+            inviter: normalizeInviter(card.inviter) || telegramUserInviter(),
+            freshness: _.toString(card.freshness || card.freshnessLabel || 'Data freshness unavailable').trim(),
+            disclaimer: _.toString(card.disclaimer || 'Not financial advice').trim(),
+            metrics: _.isArray(card.metrics) ? card.metrics.slice(0, 4) : []
+        };
+    }
+
+    function shareLinks(card) {
+        const normalized = normalizeCard(card);
+        const startParam = buildStartParam(normalized);
+        const webUrl = webShareUrl(normalized.route, startParam);
+
+        return {
+            startParam: startParam,
+            webUrl: webUrl,
+            telegramUrl: telegramShareUrl(startParam, normalized.route),
+            route: normalized.route,
+            card: normalized
+        };
+    }
+
+    function emitShareEvent(name, card, target) {
+        if (!GeckoClient.analytics) return;
+
+        GeckoClient.analytics.emit(name, {
+            source_route: card.route,
+            share_context: card.context,
+            campaign: card.campaign,
+            route: card.route,
+            share_target: target || null
+        });
+    }
+
+    function share(card) {
+        const links = shareLinks(card);
+        const normalized = links.card;
+        const activeTelegram = !!_.get(GeckoClient, 'telegram.active');
+        const targetUrl = activeTelegram ? links.telegramUrl : links.webUrl;
+        const text = normalized.subtitle ? normalized.title + ' - ' + normalized.subtitle : normalized.title;
+
+        emitShareEvent('share_started', normalized, activeTelegram ? 'telegram' : 'web');
+
+        if (GeckoClient.telegram && _.isFunction(GeckoClient.telegram.shareUrl)) {
+            return GeckoClient.telegram.shareUrl(targetUrl, text)
+                .then(shared => {
+                    if (shared) return true;
+                    return copyShareUrl(targetUrl);
+                });
+        }
+
+        if (_.isFunction(navigator.share)) {
+            return navigator.share({title: normalized.title, text: text, url: targetUrl})
+                .then(() => true)
+                .catch(() => false);
+        }
+
+        return copyShareUrl(targetUrl);
+    }
+
+    function copyShareUrl(url) {
+        if (_.get(navigator, 'clipboard.writeText')) {
+            return navigator.clipboard.writeText(url).then(() => true).catch(() => false);
+        }
+        return Promise.resolve(false);
+    }
+
+    function resolveLaunch() {
+        const startParam = startParamFromLaunch();
+        const parsed = parseStartParam(startParam);
+        if (!parsed || !validRoute(parsed.route)) return Promise.resolve(null);
+
+        emitShareEvent('referral_opened', parsed, 'launch');
+
+        const router = GeckoClient.router;
+        if (router && _.isFunction(router.push) && _.get(router, 'currentRoute.fullPath') !== parsed.route) {
+            router.push(parsed.route).catch(() => {});
+        }
+
+        if (!axios) return Promise.resolve(parsed);
+
+        return axios.get(endpoint, {params: {start_param: startParam}})
+            .then(() => parsed)
+            .catch(() => parsed);
+    }
+
+    GeckoClient.share = {
+        buildStartParam: buildStartParam,
+        parseStartParam: parseStartParam,
+        normalizeCard: normalizeCard,
+        shareLinks: shareLinks,
+        share: share,
+        resolveLaunch: resolveLaunch,
+        validRoute: validRoute,
+        currentRoute: currentRoute
+    };
+
+    window.setTimeout(resolveLaunch, 0);
+
+})(window, document, navigator, _, axios, GeckoClient);
 
 (function (window, navigator, document, _, axios, Vue, GeckoClient) {
     'use strict';
@@ -3071,6 +3320,25 @@
             },
             feedbackOptions: function () {
                 return feedbackOptions;
+            },
+            insightShareCard: function () {
+                if (!this.insight) return null;
+
+                return {
+                    title: this.insight.title || this.title,
+                    subtitle: 'AI insight summary',
+                    body: this.insight.summary || 'AI market insight summary from TONBANKCARD.',
+                    route: GeckoClient.share ? GeckoClient.share.currentRoute() : (window.location.pathname || '/'),
+                    campaign: 'ai-insight',
+                    context: 'ai_insight',
+                    freshness: this.freshnessLabel(this.insight),
+                    metrics: [
+                        {label: 'Sentiment', value: _.startCase(this.insight.sentiment || 'neutral')},
+                        {label: 'Confidence', value: this.confidenceLabel(this.insight.confidence)},
+                        {label: 'Source', value: this.sourceRoute || 'market_view'},
+                        {label: 'Provider', value: this.insight.provider || 'configured AI'}
+                    ]
+                };
             }
         },
         watch: {
@@ -3145,6 +3413,10 @@
                     .then(() => this.feedbackState = 'saved')
                     .catch(() => this.feedbackState = 'failed')
                     .finally(() => this.feedbackSubmitting = false);
+            },
+            shareInsight: function () {
+                if (!this.insight || !GeckoClient.share) return;
+                GeckoClient.share.share(this.insightShareCard);
             }
         }
     });
@@ -4356,6 +4628,57 @@
 
 })(window, document, _, axios, Vue, GeckoClient);
 
+(function (_, Vue, GeckoClient) {
+    'use strict';
+
+    Vue.component('gc-share-card', {
+        template: '#component-share-card',
+        props: {
+            card: {
+                type: Object,
+                default: null
+            },
+            dense: {
+                type: Boolean,
+                default: false
+            }
+        },
+        data: function () {
+            return {
+                sharing: false,
+                copied: false
+            };
+        },
+        computed: {
+            normalizedCard: function () {
+                if (!GeckoClient.share) return this.card || {};
+                return GeckoClient.share.normalizeCard(this.card || {});
+            },
+            metrics: function () {
+                return _.isArray(this.normalizedCard.metrics) ? this.normalizedCard.metrics : [];
+            },
+            shareLabel: function () {
+                return 'Share ' + (this.normalizedCard.title || 'market card');
+            }
+        },
+        methods: {
+            shareCard: function () {
+                if (!GeckoClient.share || this.sharing) return;
+
+                this.sharing = true;
+                this.copied = false;
+                GeckoClient.share.share(this.normalizedCard)
+                    .then(shared => {
+                        this.copied = shared === true;
+                        this.$emit('shared', this.normalizedCard);
+                    })
+                    .finally(() => this.sharing = false);
+            }
+        }
+    });
+
+})(_, Vue, GeckoClient);
+
 (function (window, _, Vue) {
     'use strict';
 
@@ -4659,6 +4982,28 @@
                             watchlist_preview: this.watchlistCurrencies.map(currency => this.aiCurrencySnapshot(currency))
                         }
                     };
+                },
+                marketPulseShareCard: function () {
+                    const topGainer = _.first(this.topGainers);
+                    const topLoser = _.first(this.topLosers);
+                    const marketCap = _.get(this.global, ['total_market_cap', this.$root.vsCurrencyId], null);
+                    const volume = _.get(this.global, ['total_volume', this.$root.vsCurrencyId], null);
+
+                    return {
+                        title: 'Market pulse',
+                        subtitle: _.toUpper(this.$root.vsCurrencyId) + ' snapshot',
+                        body: 'Global market context, TON ecosystem movers, and watchlist previews.',
+                        route: _.get(this.$route, 'fullPath') || '/',
+                        campaign: 'market-pulse',
+                        context: 'market_pulse',
+                        freshness: this.freshnessLabel,
+                        metrics: [
+                            {label: 'Market cap', value: marketCap ? this.$root.marketCapFormat(marketCap) : 'Loading'},
+                            {label: '24h volume', value: volume ? this.$root.volumeFormat(volume) : 'Loading'},
+                            {label: 'Top gainer', value: topGainer ? topGainer.symbol.toUpperCase() + ' ' + this.$root.changeFormat(topGainer.price_change_percentage_24h_in_currency) : 'N/A'},
+                            {label: 'Top loser', value: topLoser ? topLoser.symbol.toUpperCase() + ' ' + this.$root.changeFormat(topLoser.price_change_percentage_24h_in_currency) : 'N/A'}
+                        ]
+                    };
                 }
             },
             methods: {
@@ -4765,6 +5110,10 @@
                         input.focus();
                         input.click();
                     }
+                },
+                shareMarketPulse: function () {
+                    if (!GeckoClient.share) return;
+                    GeckoClient.share.share(this.marketPulseShareCard);
                 }
             }
         }
@@ -4864,6 +5213,31 @@
                 },
                 shareButtonLabel: function () {
                     return this.currency ? 'Share ' + this.currency.name : 'Share coin';
+                },
+                currencyShareCard: function () {
+                    if (!this.currency) return null;
+
+                    const symbol = _.toUpper(this.currency.symbol || '');
+                    const price = this.currency.currentPrice ? this.$root.priceFormat(this.currency.currentPrice) : 'Price unavailable';
+                    const change = _.isFinite(parseFloat(this.currency.change24hPercent))
+                        ? this.$root.changeFormat(this.currency.change24hPercent)
+                        : '24h unavailable';
+
+                    return {
+                        title: this.currency.name + ' price',
+                        subtitle: symbol ? symbol + ' market card' : 'Coin market card',
+                        body: price + ' with 24h move ' + change + ' on TONBANKCARD.',
+                        route: '/currency/' + encodeURIComponent(this.currency.id),
+                        campaign: 'coin-price',
+                        context: 'coin_price',
+                        freshness: this.currencyShareFreshnessLabel(),
+                        metrics: [
+                            {label: 'Price', value: price},
+                            {label: '24h', value: change},
+                            {label: 'Market cap', value: this.currency.marketCap ? this.$root.marketCapFormat(this.currency.marketCap) : 'N/A'},
+                            {label: 'Rank', value: this.currency.market_cap_rank ? '#' + this.currency.market_cap_rank : 'N/A'}
+                        ]
+                    };
                 },
                 coinInsightContext: function () {
                     if (!this.currency || !GeckoClient.ai) return null;
@@ -5005,6 +5379,10 @@
                 currencyMarketAgeSeconds: function () {
                     return GeckoClient.ai ? GeckoClient.ai.marketDataAgeSeconds({last_updated_at: this.currencyMarketUpdatedAt()}) : 0;
                 },
+                currencyShareFreshnessLabel: function () {
+                    const timestamp = this.currencyMarketUpdatedAt();
+                    return timestamp ? 'Updated ' + this.relativeTime(timestamp) : 'Freshness unavailable';
+                },
                 currencyInsightMarketData: function () {
                     const currency = this.currency || {};
                     return {
@@ -5054,21 +5432,12 @@
                     }).catch(() => {});
                 },
                 shareCurrency: function () {
-                    if (!this.currency) return;
+                    if (!this.currency || !GeckoClient.share) return;
 
-                    const payload = {
-                        title: this.currency.name + ' price on TONBANKCARD',
-                        text: this.currency.name + ' market data on TONBANKCARD Crypto Tracker',
-                        url: window.location.href
-                    };
-
-                    if (navigator.share) {
-                        navigator.share(payload).catch(() => {});
-                        return;
-                    }
-
-                    this.$root.copyToClipboard(payload.url);
-                    this.showActionNotice('Share link copied for ' + this.currency.name + '.');
+                    GeckoClient.share.share(this.currencyShareCard)
+                        .then(shared => {
+                            if (shared) this.showActionNotice('Share link ready for ' + this.currency.name + '.');
+                        });
                 },
                 showActionNotice: function (message) {
                     this.actionNotice = message;
@@ -5085,6 +5454,16 @@
                         || platforms.indexOf('the-open-network') >= 0
                         || platforms.indexOf('ton') >= 0
                         || categories.some(category => category.indexOf('ton ecosystem') >= 0 || category.indexOf('the open network') >= 0);
+                },
+                relativeTime: function (timestamp) {
+                    const date = new Date(timestamp);
+                    if (!GeckoClient.utils.isValidDate(date)) return 'unknown';
+
+                    const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+                    if (seconds < 60) return 'now';
+                    if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+                    if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+                    return Math.floor(seconds / 86400) + 'd ago';
                 },
                 tabChanged: function (index) {
                     this.tab = this.tabs[index];
@@ -6128,6 +6507,42 @@
             },
             saveLabel: function () {
                 return this.editingId ? 'Update alert' : 'Create alert';
+            },
+            alertsShareCard: function () {
+                return {
+                    title: 'Alert wins',
+                    subtitle: this.activeCount + ' active alerts',
+                    body: 'Smart alert rules with Telegram delivery, test links, and coin context.',
+                    route: '/alerts',
+                    campaign: 'alert-wins',
+                    context: 'alert_win',
+                    freshness: 'Updated in browser session',
+                    metrics: [
+                        {label: 'Active', value: String(this.activeCount)},
+                        {label: 'Paused', value: String(this.pausedCount)},
+                        {label: 'Storage', value: this.storageModeLabel},
+                        {label: 'Delivery', value: this.featureEnabled ? 'Enabled' : 'Flag off'}
+                    ]
+                };
+            },
+            testResultShareCard: function () {
+                const route = _.get(this.testResult, 'links.mini_app_path') || '/alerts';
+
+                return {
+                    title: 'Alert win',
+                    subtitle: 'Test delivery ready',
+                    body: _.get(this.testResult, 'text') || 'A TONBANKCARD alert delivery is ready to open.',
+                    route: route,
+                    campaign: 'alert-wins',
+                    context: 'alert_win',
+                    freshness: 'Generated now',
+                    metrics: [
+                        {label: 'Route', value: route},
+                        {label: 'Channel', value: 'Telegram bot'},
+                        {label: 'Mode', value: 'Test delivery'},
+                        {label: 'Storage', value: this.storageModeLabel}
+                    ]
+                };
             }
         },
         methods: {
@@ -6272,8 +6687,46 @@
             deliveryPath: function (rule) {
                 return _.get(rule, 'links.mini_app_path') || '/app/alerts?coin=' + encodeURIComponent(rule.coin_id);
             },
+            alertShareCard: function (rule) {
+                if (!rule) return this.alertsShareCard;
+
+                const symbol = this.ruleSymbol(rule);
+                const route = rule.id ? '/app/alert/' + encodeURIComponent(rule.id) : this.deliveryPath(rule);
+
+                return {
+                    title: symbol + ' alert win',
+                    subtitle: this.triggerTypeLabel(rule.trigger_type),
+                    body: symbol + ' alert ' + this.operatorLabel(rule.operator) + ' ' + rule.threshold + ' on TONBANKCARD.',
+                    route: route,
+                    campaign: 'alert-wins',
+                    context: 'alert_win',
+                    freshness: rule.updated_at ? 'Updated ' + this.relativeTime(rule.updated_at) : 'Saved alert rule',
+                    metrics: [
+                        {label: 'Coin', value: rule.coin_id || symbol},
+                        {label: 'Trigger', value: this.triggerTypeLabel(rule.trigger_type)},
+                        {label: 'Status', value: rule.status || 'active'},
+                        {label: 'Cap', value: this.capLabel(rule.frequency_cap_seconds)}
+                    ]
+                };
+            },
+            shareAlert: function (ruleOrCard) {
+                if (!GeckoClient.share) return;
+
+                const card = ruleOrCard && ruleOrCard.context ? ruleOrCard : this.alertShareCard(ruleOrCard);
+                GeckoClient.share.share(card);
+            },
             openCoinRoute: function (rule) {
                 return {name: 'currency', params: {id: rule.coin_id}};
+            },
+            relativeTime: function (timestamp) {
+                const date = new Date(timestamp);
+                if (!GeckoClient.utils.isValidDate(date)) return 'unknown';
+
+                const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+                if (seconds < 60) return 'now';
+                if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+                if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+                return Math.floor(seconds / 86400) + 'd ago';
             },
             showNotice: function (message) {
                 this.notice = message;
@@ -6977,6 +7430,27 @@
                             ]
                         }
                     };
+                },
+                tonShareCard: function () {
+                    const mover = _.first(this.filteredAssets.filter(asset => {
+                        return _.isFinite(parseFloat(_.get(asset, 'market.price_change_percentage_24h_in_currency')));
+                    }));
+
+                    return {
+                        title: 'TON ecosystem movers',
+                        subtitle: this.filteredAssets.length + ' visible assets',
+                        body: 'Curated TON assets with verification state, categories, and 24h market movement.',
+                        route: _.get(this.$route, 'fullPath') || '/ton',
+                        campaign: 'ton-movers',
+                        context: 'ton_movers',
+                        freshness: 'Updated ' + this.curationUpdatedLabel,
+                        metrics: [
+                            {label: 'Assets', value: String(this.tonAssets.length)},
+                            {label: 'Verified', value: String(this.verifiedCount)},
+                            {label: 'Visible', value: String(this.filteredAssets.length)},
+                            {label: 'Top mover', value: mover ? _.toUpper(mover.symbol || mover.id) + ' ' + this.$root.changeFormat(_.get(mover, 'market.price_change_percentage_24h_in_currency')) : 'N/A'}
+                        ]
+                    };
                 }
             },
             methods: {
@@ -7112,6 +7586,10 @@
                 },
                 marketRoute: function (tag) {
                     return {name: 'markets', query: {tag: normalizeTag(tag)}};
+                },
+                shareTonMovers: function () {
+                    if (!GeckoClient.share) return;
+                    GeckoClient.share.share(this.tonShareCard);
                 }
             }
         }
@@ -7414,6 +7892,27 @@
                             assets: this.sortedCurrencies.slice(0, 20).map(currency => this.aiCurrencySnapshot(currency))
                         }
                     };
+                },
+                watchlistShareCard: function () {
+                    const strongest = _.first(this.sortedCurrencies.filter(currency => _.isFinite(parseFloat(currency.price_change_percentage_24h_in_currency))));
+
+                    return {
+                        title: 'Watchlist snapshot',
+                        subtitle: this.entries.length + ' saved assets',
+                        body: this.isEmpty
+                            ? 'Saved watchlist view on TONBANKCARD.'
+                            : 'Prices, 24h moves, ranks, and saved assets in one watchlist snapshot.',
+                        route: '/watchlist',
+                        campaign: 'watchlist-snapshot',
+                        context: 'watchlist_snapshot',
+                        freshness: !this.isEmpty && this.marketMeta ? this.freshnessLabel : 'Saved watchlist state',
+                        metrics: [
+                            {label: 'Assets', value: String(this.entries.length)},
+                            {label: 'Storage', value: this.storageModeLabel},
+                            {label: 'Sort', value: _.startCase(this.sortKey) + ' ' + this.sortDirection},
+                            {label: 'Top 24h', value: strongest ? this.ruleAssetLabel(strongest) + ' ' + this.changeLabel(strongest.price_change_percentage_24h_in_currency) : 'N/A'}
+                        ]
+                    };
                 }
             },
             methods: {
@@ -7522,6 +8021,13 @@
                 },
                 changeLabel: function (value) {
                     return _.isFinite(parseFloat(value)) ? this.$root.changeFormat(value) : 'N/A';
+                },
+                ruleAssetLabel: function (currency) {
+                    return _.toUpper(currency.watchlist_symbol || currency.symbol || currency.id || 'asset');
+                },
+                shareWatchlist: function () {
+                    if (!GeckoClient.share) return;
+                    GeckoClient.share.share(this.watchlistShareCard);
                 },
                 relativeTime: function (timestamp) {
                     const date = new Date(timestamp);
