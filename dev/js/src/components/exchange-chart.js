@@ -1,4 +1,4 @@
-(function (window, _, Vue, echarts, CoinGecko, GeckoClient) {
+(function (window, _, Vue, CoinGecko, GeckoClient) {
     'use strict';
 
     const utils = GeckoClient.utils;
@@ -33,7 +33,7 @@
                 const params = {days: days};
                 return CoinGecko.exchangeVolumeChart(this.exchangeId, params);
             },
-            initChart: function (data) {
+            initChart: function (data, echartsInstance) {
                 const theme = this.$root.darkTheme ? 'dark' : undefined;
 
                 const options = _.cloneDeep(exchangeOptions.echartOptions);
@@ -51,7 +51,7 @@
 
                 // wait for this.$refs.chartContainer to be available
                 this.$nextTick(() => {
-                    this.chart = echarts.init(this.$refs.chartContainer, theme);
+                    this.chart = echartsInstance.init(this.$refs.chartContainer, theme);
                     this.chart.setOption(options);
                 });
             },
@@ -60,12 +60,15 @@
 
                 // fetch remote data
                 this.loading = true;
-                this.fetchVolumeData(this.selectedInterval)
-                    .then(data => {
+                Promise.all([
+                    GeckoClient.loadECharts(),
+                    this.fetchVolumeData(this.selectedInterval)
+                ])
+                    .then(result => {
                         this.loading = false;
-                        this.initChart(data);
+                        this.initChart(result[1], result[0]);
                     })
-                    .finally(() => this.loading = false);
+                    .catch(() => this.loading = false);
             },
             resize() {
                 if (this.chart) this.chart.resize()
@@ -76,4 +79,4 @@
 
 
 
-})(window, _, Vue, echarts, CoinGecko, GeckoClient);
+})(window, _, Vue, CoinGecko, GeckoClient);

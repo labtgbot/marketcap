@@ -36,6 +36,18 @@ $frontend_options['currency-chart']['series'] = [
         'value' => 'marketCap',
         'text'  => __( 'Market Cap' ),
     ],
+    [
+        'value' => 'volume',
+        'text'  => __( 'Volume' ),
+    ],
+    [
+        'value' => 'dominance',
+        'text'  => __( 'Dominance' ),
+    ],
+    [
+        'value' => 'relativePerformance',
+        'text'  => __( 'Relative' ),
+    ],
 ];
 
 /*
@@ -75,6 +87,10 @@ $frontend_options['currency-chart']['intervals'] = [
     [
         'value' => 30,
         'text'  => __( '1M' ),
+    ],
+    [
+        'value' => 90,
+        'text'  => __( '3M' ),
     ],
     [
         'value' => 180,
@@ -117,6 +133,7 @@ $frontend_options['currency-chart']['echartOptions'] = [
         'axisPointer' => [ 'type' => 'cross' ],
         'backgroundColor' => 'rgba(255,255,255,0.9)',
         'confine' => TRUE,
+        'appendToBody' => TRUE,
     ],
     'axisPointer' => [
         'link' => [ 'xAxisIndex' => 'all' ],
@@ -138,7 +155,7 @@ $frontend_options['currency-chart']['echartOptions'] = [
         [
             'left' => '2%',
             'right' => '2%',
-            'height' => 80,
+            'height' => 72,
             'bottom' => 80,
         ],
     ],
@@ -205,6 +222,9 @@ $frontend_options['currency-chart']['echartOptions'] = [
         [
             'type' => 'line',
             'symbol' => 'none',
+            'showSymbol' => FALSE,
+            'smooth' => TRUE,
+            'lineStyle' => [ 'width' => 2 ],
             'itemStyle' => [
                 'color' => '#00BCD4',
             ],

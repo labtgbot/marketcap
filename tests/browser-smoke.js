@@ -53,6 +53,21 @@ function lastRequest(requests, label) {
     return requests[requests.length - 1];
 }
 
+async function waitForLoggedRequest(requests, predicate, label) {
+    const deadline = Date.now() + 5000;
+
+    while (Date.now() < deadline) {
+        const request = requests.find(predicate);
+        if (request) {
+            return request;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    fail(`${label}: expected a matching API request`);
+}
+
 function requestRecord(url) {
     return {
         path: url.pathname.replace(/^\/api\/market\/?/, '').replace(/\/$/, ''),
@@ -90,6 +105,23 @@ function fulfillMarketJson(route, data) {
                 cache_status: 'pass',
             },
         },
+    });
+}
+
+function fulfillMarketError(route, status, code, message) {
+    return route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({
+            ok: false,
+            error: {
+                code,
+                message,
+            },
+            meta: {
+                request_id: 'browser-smoke-error',
+            },
+        }),
     });
 }
 
@@ -579,6 +611,16 @@ async function installRoutes(context, requestLog) {
             return fulfillMarketJson(route, coinDetail('toncoin', 'ton', 'Toncoin', 12, 6.5));
         }
 
+        if (apiPath === 'coins/chart-failure') {
+            requestLog.coinDetails.push(requestRecord(url));
+            return fulfillMarketJson(route, coinDetail('chart-failure', 'fail', 'Chart Failure Coin', 99, 10));
+        }
+
+        if (apiPath === 'coins/chart-failure/market_chart') {
+            requestLog.marketCharts.push(requestRecord(url));
+            return fulfillMarketError(route, 502, 'provider_unavailable', 'Provider unavailable');
+        }
+
         if (apiPath === 'coins/unsupported-coin') {
             requestLog.coinDetails.push(requestRecord(url));
             return fulfillMarketJson(route, coinDetail('unsupported-coin', 'zzzz', 'Unsupported Coin', 999, 1));
@@ -622,6 +664,13 @@ async function assertNoDirectProviderRequests(requests) {
     }
 }
 
+function removeExpectedChartFailureConsoleError(errors) {
+    const index = errors.findIndex(message => /Failed to load resource: the server responded with a status of 502/.test(message));
+    if (index >= 0) {
+        errors.splice(index, 1);
+    }
+}
+
 async function checkMarketPulseHome(page, errors, requestLog) {
     log('Checking market pulse homepage');
     requestLog.globals = [];
@@ -642,6 +691,11 @@ async function checkMarketPulseHome(page, errors, requestLog) {
     await page.getByRole('link', {name: 'TON view'}).first().waitFor({state: 'visible'});
     await page.locator('#market-pulse a', {hasText: 'Bitcoin'}).first().waitFor({state: 'visible'});
     await page.locator('.gc-stats-bar', {hasText: /ton:\s*0\.6%/i}).waitFor({state: 'visible'});
+
+    const eagerECharts = await page.evaluate(() => !!window.echarts);
+    if (eagerECharts) {
+        fail('ECharts loaded before a chart route requested it');
+    }
 
     const tonDominanceRequest = lastRequest(requestLog.tonDominanceMarkets, 'TON dominance coins request');
     assertEqual(tonDominanceRequest.params.ids, 'toncoin', 'TON dominance ids');
@@ -708,6 +762,66 @@ async function checkCoinDetail(page, errors, requestLog) {
     assertEqual(chartRequest.params.vs_currency, 'usd', 'coin chart vs_currency');
     assertEqual(chartRequest.params.days, '30', 'coin chart default interval');
     await assertNoErrors(errors, 'coin detail');
+}
+
+async function checkCoinChartVisualization(page, errors, requestLog) {
+    log('Checking advanced coin chart visualization controls');
+    requestLog.marketCharts = [];
+
+    await page.goto(`${baseURL}/currency/bitcoin`, {waitUntil: 'domcontentloaded'});
+    await page.locator('#currency').waitFor({state: 'visible'});
+    await page.locator('.gc-currency-chart-container canvas').first().waitFor({state: 'visible'});
+    await page.locator('.gc-currency-chart-summary', {hasText: 'Start'}).waitFor({state: 'visible'});
+
+    const chartRuntime = await page.evaluate(() => ({
+        loaded: !!window.echarts,
+        darkThemeRegistered: !!(window.echarts && window.echarts.__tbcDarkThemeRegistered),
+    }));
+    if (!chartRuntime.loaded || !chartRuntime.darkThemeRegistered) {
+        fail(`ECharts lazy runtime did not load and register theme: ${JSON.stringify(chartRuntime)}`);
+    }
+
+    await page.getByRole('button', {name: 'Volume'}).click();
+    await page.locator('.gc-currency-chart-summary', {hasText: 'High'}).waitFor({state: 'visible'});
+
+    await page.getByRole('button', {name: 'Relative'}).click();
+    const summaryText = await page.locator('.gc-currency-chart .tbc-sr-only').first().textContent();
+    if (!summaryText || !/Relative/i.test(summaryText)) {
+        fail(`Chart accessible summary did not update for relative performance: ${summaryText || ''}`);
+    }
+
+    await page.getByRole('button', {name: '3M'}).click();
+    const rangeRequest = await waitForLoggedRequest(
+        requestLog.marketCharts,
+        request => request.path === 'coins/bitcoin/market_chart' && request.params.days === '90',
+        'coin chart 3M range request'
+    );
+    assertEqual(rangeRequest.params.vs_currency, 'usd', 'coin chart 3M vs_currency');
+
+    await page.locator('.gc-currency-chart-container[role="img"][aria-describedby]').waitFor({state: 'visible'});
+    await assertNoErrors(errors, 'advanced coin chart visualization');
+}
+
+async function checkCoinChartFailureFallback(page, errors, requestLog) {
+    log('Checking coin chart failure fallback');
+    requestLog.coinDetails = [];
+    requestLog.marketCharts = [];
+
+    await page.goto(`${baseURL}/currency/chart-failure`, {waitUntil: 'domcontentloaded'});
+    await page.locator('#currency').waitFor({state: 'visible'});
+    await page.getByText('Chart Failure Coin Price', {exact: false}).first().waitFor({state: 'visible'});
+    await page.getByText('Market chart is unavailable', {exact: false}).first().waitFor({state: 'visible'});
+    await page.getByRole('button', {name: 'Retry'}).first().waitFor({state: 'visible'});
+    await page.locator('.currency-exchange-widget[data-widget-status="unsupported"]').waitFor({state: 'visible'});
+    await page.getByText('ChangeNOW does not list this asset for the embedded widget yet.', {exact: false}).first().waitFor({state: 'visible'});
+
+    const detailRequest = lastRequest(requestLog.coinDetails, 'chart failure coin detail request');
+    assertEqual(detailRequest.path, 'coins/chart-failure', 'chart failure coin detail path');
+
+    const chartRequest = lastRequest(requestLog.marketCharts, 'chart failure market chart request');
+    assertEqual(chartRequest.path, 'coins/chart-failure/market_chart', 'chart failure chart path');
+    removeExpectedChartFailureConsoleError(errors);
+    await assertNoErrors(errors, 'coin chart failure fallback');
 }
 
 async function checkToncoinChangeNowDefaults(page, errors, requestLog) {
@@ -1145,6 +1259,8 @@ async function run() {
         await checkMarketPulseHome(page, errors, requestLog);
         await checkMarketsList(page, errors, requestLog);
         await checkCoinDetail(page, errors, requestLog);
+        await checkCoinChartVisualization(page, errors, requestLog);
+        await checkCoinChartFailureFallback(page, errors, requestLog);
         await checkToncoinChangeNowDefaults(page, errors, requestLog);
         await checkUnsupportedCoinFallback(page, errors, requestLog);
         await checkExchangesList(page, errors, requestLog);
