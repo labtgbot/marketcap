@@ -247,175 +247,245 @@ async function installRoutes(context, requestLog) {
     await context.route(`${baseURL}/api/search**`, route => {
         const url = new URL(route.request().url());
         const query = url.searchParams.get('q') || '';
+        const normalizedQuery = query.toLowerCase();
         requestLog.searches.push({
             path: url.pathname,
             params: Object.fromEntries(url.searchParams.entries()),
         });
 
+        const results = [];
+        if (normalizedQuery) {
+            const exchangeAsset = normalizedQuery.includes('usdt')
+                ? {
+                    id: 'exchange-tether-usd-ton',
+                    title: 'Exchange Tether USD on TON',
+                    coinId: 'tether',
+                    asset: 'tether-usd-ton',
+                }
+                : {
+                    id: 'exchange-toncoin',
+                    title: 'Exchange Toncoin',
+                    coinId: 'toncoin',
+                    asset: 'toncoin',
+                };
+
+            results.push({
+                searchId: `action:${exchangeAsset.id}`,
+                type: 'action',
+                id: exchangeAsset.id,
+                title: exchangeAsset.title,
+                name: exchangeAsset.title,
+                subtitle: 'TON to USDT on TON',
+                symbol: '',
+                rank: 1,
+                tags: ['exchange', 'changenow', 'ton_ecosystem'],
+                contract_addresses: [],
+                route: {
+                    name: 'crypto-exchange',
+                    query: {from: 'ton', to: 'usdtton', asset: exchangeAsset.asset},
+                    path: `/crypto-exchange?from=ton&to=usdtton&asset=${exchangeAsset.asset}`,
+                },
+                links: {
+                    web: `/crypto-exchange?from=ton&to=usdtton&asset=${exchangeAsset.asset}`,
+                    telegram: `/app/exchange?from=ton&to=usdtton&asset=${exchangeAsset.asset}`,
+                },
+                analytics: {
+                    event_name: 'search_result_selected',
+                    result_type: 'action',
+                    coin_id: exchangeAsset.coinId,
+                    exchange_id: null,
+                    rank: 1,
+                    query_length_bucket: query.length ? '3-5' : 'empty',
+                    surface: 'public_web',
+                },
+            });
+        }
+
+        results.push(
+            {
+                searchId: 'action:trending',
+                type: 'action',
+                id: 'trending',
+                title: 'Trending coins',
+                name: 'Trending coins',
+                subtitle: 'Popular market searches',
+                symbol: '',
+                rank: results.length + 1,
+                tags: ['trending', 'market'],
+                contract_addresses: [],
+                route: {
+                    name: 'currencies',
+                    query: {view: 'trending'},
+                    path: '/?view=trending',
+                },
+                links: {
+                    web: '/?view=trending',
+                    telegram: '/app/search?view=trending',
+                },
+                analytics: {
+                    event_name: 'search_result_selected',
+                    result_type: 'action',
+                    coin_id: null,
+                    exchange_id: null,
+                    rank: results.length + 1,
+                    query_length_bucket: query.length ? '3-5' : 'empty',
+                    surface: 'public_web',
+                },
+            },
+            {
+                searchId: 'coin:toncoin',
+                type: 'coin',
+                id: 'toncoin',
+                coin_id: 'toncoin',
+                title: 'Toncoin',
+                name: 'Toncoin',
+                subtitle: 'TON',
+                symbol: 'TON',
+                rank: results.length + 2,
+                large: transparentPixel,
+                tags: ['ton_ecosystem'],
+                contract_addresses: [],
+                route: {
+                    name: 'currency',
+                    params: {id: 'toncoin'},
+                    path: '/currency/toncoin',
+                },
+                links: {
+                    web: '/currency/toncoin',
+                    telegram: '/app/coin/toncoin',
+                },
+                analytics: {
+                    event_name: 'search_result_selected',
+                    result_type: 'coin',
+                    coin_id: 'toncoin',
+                    exchange_id: null,
+                    rank: results.length + 2,
+                    query_length_bucket: '3-5',
+                    surface: 'public_web',
+                },
+            },
+            {
+                searchId: 'ton_asset:tether-usd-ton',
+                type: 'ton_asset',
+                id: 'tether-usd-ton',
+                coin_id: 'tether',
+                title: 'Tether USD on TON',
+                name: 'Tether USD on TON',
+                subtitle: 'USDT on TON',
+                symbol: 'USDT',
+                rank: results.length + 3,
+                tags: ['ton_ecosystem', 'ton_asset', 'stablecoin'],
+                contract_addresses: ['EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs'],
+                route: {
+                    name: 'currency',
+                    params: {id: 'tether'},
+                    query: {network: 'ton'},
+                    path: '/currency/tether?network=ton',
+                },
+                links: {
+                    web: '/currency/tether?network=ton',
+                    telegram: '/app/coin/tether?network=ton',
+                },
+                analytics: {
+                    event_name: 'search_result_selected',
+                    result_type: 'ton_asset',
+                    coin_id: 'tether',
+                    exchange_id: null,
+                    rank: results.length + 3,
+                    query_length_bucket: '3-5',
+                    surface: 'public_web',
+                },
+            },
+            {
+                searchId: 'category:stablecoins',
+                type: 'category',
+                id: 'stablecoins',
+                category_id: 'stablecoins',
+                title: 'Stablecoins',
+                name: 'Stablecoins',
+                subtitle: 'Category',
+                symbol: '',
+                rank: results.length + 4,
+                tags: ['category'],
+                contract_addresses: [],
+                route: {
+                    name: 'currencies',
+                    query: {category: 'stablecoins'},
+                    path: '/?category=stablecoins',
+                },
+                links: {
+                    web: '/?category=stablecoins',
+                    telegram: '/app/search?category=stablecoins',
+                },
+                analytics: {
+                    event_name: 'search_result_selected',
+                    result_type: 'category',
+                    coin_id: null,
+                    exchange_id: null,
+                    category_id: 'stablecoins',
+                    rank: results.length + 4,
+                    query_length_bucket: '3-5',
+                    surface: 'public_web',
+                },
+            },
+        );
+
+        if (normalizedQuery === 'binance') {
+            results.push({
+                searchId: 'exchange:binance',
+                type: 'exchange',
+                id: 'binance',
+                exchange_id: 'binance',
+                title: 'Binance',
+                name: 'Binance',
+                subtitle: 'Exchange',
+                symbol: '',
+                rank: results.length + 1,
+                tags: ['exchange'],
+                contract_addresses: [],
+                route: {
+                    name: 'exchange',
+                    params: {id: 'binance'},
+                    path: '/exchange/binance',
+                },
+                links: {
+                    web: '/exchange/binance',
+                    telegram: '/app/search?type=exchange&id=binance',
+                },
+                analytics: {
+                    event_name: 'search_result_selected',
+                    result_type: 'exchange',
+                    coin_id: null,
+                    exchange_id: 'binance',
+                    rank: results.length + 1,
+                    query_length_bucket: '3-5',
+                    surface: 'public_web',
+                },
+            });
+        }
+
         return fulfillSearchJson(route, {
             query,
             normalized_query: query.toLowerCase(),
             surface: url.searchParams.get('surface') || 'public_web',
-            result_count: 5,
-            results: [
-                {
-                    searchId: 'action:trending',
-                    type: 'action',
-                    id: 'trending',
-                    title: 'Trending coins',
-                    name: 'Trending coins',
-                    subtitle: 'Popular market searches',
-                    symbol: '',
-                    rank: 1,
-                    tags: ['trending', 'market'],
-                    contract_addresses: [],
-                    route: {
-                        name: 'currencies',
-                        query: {view: 'trending'},
-                        path: '/?view=trending',
-                    },
-                    links: {
-                        web: '/?view=trending',
-                        telegram: '/app/search?view=trending',
-                    },
-                    analytics: {
-                        event_name: 'search_result_selected',
-                        result_type: 'action',
-                        coin_id: null,
-                        exchange_id: null,
-                        rank: 1,
-                        query_length_bucket: query.length ? '3-5' : 'empty',
-                        surface: 'public_web',
-                    },
-                },
-                {
-                    searchId: 'coin:toncoin',
-                    type: 'coin',
-                    id: 'toncoin',
-                    coin_id: 'toncoin',
-                    title: 'Toncoin',
-                    name: 'Toncoin',
-                    subtitle: 'TON',
-                    symbol: 'TON',
-                    rank: 2,
-                    large: transparentPixel,
-                    tags: ['ton_ecosystem'],
-                    contract_addresses: [],
-                    route: {
-                        name: 'currency',
-                        params: {id: 'toncoin'},
-                        path: '/currency/toncoin',
-                    },
-                    links: {
-                        web: '/currency/toncoin',
-                        telegram: '/app/coin/toncoin',
-                    },
-                    analytics: {
-                        event_name: 'search_result_selected',
-                        result_type: 'coin',
-                        coin_id: 'toncoin',
-                        exchange_id: null,
-                        rank: 2,
-                        query_length_bucket: '3-5',
-                        surface: 'public_web',
-                    },
-                },
-                {
-                    searchId: 'ton_asset:tether-usd-ton',
-                    type: 'ton_asset',
-                    id: 'tether-usd-ton',
-                    coin_id: 'tether',
-                    title: 'Tether USD on TON',
-                    name: 'Tether USD on TON',
-                    subtitle: 'USDT on TON',
-                    symbol: 'USDT',
-                    rank: 3,
-                    tags: ['ton_ecosystem', 'ton_asset', 'stablecoin'],
-                    contract_addresses: ['EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs'],
-                    route: {
-                        name: 'currency',
-                        params: {id: 'tether'},
-                        query: {network: 'ton'},
-                        path: '/currency/tether?network=ton',
-                    },
-                    links: {
-                        web: '/currency/tether?network=ton',
-                        telegram: '/app/coin/tether?network=ton',
-                    },
-                    analytics: {
-                        event_name: 'search_result_selected',
-                        result_type: 'ton_asset',
-                        coin_id: 'tether',
-                        exchange_id: null,
-                        rank: 3,
-                        query_length_bucket: '3-5',
-                        surface: 'public_web',
-                    },
-                },
-                {
-                    searchId: 'exchange:binance',
-                    type: 'exchange',
-                    id: 'binance',
-                    exchange_id: 'binance',
-                    title: 'Binance',
-                    name: 'Binance',
-                    subtitle: 'Exchange',
-                    symbol: '',
-                    rank: 4,
-                    tags: ['exchange'],
-                    contract_addresses: [],
-                    route: {
-                        name: 'exchange',
-                        params: {id: 'binance'},
-                        path: '/exchange/binance',
-                    },
-                    links: {
-                        web: '/exchange/binance',
-                        telegram: '/app/search?type=exchange&id=binance',
-                    },
-                    analytics: {
-                        event_name: 'search_result_selected',
-                        result_type: 'exchange',
-                        coin_id: null,
-                        exchange_id: 'binance',
-                        rank: 4,
-                        query_length_bucket: '3-5',
-                        surface: 'public_web',
-                    },
-                },
-                {
-                    searchId: 'category:stablecoins',
-                    type: 'category',
-                    id: 'stablecoins',
-                    category_id: 'stablecoins',
-                    title: 'Stablecoins',
-                    name: 'Stablecoins',
-                    subtitle: 'Category',
-                    symbol: '',
-                    rank: 5,
-                    tags: ['category'],
-                    contract_addresses: [],
-                    route: {
-                        name: 'currencies',
-                        query: {category: 'stablecoins'},
-                        path: '/?category=stablecoins',
-                    },
-                    links: {
-                        web: '/?category=stablecoins',
-                        telegram: '/app/search?category=stablecoins',
-                    },
-                    analytics: {
-                        event_name: 'search_result_selected',
-                        result_type: 'category',
-                        coin_id: null,
-                        exchange_id: null,
-                        category_id: 'stablecoins',
-                        rank: 5,
-                        query_length_bucket: '3-5',
-                        surface: 'public_web',
-                    },
-                },
-            ],
+            result_count: results.length,
+            results,
+        });
+    });
+
+    await context.route('https://changenow.io/**', route => {
+        if (route.request().url().endsWith('/stepper-connector.js')) {
+            return route.fulfill({
+                status: 200,
+                contentType: 'application/javascript',
+                body: 'window.__changenowStepperLoaded = true;',
+            });
+        }
+
+        return route.fulfill({
+            status: 200,
+            contentType: 'text/html',
+            body: '<!doctype html><title>ChangeNOW Widget</title><body>ChangeNOW Widget</body>',
         });
     });
 
@@ -642,11 +712,14 @@ async function checkSearchInteraction(page, errors, requestLog) {
     await activeMenu.getByText('Quick actions', {exact: true}).waitFor({state: 'visible'});
     await activeMenu.getByText('Coins', {exact: true}).waitFor({state: 'visible'});
     await activeMenu.getByText('TON assets', {exact: true}).waitFor({state: 'visible'});
-    await activeMenu.getByText('Exchanges', {exact: true}).waitFor({state: 'visible'});
     await activeMenu.getByText('Categories', {exact: true}).waitFor({state: 'visible'});
+    await activeMenu.getByText('Exchange Toncoin', {exact: true}).waitFor({state: 'visible'});
     await activeMenu.getByText('Tether USD on TON', {exact: true}).waitFor({state: 'visible'});
     await activeMenu.getByText('Stablecoins', {exact: true}).waitFor({state: 'visible'});
-    await activeMenu.locator('.v-list-item', {hasText: 'Toncoin'}).click();
+    if (await activeMenu.getByText('Binance', {exact: true}).count()) {
+        fail('TON search exposed a third-party venue result instead of the first-party exchange action');
+    }
+    await activeMenu.getByRole('option', {name: /^Toncoin\s+TON\s+Coin$/}).click();
     await page.waitForURL(`${baseURL}/currency/toncoin`);
     await page.locator('#currency').waitFor({state: 'visible'});
     await page.getByText('Toncoin Price', {exact: false}).first().waitFor({state: 'visible'});
@@ -661,6 +734,28 @@ async function checkSearchInteraction(page, errors, requestLog) {
     const recentMenu = page.locator('.v-menu__content.menuable__content__active').last();
     await recentMenu.getByText('Recent searches', {exact: true}).waitFor({state: 'visible'});
     await recentMenu.locator('.v-list-item', {hasText: 'Toncoin'}).first().waitFor({state: 'visible'});
+
+    const exchangeSearchResponse = page.waitForResponse(response => {
+        try {
+            const url = new URL(response.url());
+            return url.pathname === '/api/search' && url.searchParams.get('q') === 'ton';
+        } catch (err) {
+            return false;
+        }
+    });
+    await search.fill('ton');
+    await exchangeSearchResponse;
+    const exchangeMenu = page.locator('.v-menu__content.menuable__content__active').last();
+    await exchangeMenu.locator('.v-list-item', {hasText: 'Exchange Toncoin'}).first().click();
+    await page.waitForURL(`${baseURL}/crypto-exchange?from=ton&to=usdtton&asset=toncoin`);
+    await page.locator('#crypto-exchange').waitFor({state: 'visible'});
+    await page.getByRole('heading', {name: /Crypto Exchange/i}).first().waitFor({state: 'visible'});
+    const widget = page.locator('#iframe-widget').first();
+    await widget.waitFor({state: 'visible'});
+    const widgetSrc = await widget.getAttribute('src');
+    if (!widgetSrc || !widgetSrc.includes('from=ton') || !widgetSrc.includes('to=usdtton')) {
+        fail(`crypto exchange widget did not receive the searched TON pair: ${widgetSrc || 'missing src'}`);
+    }
     await assertNoErrors(errors, 'search interaction');
 }
 

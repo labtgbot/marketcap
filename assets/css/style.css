@@ -528,6 +528,41 @@ v-app {
 #ton {
     max-width: 1200px;
 }
+#crypto-exchange {
+    max-width: 1280px;
+}
+.gc-crypto-exchange-lede {
+    max-width: 680px;
+}
+.gc-crypto-exchange-controls {
+    max-width: 980px;
+}
+.gc-crypto-exchange-swap-col {
+    text-align: center;
+}
+.gc-crypto-exchange-swap {
+    min-width: 40px;
+}
+.gc-crypto-exchange-widget-card {
+    overflow: hidden;
+    border-radius: 6px;
+}
+.gc-crypto-exchange-widget {
+    display: block;
+    width: 100%;
+    min-height: 450px;
+    border: 0;
+}
+.gc-crypto-exchange-summary {
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 6px;
+}
+.theme--dark .gc-crypto-exchange-summary {
+    border-color: rgba(255, 255, 255, 0.12);
+}
+.gc-crypto-exchange-summary .v-list-item__subtitle {
+    overflow-wrap: anywhere;
+}
 #screener {
     max-width: 1200px;
 }

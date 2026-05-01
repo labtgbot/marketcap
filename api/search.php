@@ -735,12 +735,189 @@ function tonbankcard_api_search_results( array $entries, string $query, int $lim
         }
     );
 
+    $ranked_entries = tonbankcard_api_search_with_crypto_exchange_actions( $scored, $normalized_query );
+
     $results = [];
-    foreach ( array_slice( $scored, 0, $limit ) as $rank => $entry ) {
+    foreach ( array_slice( $ranked_entries, 0, $limit ) as $rank => $entry ) {
         $results[] = tonbankcard_api_search_public_result( $entry, $rank + 1, $query, $surface );
     }
 
     return $results;
+}
+
+/**
+ * Inserts a first-party exchange action after the highest ranked matched asset.
+ *
+ * @param array $entries
+ * @param string $normalized_query
+ * @return array
+ */
+function tonbankcard_api_search_with_crypto_exchange_actions( array $entries, string $normalized_query ) {
+    if ( '' === $normalized_query ) {
+        return $entries;
+    }
+
+    $ranked = [];
+    $inserted = FALSE;
+
+    foreach ( $entries as $entry ) {
+        $ranked[] = $entry;
+
+        if ( $inserted || ! tonbankcard_api_search_crypto_exchange_source_entry( $entry ) ) {
+            continue;
+        }
+
+        $action = tonbankcard_api_search_crypto_exchange_action_entry( $entry );
+        if ( empty( $action ) ) {
+            continue;
+        }
+
+        $ranked[] = $action;
+        $inserted = TRUE;
+    }
+
+    return $ranked;
+}
+
+/**
+ * Returns TRUE when a search entry can seed the first-party exchange action.
+ *
+ * @param array $entry
+ * @return bool
+ */
+function tonbankcard_api_search_crypto_exchange_source_entry( array $entry ) {
+    $type = isset( $entry['type'] ) ? (string) $entry['type'] : '';
+
+    return in_array( $type, [ 'coin', 'ton_asset' ], TRUE )
+        && ! empty( $entry['id'] )
+        && ! empty( $entry['title'] );
+}
+
+/**
+ * Builds the first-party crypto exchange action for a matched asset.
+ *
+ * @param array $entry
+ * @return array
+ */
+function tonbankcard_api_search_crypto_exchange_action_entry( array $entry ) {
+    $pair = tonbankcard_api_search_crypto_exchange_pair( $entry );
+    if ( empty( $pair['from'] ) || empty( $pair['to'] ) ) {
+        return [];
+    }
+
+    $asset_id = (string) $entry['id'];
+    $title = 'Exchange ' . (string) $entry['title'];
+    $subtitle = tonbankcard_api_search_crypto_exchange_asset_label( $pair['from'] ) . ' to ' . tonbankcard_api_search_crypto_exchange_asset_label( $pair['to'] );
+    $web_path = '/crypto-exchange?from=' . rawurlencode( $pair['from'] ) . '&to=' . rawurlencode( $pair['to'] ) . '&asset=' . rawurlencode( $asset_id );
+    $telegram_path = '/app/exchange?from=' . rawurlencode( $pair['from'] ) . '&to=' . rawurlencode( $pair['to'] ) . '&asset=' . rawurlencode( $asset_id );
+
+    return [
+        'type'          => 'action',
+        'id'            => 'exchange-' . $asset_id,
+        'coin_id'       => isset( $entry['coin_id'] ) ? (string) $entry['coin_id'] : $asset_id,
+        'title'         => $title,
+        'subtitle'      => $subtitle,
+        'tags'          => [ 'exchange', 'swap', 'changenow', 'tonbankcard' ],
+        'aliases'       => [ 'swap ' . (string) $entry['title'], 'buy ' . (string) $entry['title'], 'exchange ' . (string) $entry['title'] ],
+        'popular_score' => isset( $entry['popular_score'] ) ? max( 0, (int) $entry['popular_score'] - 1 ) : 0,
+        'route'         => [
+            'name'  => 'crypto-exchange',
+            'query' => [
+                'from'  => $pair['from'],
+                'to'    => $pair['to'],
+                'asset' => $asset_id,
+            ],
+            'path'  => $web_path,
+        ],
+        'links'         => [
+            'web'      => $web_path,
+            'telegram' => $telegram_path,
+        ],
+    ];
+}
+
+/**
+ * Returns the ChangeNOW pair for a matched search entry.
+ *
+ * @param array $entry
+ * @return array
+ */
+function tonbankcard_api_search_crypto_exchange_pair( array $entry ) {
+    $asset = tonbankcard_api_search_crypto_exchange_symbol( $entry );
+    if ( '' === $asset ) {
+        return [];
+    }
+
+    if ( 'usdtton' === $asset ) {
+        return [
+            'from' => 'ton',
+            'to'   => 'usdtton',
+        ];
+    }
+
+    return [
+        'from' => $asset,
+        'to'   => 'usdtton',
+    ];
+}
+
+/**
+ * Derives a ChangeNOW currency code from a search entry.
+ *
+ * @param array $entry
+ * @return string
+ */
+function tonbankcard_api_search_crypto_exchange_symbol( array $entry ) {
+    $id = isset( $entry['id'] ) ? strtolower( (string) $entry['id'] ) : '';
+    $symbol = tonbankcard_api_search_crypto_exchange_token( isset( $entry['symbol'] ) ? (string) $entry['symbol'] : '' );
+    $tags = isset( $entry['tags'] ) && is_array( $entry['tags'] ) ? array_map( 'strtolower', $entry['tags'] ) : [];
+    $aliases = isset( $entry['aliases'] ) && is_array( $entry['aliases'] ) ? array_map( 'strtolower', $entry['aliases'] ) : [];
+
+    if (
+        'tether-usd-ton' === $id
+        || in_array( 'usdtton', $aliases, TRUE )
+        || ( in_array( 'ton_asset', $tags, TRUE ) && in_array( $symbol, [ 'usdt', 'usd' ], TRUE ) )
+    ) {
+        return 'usdtton';
+    }
+
+    if ( 'toncoin' === $id || 'ton' === $symbol ) {
+        return 'ton';
+    }
+
+    if ( '' !== $symbol ) {
+        return $symbol;
+    }
+
+    return tonbankcard_api_search_crypto_exchange_token( $id );
+}
+
+/**
+ * Sanitizes a ChangeNOW currency code.
+ *
+ * @param string $value
+ * @return string
+ */
+function tonbankcard_api_search_crypto_exchange_token( string $value ) {
+    return preg_replace( '/[^a-z0-9]/', '', strtolower( $value ) );
+}
+
+/**
+ * Returns a compact asset label for the exchange pair.
+ *
+ * @param string $asset
+ * @return string
+ */
+function tonbankcard_api_search_crypto_exchange_asset_label( string $asset ) {
+    $labels = [
+        'ton'     => 'TON',
+        'usdtton' => 'USDT on TON',
+        'btc'     => 'BTC',
+        'eth'     => 'ETH',
+        'usdt'    => 'USDT',
+    ];
+
+    return isset( $labels[ $asset ] ) ? $labels[ $asset ] : strtoupper( $asset );
 }
 
 /**

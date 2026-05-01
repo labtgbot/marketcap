@@ -17,6 +17,7 @@
   "routes/cookies-policy.js",
   "routes/currencies.js",
   "routes/currency.js",
+  "routes/crypto-exchange.js",
   "routes/derivatives.js",
   "routes/exchange.js",
   "routes/exchanges.js",

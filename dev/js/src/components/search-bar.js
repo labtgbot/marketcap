@@ -376,6 +376,7 @@
             resultIcon: function (item) {
                 if (!item) return 'mdi-magnify';
                 if (item.recent) return 'mdi-history';
+                if (_.get(item, 'route.name') === 'crypto-exchange') return 'mdi-swap-horizontal-circle-outline';
                 if (item.type === 'ton_asset') return 'mdi-diamond-stone';
                 if (item.type === 'exchange') return 'mdi-bank-outline';
                 if (item.type === 'category') return 'mdi-tag-outline';

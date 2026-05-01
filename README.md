@@ -29,6 +29,7 @@ Open these browser URLs while the server is running:
 - Coin detail: http://127.0.0.1:8888/currency/bitcoin
 - Canonical coin detail: http://127.0.0.1:8888/coins/bitcoin
 - TON ecosystem: http://127.0.0.1:8888/ton
+- Crypto exchange: http://127.0.0.1:8888/crypto-exchange?from=ton&to=usdtton
 - Screener: http://127.0.0.1:8888/screener
 - Exchanges: http://127.0.0.1:8888/exchanges
 - Support: http://127.0.0.1:8888/support
@@ -78,9 +79,9 @@ npm run test:smoke
 ```
 
 The checks write inspectable output to `test-logs/`. The browser smoke test
-starts the PHP server automatically, stubs CoinGecko/search network responses,
-and verifies the home, coin detail, exchanges, and search paths render without
-browser JavaScript errors.
+starts the PHP server automatically, stubs CoinGecko/search/ChangeNOW network
+responses, and verifies the home, coin detail, exchanges, crypto exchange, and
+search paths render without browser JavaScript errors.
 The public shell check starts the PHP server and verifies server-rendered
 metadata, canonical URLs, the install manifest, and the public website route
 registry for shareable web routes.

@@ -37,6 +37,8 @@ product requirements explicitly replace it.
   request shaping, and caching are controlled by TONBANKCARD infrastructure.
 - If V2 changes ranking, grouping, or canonical route names, document the change
   and keep regression coverage for old route compatibility.
+- Add `/crypto-exchange` as the first-party partner exchange route while keeping
+  `/exchange/:id` for exchange venue detail pages.
 
 ## V2 Smart Search UI
 
@@ -51,9 +53,24 @@ product requirements explicitly replace it.
 - Selection uses the result `route` payload for Vue Router navigation, stores a
   bounded local recent-search list, and emits the `search_result_selected`
   analytics event without sending the raw query.
+- For matched coin and TON asset queries, the API inserts a first-party
+  `Exchange ...` quick action after the matched asset. The action opens
+  `/crypto-exchange` with sanitized `from`, `to`, and `asset` query parameters
+  so the ChangeNOW partner widget preselects the searched crypto pair, defaulting
+  to TON into USDT on TON.
 - Error and empty states stay inside the autocomplete or compact dialog so
   mobile search does not overlap Telegram safe areas, bottom navigation, or the
   virtual keyboard flow.
+
+## First-Party Exchange Route
+
+- `/crypto-exchange` renders the TONBANKCARD exchange surface with the
+  ChangeNOW partner iframe and stepper connector.
+- The route accepts `from`, `to`, and `asset` query parameters. Currency codes
+  are reduced to lowercase alphanumeric ChangeNOW symbols before they are passed
+  into the widget URL.
+- The default pair is `from=ton&to=usdtton`, matching the TONBANKCARD partner
+  widget configuration.
 
 ## Regression Coverage
 
@@ -68,3 +85,5 @@ product requirements explicitly replace it.
 - `Ctrl+K` focuses desktop search, result groups render for every smart-search
   type, local recent searches appear after selection, and compact mobile search
   opens without horizontal overflow.
+- selecting the smart-search exchange action opens `/crypto-exchange` and the
+  widget receives `from=ton&to=usdtton` for the searched TON pair.
