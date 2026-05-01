@@ -545,6 +545,43 @@ v-app {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px 16px;
 }
+.share-market-card {
+    overflow: hidden;
+    border-left: 4px solid var(--tbc-brand-ton) !important;
+    background: var(--tbc-surface-panel) !important;
+}
+.share-market-card-title {
+    min-height: 56px;
+    gap: 12px;
+}
+.share-market-card-body {
+    overflow-wrap: anywhere;
+}
+.share-market-card-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+}
+.share-market-card-metrics > div {
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--tbc-surface-border);
+    border-radius: var(--tbc-radius-control);
+    background: var(--tbc-surface-panel-muted);
+}
+.share-market-card-metrics strong {
+    display: block;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+}
+.share-market-card-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.share-market-card--dense .v-card__text {
+    padding-top: 8px;
+}
 .ai-insight-grid {
     align-items: stretch;
 }
@@ -614,6 +651,9 @@ v-app {
         min-width: 0;
         margin-top: 16px;
     }
+    .share-market-card-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
     .alert-rule-form {
         position: static;
     }
@@ -664,6 +704,12 @@ v-app {
     .watchlist-route-actions .v-btn,
     .alerts-route-actions .v-btn {
         flex: 1 1 calc(50% - 8px);
+    }
+    .share-market-card-title {
+        align-items: flex-start;
+    }
+    .share-market-card-metrics {
+        grid-template-columns: 1fr;
     }
     .watchlist-toolbar {
         align-items: stretch;
@@ -872,6 +918,11 @@ v-app {
     overflow-wrap: anywhere;
     font-size: 1.2rem;
     line-height: 1.2;
+}
+.ton-route-actions {
+    display: flex;
+    flex: 0 0 auto;
+    justify-content: flex-end;
 }
 .ton-filter-bar {
     display: grid;
@@ -1255,6 +1306,10 @@ v-app {
     }
     .ton-route-summary {
         min-width: 0;
+        margin-top: 16px;
+    }
+    .ton-route-actions {
+        justify-content: flex-start;
         margin-top: 16px;
     }
     .ton-asset-market-grid {

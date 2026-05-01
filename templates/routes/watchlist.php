@@ -46,8 +46,14 @@ $frontend_options['watchlist']['title'] = __( 'Watchlist' );
                     <v-icon left>mdi-pulse</v-icon>
                     <?php echo esc_html( __( 'Market Pulse' ) ); ?>
                 </v-btn>
+                <v-btn outlined color="primary" @click="shareWatchlist">
+                    <v-icon left>mdi-share-variant</v-icon>
+                    <?php echo esc_html( __( 'Share' ) ); ?>
+                </v-btn>
             </div>
         </div>
+
+        <gc-share-card class="mb-4" dense :card="watchlistShareCard"></gc-share-card>
 
         <div class="watchlist-toolbar mb-4" v-if="!isEmpty">
             <v-select

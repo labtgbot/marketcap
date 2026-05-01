@@ -50,6 +50,10 @@ $frontend_options['alerts']['title'] = __( 'Alerts' );
                     <v-icon left>mdi-star-outline</v-icon>
                     <?php echo esc_html( __( 'Watchlist' ) ); ?>
                 </v-btn>
+                <v-btn outlined color="primary" @click="shareAlert(alertsShareCard)">
+                    <v-icon left>mdi-share-variant</v-icon>
+                    <?php echo esc_html( __( 'Share' ) ); ?>
+                </v-btn>
             </div>
         </div>
 
@@ -202,6 +206,8 @@ $frontend_options['alerts']['title'] = __( 'Alerts' );
             </v-col>
 
             <v-col cols="12" lg="7">
+                <gc-share-card class="mb-4" dense :card="alertsShareCard"></gc-share-card>
+
                 <v-alert v-if="!sortedRules.length" type="info" outlined class="mb-4">
                     <?php echo esc_html( __( 'No alert rules yet.' ) ); ?>
                 </v-alert>
@@ -214,6 +220,10 @@ $frontend_options['alerts']['title'] = __( 'Alerts' );
                     <div class="font-weight-bold mb-1"><?php echo esc_html( __( 'Test delivery' ) ); ?></div>
                     <div class="text-body-2" v-text="testResult.text"></div>
                     <div class="text-caption text--secondary mt-1" v-text="testResult.links && testResult.links.mini_app_path"></div>
+                    <v-btn small outlined color="success" class="mt-3" @click="shareAlert(testResultShareCard)">
+                        <v-icon left small>mdi-share-variant</v-icon>
+                        <?php echo esc_html( __( 'Share' ) ); ?>
+                    </v-btn>
                 </v-alert>
 
                 <div class="alerts-rule-grid">
@@ -270,6 +280,9 @@ $frontend_options['alerts']['title'] = __( 'Alerts' );
                             <v-spacer></v-spacer>
                             <v-btn icon :loading="testingId === (rule.id || rule.local_id)" :aria-label="'Test alert for ' + ruleSymbol(rule)" :title="'Test alert for ' + ruleSymbol(rule)" @click="testRule(rule)">
                                 <v-icon>mdi-send-check-outline</v-icon>
+                            </v-btn>
+                            <v-btn icon :aria-label="'Share alert for ' + ruleSymbol(rule)" :title="'Share alert for ' + ruleSymbol(rule)" @click="shareAlert(rule)">
+                                <v-icon>mdi-share-variant</v-icon>
                             </v-btn>
                             <v-btn v-if="rule.status === 'active'" icon :aria-label="'Pause alert for ' + ruleSymbol(rule)" :title="'Pause alert for ' + ruleSymbol(rule)" @click="pauseRule(rule)">
                                 <v-icon>mdi-pause</v-icon>

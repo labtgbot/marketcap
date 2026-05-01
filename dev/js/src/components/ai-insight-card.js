@@ -61,6 +61,25 @@
             },
             feedbackOptions: function () {
                 return feedbackOptions;
+            },
+            insightShareCard: function () {
+                if (!this.insight) return null;
+
+                return {
+                    title: this.insight.title || this.title,
+                    subtitle: 'AI insight summary',
+                    body: this.insight.summary || 'AI market insight summary from TONBANKCARD.',
+                    route: GeckoClient.share ? GeckoClient.share.currentRoute() : (window.location.pathname || '/'),
+                    campaign: 'ai-insight',
+                    context: 'ai_insight',
+                    freshness: this.freshnessLabel(this.insight),
+                    metrics: [
+                        {label: 'Sentiment', value: _.startCase(this.insight.sentiment || 'neutral')},
+                        {label: 'Confidence', value: this.confidenceLabel(this.insight.confidence)},
+                        {label: 'Source', value: this.sourceRoute || 'market_view'},
+                        {label: 'Provider', value: this.insight.provider || 'configured AI'}
+                    ]
+                };
             }
         },
         watch: {
@@ -135,6 +154,10 @@
                     .then(() => this.feedbackState = 'saved')
                     .catch(() => this.feedbackState = 'failed')
                     .finally(() => this.feedbackSubmitting = false);
+            },
+            shareInsight: function () {
+                if (!this.insight || !GeckoClient.share) return;
+                GeckoClient.share.share(this.insightShareCard);
             }
         }
     });

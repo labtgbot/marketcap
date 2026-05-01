@@ -91,6 +91,31 @@
                 shareButtonLabel: function () {
                     return this.currency ? 'Share ' + this.currency.name : 'Share coin';
                 },
+                currencyShareCard: function () {
+                    if (!this.currency) return null;
+
+                    const symbol = _.toUpper(this.currency.symbol || '');
+                    const price = this.currency.currentPrice ? this.$root.priceFormat(this.currency.currentPrice) : 'Price unavailable';
+                    const change = _.isFinite(parseFloat(this.currency.change24hPercent))
+                        ? this.$root.changeFormat(this.currency.change24hPercent)
+                        : '24h unavailable';
+
+                    return {
+                        title: this.currency.name + ' price',
+                        subtitle: symbol ? symbol + ' market card' : 'Coin market card',
+                        body: price + ' with 24h move ' + change + ' on TONBANKCARD.',
+                        route: '/currency/' + encodeURIComponent(this.currency.id),
+                        campaign: 'coin-price',
+                        context: 'coin_price',
+                        freshness: this.currencyShareFreshnessLabel(),
+                        metrics: [
+                            {label: 'Price', value: price},
+                            {label: '24h', value: change},
+                            {label: 'Market cap', value: this.currency.marketCap ? this.$root.marketCapFormat(this.currency.marketCap) : 'N/A'},
+                            {label: 'Rank', value: this.currency.market_cap_rank ? '#' + this.currency.market_cap_rank : 'N/A'}
+                        ]
+                    };
+                },
                 coinInsightContext: function () {
                     if (!this.currency || !GeckoClient.ai) return null;
 
@@ -231,6 +256,10 @@
                 currencyMarketAgeSeconds: function () {
                     return GeckoClient.ai ? GeckoClient.ai.marketDataAgeSeconds({last_updated_at: this.currencyMarketUpdatedAt()}) : 0;
                 },
+                currencyShareFreshnessLabel: function () {
+                    const timestamp = this.currencyMarketUpdatedAt();
+                    return timestamp ? 'Updated ' + this.relativeTime(timestamp) : 'Freshness unavailable';
+                },
                 currencyInsightMarketData: function () {
                     const currency = this.currency || {};
                     return {
@@ -280,21 +309,12 @@
                     }).catch(() => {});
                 },
                 shareCurrency: function () {
-                    if (!this.currency) return;
+                    if (!this.currency || !GeckoClient.share) return;
 
-                    const payload = {
-                        title: this.currency.name + ' price on TONBANKCARD',
-                        text: this.currency.name + ' market data on TONBANKCARD Crypto Tracker',
-                        url: window.location.href
-                    };
-
-                    if (navigator.share) {
-                        navigator.share(payload).catch(() => {});
-                        return;
-                    }
-
-                    this.$root.copyToClipboard(payload.url);
-                    this.showActionNotice('Share link copied for ' + this.currency.name + '.');
+                    GeckoClient.share.share(this.currencyShareCard)
+                        .then(shared => {
+                            if (shared) this.showActionNotice('Share link ready for ' + this.currency.name + '.');
+                        });
                 },
                 showActionNotice: function (message) {
                     this.actionNotice = message;
@@ -311,6 +331,16 @@
                         || platforms.indexOf('the-open-network') >= 0
                         || platforms.indexOf('ton') >= 0
                         || categories.some(category => category.indexOf('ton ecosystem') >= 0 || category.indexOf('the open network') >= 0);
+                },
+                relativeTime: function (timestamp) {
+                    const date = new Date(timestamp);
+                    if (!GeckoClient.utils.isValidDate(date)) return 'unknown';
+
+                    const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+                    if (seconds < 60) return 'now';
+                    if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+                    if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+                    return Math.floor(seconds / 86400) + 'd ago';
                 },
                 tabChanged: function (index) {
                     this.tab = this.tabs[index];

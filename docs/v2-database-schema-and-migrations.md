@@ -29,6 +29,11 @@ Smart alert rule extensions added for issue #32 live in:
 - `database/migrations/0007_smart_alerts.up.sql`
 - `database/migrations/0007_smart_alerts.down.sql`
 
+Share/referral attribution uniqueness added for issue #33 lives in:
+
+- `database/migrations/0008_share_referral_attribution.up.sql`
+- `database/migrations/0008_share_referral_attribution.down.sql`
+
 ## Data Minimization
 
 - Store raw Telegram identity only where the application needs it for trusted
@@ -94,6 +99,7 @@ and the issue #10 analytics/privacy baseline:
 | Inspect alert delivery history by rule, user, or retry fingerprint. | `idx_alert_deliveries_rule_time`, `idx_alert_deliveries_user_time`, `idx_alert_deliveries_fingerprint` |
 | Report referrals by campaign. | `idx_referral_attributions_campaign` |
 | Report inviter attribution. | `idx_referral_attributions_inviter` |
+| Deduplicate first-touch referral attribution for the same user and campaign. | `uniq_referral_attributions_referred_campaign` from `0008_share_referral_attribution` |
 | Resolve AI cache entries by hashed cache key. | `uniq_ai_insight_cache_key` |
 | Expire AI cache metadata. | `idx_ai_insight_cache_expires` |
 | Review AI insight card feedback by status, type, insight type, provider, or user. | `idx_ai_feedback_review`, `idx_ai_feedback_insight`, `idx_ai_feedback_user` |

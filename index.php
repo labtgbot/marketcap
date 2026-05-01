@@ -146,6 +146,7 @@ $components = [
     'exchange-chart',
     'page-loader',
     'search-bar',
+    'share-card',
     'stats-bar',
     'trending-coins',
 ];

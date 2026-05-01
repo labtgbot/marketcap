@@ -75,6 +75,7 @@ npm run test:telegram-session
 npm run test:watchlist
 npm run test:screener
 npm run test:alerts
+npm run test:share-referrals
 npm run test:public-shell
 npm run test:ai-provider
 npm run test:ai-sentiment
@@ -144,6 +145,8 @@ See [docs/v2-watchlist-ux-persistence.md](docs/v2-watchlist-ux-persistence.md) f
 See [docs/v2-advanced-screener.md](docs/v2-advanced-screener.md) for the advanced screener filters, backend `/api/screener/*` endpoints, trusted-session saved presets, mobile filter drawer, and CSV export decision from issue #31.
 
 See [docs/v2-smart-alerts.md](docs/v2-smart-alerts.md) for Telegram bot smart alerts, `/api/alerts` rule management, `/api/alerts/evaluate` worker delivery, quiet hours, frequency caps, and Mini App `startapp` deep links from issue #32.
+
+See [docs/v2-shareable-market-cards.md](docs/v2-shareable-market-cards.md) for shareable market cards, Telegram `startapp` payloads, share fallbacks, and referral attribution from issue #33.
 
 See [docs/v2-charting-and-market-visualization.md](docs/v2-charting-and-market-visualization.md) for the chart rendering decision, advanced coin chart views, lazy ECharts loading, stale state, and accessibility coverage from issue #25.
 

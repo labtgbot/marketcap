@@ -157,6 +157,28 @@
                             watchlist_preview: this.watchlistCurrencies.map(currency => this.aiCurrencySnapshot(currency))
                         }
                     };
+                },
+                marketPulseShareCard: function () {
+                    const topGainer = _.first(this.topGainers);
+                    const topLoser = _.first(this.topLosers);
+                    const marketCap = _.get(this.global, ['total_market_cap', this.$root.vsCurrencyId], null);
+                    const volume = _.get(this.global, ['total_volume', this.$root.vsCurrencyId], null);
+
+                    return {
+                        title: 'Market pulse',
+                        subtitle: _.toUpper(this.$root.vsCurrencyId) + ' snapshot',
+                        body: 'Global market context, TON ecosystem movers, and watchlist previews.',
+                        route: _.get(this.$route, 'fullPath') || '/',
+                        campaign: 'market-pulse',
+                        context: 'market_pulse',
+                        freshness: this.freshnessLabel,
+                        metrics: [
+                            {label: 'Market cap', value: marketCap ? this.$root.marketCapFormat(marketCap) : 'Loading'},
+                            {label: '24h volume', value: volume ? this.$root.volumeFormat(volume) : 'Loading'},
+                            {label: 'Top gainer', value: topGainer ? topGainer.symbol.toUpperCase() + ' ' + this.$root.changeFormat(topGainer.price_change_percentage_24h_in_currency) : 'N/A'},
+                            {label: 'Top loser', value: topLoser ? topLoser.symbol.toUpperCase() + ' ' + this.$root.changeFormat(topLoser.price_change_percentage_24h_in_currency) : 'N/A'}
+                        ]
+                    };
                 }
             },
             methods: {
@@ -263,6 +285,10 @@
                         input.focus();
                         input.click();
                     }
+                },
+                shareMarketPulse: function () {
+                    if (!GeckoClient.share) return;
+                    GeckoClient.share.share(this.marketPulseShareCard);
                 }
             }
         }
