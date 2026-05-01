@@ -91,6 +91,24 @@
 
                         return direction * ((parseFloat(aValue) || 0) - (parseFloat(bValue) || 0));
                     });
+                },
+                watchlistInsightContext: function () {
+                    if (this.isEmpty || !this.marketCurrencies.length || !GeckoClient.ai) return null;
+
+                    return {
+                        insight_type: 'watchlist_digest',
+                        subject: 'Watchlist digest',
+                        market_data_age_seconds: GeckoClient.ai.marketDataAgeSeconds(this.marketMeta),
+                        market_data_updated_at: GeckoClient.ai.marketDataUpdatedAt(this.marketMeta),
+                        market_data: {
+                            vs_currency: this.$root.vsCurrencyId,
+                            storage_mode: this.storageModeLabel,
+                            freshness_status: this.freshnessStatus || 'fresh',
+                            sort_key: this.sortKey,
+                            sort_direction: this.sortDirection,
+                            assets: this.sortedCurrencies.slice(0, 20).map(currency => this.aiCurrencySnapshot(currency))
+                        }
+                    };
                 }
             },
             methods: {
@@ -167,6 +185,9 @@
                         total_volume: null,
                         sparkline_in_7d: {price: []}
                     };
+                },
+                aiCurrencySnapshot: function (currency) {
+                    return GeckoClient.ai ? GeckoClient.ai.marketCurrencySnapshot(currency) : {};
                 },
                 removeFromWatchlist: function (currency) {
                     if (!GeckoClient.watchlist) return;

@@ -137,6 +137,7 @@ $frontend_options = [];
 | -------------------------------------------------------------------------
 */
 $components = [
+    'ai-insight-card',
     'cookies-dialog',
     'currency-chart',
     'currency-converter',

@@ -131,6 +131,12 @@ $gecko_client['search'] = [
 $gecko_client['watchlistConfig'] = [
     'apiBaseUrl' => site_url( 'api/watchlist' ),
 ];
+// AI insight and feedback endpoints. Provider secrets and raw prompts stay server-side.
+$gecko_client['aiConfig'] = [
+    'apiBaseUrl'    => site_url( 'api/ai' ),
+    'feedbackTypes' => [ 'helpful', 'stale', 'wrong', 'unsafe' ],
+    'timeoutMs'     => 12000,
+];
 // Custom Links
 $gecko_client['links'] = [
     'currencies'         => (object) $links['currencies'],

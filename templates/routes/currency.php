@@ -482,6 +482,25 @@ foreach ( $route_currency['tabs'] as $tab ) {
             <gc-currency-exchange-widget :currency="currency"></gc-currency-exchange-widget>
         </div>
 
+        <v-row class="my-6 ai-insight-grid">
+            <v-col cols="12" md="6">
+                <gc-ai-insight-card
+                    title="<?php echo esc_attr( __( 'AI coin insight' ) ); ?>"
+                    icon="mdi-chart-timeline-variant"
+                    :context="coinInsightContext"
+                    source-route="coin_detail"
+                ></gc-ai-insight-card>
+            </v-col>
+            <v-col cols="12" md="6">
+                <gc-ai-insight-card
+                    title="<?php echo esc_attr( __( 'AI alert explanation' ) ); ?>"
+                    icon="mdi-bell-ring-outline"
+                    :context="alertInsightContext"
+                    source-route="coin_alert"
+                ></gc-ai-insight-card>
+            </v-col>
+        </v-row>
+
         <?php
         /*
          * Indicators & Information

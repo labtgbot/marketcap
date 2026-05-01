@@ -133,6 +133,30 @@
                     return this.marketCurrencies.filter(currency => {
                         return this.watchlistIds.indexOf(currency.id) >= 0 || this.watchlistIds.indexOf(currency.symbol) >= 0;
                     }).slice(0, 4);
+                },
+                marketInsightContext: function () {
+                    if (!this.marketCurrencies.length || !GeckoClient.ai) return null;
+
+                    return {
+                        insight_type: 'market_summary',
+                        subject: 'Market pulse for ' + _.toUpper(this.$root.vsCurrencyId),
+                        market_data_age_seconds: GeckoClient.ai.marketDataAgeSeconds(this.freshnessMeta),
+                        market_data_updated_at: GeckoClient.ai.marketDataUpdatedAt(this.freshnessMeta),
+                        market_data: {
+                            vs_currency: this.$root.vsCurrencyId,
+                            freshness_status: this.freshnessStatus || 'fresh',
+                            global: {
+                                market_cap: _.get(this.global, ['total_market_cap', this.$root.vsCurrencyId], null),
+                                volume_24h: _.get(this.global, ['total_volume', this.$root.vsCurrencyId], null),
+                                active_cryptocurrencies: _.get(this.global, 'active_cryptocurrencies', null),
+                                btc_dominance: _.get(this.global, ['market_cap_percentage', 'btc'], null)
+                            },
+                            top_gainers: this.topGainers.map(currency => this.aiCurrencySnapshot(currency)),
+                            top_losers: this.topLosers.map(currency => this.aiCurrencySnapshot(currency)),
+                            ton_assets: this.tonCurrencies.map(currency => this.aiCurrencySnapshot(currency)),
+                            watchlist_preview: this.watchlistCurrencies.map(currency => this.aiCurrencySnapshot(currency))
+                        }
+                    };
                 }
             },
             methods: {
@@ -204,6 +228,9 @@
                 extendCurrency: function (currency) {
                     currency.route = {name: 'currency', params: {id: currency.id}};
                     return currency;
+                },
+                aiCurrencySnapshot: function (currency) {
+                    return GeckoClient.ai ? GeckoClient.ai.marketCurrencySnapshot(currency) : {};
                 },
                 isWatched: function (currency) {
                     return currency && this.watchlistIds.indexOf(currency.id) >= 0;

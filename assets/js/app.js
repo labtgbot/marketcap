@@ -2000,6 +2000,299 @@
 
 })(window, _, axios, GeckoClient);
 
+(function (window, _, axios, GeckoClient) {
+    'use strict';
+
+    const config = GeckoClient.aiConfig || {};
+    const observability = GeckoClient.observability;
+    const advicePattern = /\b(buy|sell|hold|short(?!-term)|long(?!-term)|leverage|take profit|stop loss|position size|all in)\b/i;
+
+    const client = axios.create({
+        baseURL: config.apiBaseUrl || '/api/ai',
+        timeout: config.timeoutMs || 12000
+    });
+
+    if (observability && observability.instrumentAxiosInstance) {
+        observability.instrumentAxiosInstance(client);
+    }
+
+    function envelopeData(response) {
+        const payload = response && response.data ? response.data : {};
+        const data = payload && payload.ok === true && Object.prototype.hasOwnProperty.call(payload, 'data')
+            ? payload.data
+            : payload;
+
+        if (data && _.isObject(data)) {
+            data.request_id = _.get(payload, 'meta.request_id', null);
+        }
+
+        return data || {};
+    }
+
+    function cleanNumber(value) {
+        const number = parseFloat(value);
+        return _.isFinite(number) ? number : null;
+    }
+
+    function validDate(value) {
+        const date = new Date(value || 0);
+        return GeckoClient.utils.isValidDate(date) ? date : null;
+    }
+
+    function marketDataUpdatedAt(meta) {
+        return _.get(meta, 'freshness.last_updated_at')
+            || _.get(meta, 'freshness.fetched_at')
+            || _.get(meta, 'last_updated_at')
+            || _.get(meta, 'updated_at')
+            || null;
+    }
+
+    function marketDataAgeSeconds(meta) {
+        const directAge = _.get(meta, 'freshness.market_data_age_seconds');
+        if (_.isFinite(parseFloat(directAge))) {
+            return Math.max(0, parseInt(directAge, 10));
+        }
+
+        const timestamp = marketDataUpdatedAt(meta);
+        const date = validDate(timestamp);
+        if (!date) return 0;
+
+        return Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+    }
+
+    function containsAdvice(value) {
+        if (_.isString(value)) return advicePattern.test(value);
+        if (_.isArray(value)) return value.some(item => containsAdvice(item));
+        if (_.isObject(value)) return _.values(value).some(item => containsAdvice(item));
+        return false;
+    }
+
+    function unavailable(reason) {
+        return {
+            status: 'insight unavailable',
+            insight: null,
+            reason: reason || 'client_unavailable'
+        };
+    }
+
+    function insight(payload) {
+        if (!payload || !payload.insight_type || !payload.subject) {
+            return Promise.resolve(unavailable('missing_context'));
+        }
+
+        const body = Object.assign({}, payload, {
+            market_data_age_seconds: Math.max(0, parseInt(payload.market_data_age_seconds || 0, 10))
+        });
+
+        return client.post('insight', body)
+            .then(response => {
+                const data = envelopeData(response);
+                if (data.status === 'available' && data.insight && containsAdvice(data.insight)) {
+                    return unavailable('unsafe_output_blocked');
+                }
+                return data;
+            })
+            .catch(() => unavailable('provider_unavailable'));
+    }
+
+    function feedback(insightPayload, feedbackType, context, sourceRoute) {
+        insightPayload = insightPayload || {};
+        context = context || {};
+
+        if (!insightPayload.id) {
+            return Promise.reject(new Error('missing_insight_id'));
+        }
+
+        const provider = insightPayload.provider || {};
+        const body = {
+            feedback_type: feedbackType,
+            insight_type: insightPayload.type || context.insight_type,
+            insight_id: insightPayload.id,
+            subject: context.subject,
+            provider: provider.name || _.get(context, 'provider.name'),
+            model: provider.model_id || _.get(context, 'provider.model_id'),
+            prompt_version: insightPayload.prompt_version || provider.prompt_version || _.get(context, 'prompt_version'),
+            route_path: window.location.pathname || '/',
+            source_route: sourceRoute,
+            surface: GeckoClient.analytics ? GeckoClient.analytics.surface() : 'public_web',
+            market_data_age_seconds: cleanNumber(_.get(insightPayload, 'freshness.market_data_age_seconds')) || context.market_data_age_seconds || 0,
+            metadata: {
+                card_title: context.card_title || null,
+                source_route: sourceRoute || null,
+                request_id: insightPayload.request_id || null
+            }
+        };
+
+        return client.post('feedback', body).then(response => envelopeData(response));
+    }
+
+    function marketCurrencySnapshot(currency) {
+        return {
+            id: _.get(currency, 'id', null),
+            symbol: _.get(currency, 'symbol', null),
+            name: _.get(currency, 'name', null),
+            rank: _.get(currency, 'market_cap_rank', null),
+            price: cleanNumber(_.get(currency, 'current_price', _.get(currency, 'currentPrice'))),
+            change_24h: cleanNumber(_.get(currency, 'price_change_percentage_24h_in_currency', _.get(currency, 'change24hPercent'))),
+            market_cap: cleanNumber(_.get(currency, 'market_cap', _.get(currency, 'marketCap'))),
+            volume_24h: cleanNumber(_.get(currency, 'total_volume', _.get(currency, 'totalVolume')))
+        };
+    }
+
+    GeckoClient.ai = {
+        containsAdvice: containsAdvice,
+        feedback: feedback,
+        insight: insight,
+        marketCurrencySnapshot: marketCurrencySnapshot,
+        marketDataAgeSeconds: marketDataAgeSeconds,
+        marketDataUpdatedAt: marketDataUpdatedAt
+    };
+
+})(window, _, axios, GeckoClient);
+
+(function (window, _, Vue, GeckoClient) {
+    'use strict';
+
+    const feedbackOptions = [
+        {value: 'helpful', label: 'Helpful', icon: 'mdi-thumb-up-outline'},
+        {value: 'stale', label: 'Stale', icon: 'mdi-clock-alert-outline'},
+        {value: 'wrong', label: 'Wrong', icon: 'mdi-alert-circle-outline'},
+        {value: 'unsafe', label: 'Unsafe', icon: 'mdi-shield-alert-outline'}
+    ];
+
+    Vue.component('gc-ai-insight-card', {
+        template: '#component-ai-insight-card',
+        props: {
+            title: {
+                type: String,
+                required: true
+            },
+            icon: {
+                type: String,
+                default: 'mdi-brain'
+            },
+            context: {
+                type: Object,
+                default: null
+            },
+            sourceRoute: {
+                type: String,
+                default: null
+            }
+        },
+        data: function () {
+            return {
+                loading: false,
+                result: null,
+                feedbackState: '',
+                feedbackSubmitting: false
+            };
+        },
+        computed: {
+            contextSignature: function () {
+                return JSON.stringify(this.context || {});
+            },
+            canRequest: function () {
+                return !!(this.context && this.context.insight_type && this.context.subject);
+            },
+            insight: function () {
+                return this.result && this.result.status === 'available' ? this.result.insight : null;
+            },
+            unavailableReason: function () {
+                const labels = {
+                    ai_disabled: 'AI disabled',
+                    provider_not_configured: 'Provider not configured',
+                    provider_unavailable: 'Provider unavailable',
+                    provider_timeout: 'Provider timeout',
+                    feature_disabled: 'Feature disabled',
+                    schema_validation_failed: 'Safety validation blocked output',
+                    unsafe_output_blocked: 'Safety validation blocked output'
+                };
+                const reason = this.result && this.result.reason ? this.result.reason : '';
+                return labels[reason] || (reason ? _.startCase(reason) : 'Insight unavailable');
+            },
+            feedbackOptions: function () {
+                return feedbackOptions;
+            }
+        },
+        watch: {
+            contextSignature: {
+                immediate: true,
+                handler: function () {
+                    this.fetchInsight();
+                }
+            }
+        },
+        methods: {
+            fetchInsight: function () {
+                this.feedbackState = '';
+
+                if (!this.canRequest || !GeckoClient.ai) {
+                    this.result = null;
+                    this.loading = false;
+                    return;
+                }
+
+                const context = Object.assign({}, this.context, {card_title: this.title});
+                this.loading = true;
+
+                GeckoClient.ai.insight(context)
+                    .then(result => {
+                        result = result || {};
+                        if (result.insight) {
+                            result.insight.provider = result.provider || null;
+                            result.insight.prompt_version = result.prompt_version || null;
+                            result.insight.request_id = result.request_id || null;
+                        }
+                        this.result = result;
+                    })
+                    .catch(() => {
+                        this.result = {
+                            status: 'insight unavailable',
+                            reason: 'client_unavailable'
+                        };
+                    })
+                    .finally(() => this.loading = false);
+            },
+            confidenceLabel: function (confidence) {
+                const value = Math.max(0, Math.min(1, parseFloat(confidence) || 0));
+                return Math.round(value * 100) + '% confidence';
+            },
+            confidenceColor: function (confidence) {
+                const value = parseFloat(confidence) || 0;
+                if (value >= 0.7) return 'success';
+                if (value >= 0.4) return 'warning';
+                return 'grey';
+            },
+            sentimentColor: function (sentiment) {
+                if (sentiment === 'bullish') return 'success';
+                if (sentiment === 'bearish') return 'error';
+                if (sentiment === 'mixed') return 'warning';
+                return 'grey';
+            },
+            freshnessLabel: function (insight) {
+                const seconds = parseInt(_.get(insight, 'freshness.market_data_age_seconds', 0), 10);
+                if (!_.isFinite(seconds) || seconds < 60) return 'Fresh source';
+                if (seconds < 3600) return Math.floor(seconds / 60) + 'm source age';
+                if (seconds < 86400) return Math.floor(seconds / 3600) + 'h source age';
+                return Math.floor(seconds / 86400) + 'd source age';
+            },
+            submitFeedback: function (feedbackType) {
+                if (!this.insight || !GeckoClient.ai || this.feedbackSubmitting) return;
+
+                this.feedbackSubmitting = true;
+                this.feedbackState = '';
+
+                GeckoClient.ai.feedback(this.insight, feedbackType, this.context, this.sourceRoute)
+                    .then(() => this.feedbackState = 'saved')
+                    .catch(() => this.feedbackState = 'failed')
+                    .finally(() => this.feedbackSubmitting = false);
+            }
+        }
+    });
+
+})(window, _, Vue, GeckoClient);
+
 (function (window, _, Vue, GeckoClient) {
     'use strict';
 
@@ -3484,6 +3777,30 @@
                     return this.marketCurrencies.filter(currency => {
                         return this.watchlistIds.indexOf(currency.id) >= 0 || this.watchlistIds.indexOf(currency.symbol) >= 0;
                     }).slice(0, 4);
+                },
+                marketInsightContext: function () {
+                    if (!this.marketCurrencies.length || !GeckoClient.ai) return null;
+
+                    return {
+                        insight_type: 'market_summary',
+                        subject: 'Market pulse for ' + _.toUpper(this.$root.vsCurrencyId),
+                        market_data_age_seconds: GeckoClient.ai.marketDataAgeSeconds(this.freshnessMeta),
+                        market_data_updated_at: GeckoClient.ai.marketDataUpdatedAt(this.freshnessMeta),
+                        market_data: {
+                            vs_currency: this.$root.vsCurrencyId,
+                            freshness_status: this.freshnessStatus || 'fresh',
+                            global: {
+                                market_cap: _.get(this.global, ['total_market_cap', this.$root.vsCurrencyId], null),
+                                volume_24h: _.get(this.global, ['total_volume', this.$root.vsCurrencyId], null),
+                                active_cryptocurrencies: _.get(this.global, 'active_cryptocurrencies', null),
+                                btc_dominance: _.get(this.global, ['market_cap_percentage', 'btc'], null)
+                            },
+                            top_gainers: this.topGainers.map(currency => this.aiCurrencySnapshot(currency)),
+                            top_losers: this.topLosers.map(currency => this.aiCurrencySnapshot(currency)),
+                            ton_assets: this.tonCurrencies.map(currency => this.aiCurrencySnapshot(currency)),
+                            watchlist_preview: this.watchlistCurrencies.map(currency => this.aiCurrencySnapshot(currency))
+                        }
+                    };
                 }
             },
             methods: {
@@ -3556,6 +3873,9 @@
                     currency.route = {name: 'currency', params: {id: currency.id}};
                     return currency;
                 },
+                aiCurrencySnapshot: function (currency) {
+                    return GeckoClient.ai ? GeckoClient.ai.marketCurrencySnapshot(currency) : {};
+                },
                 isWatched: function (currency) {
                     return currency && this.watchlistIds.indexOf(currency.id) >= 0;
                 },
@@ -3594,7 +3914,7 @@
 
 })(window, _, CoinGecko, GeckoClient);
 
-(function (window, CoinGecko, GeckoClient) {
+(function (window, _, CoinGecko, GeckoClient) {
     'use strict';
 
     const setTitle = GeckoClient.setTitle;
@@ -3686,6 +4006,40 @@
                 },
                 shareButtonLabel: function () {
                     return this.currency ? 'Share ' + this.currency.name : 'Share coin';
+                },
+                coinInsightContext: function () {
+                    if (!this.currency || !GeckoClient.ai) return null;
+
+                    return {
+                        insight_type: 'coin_summary',
+                        subject: this.currency.name + ' (' + _.toUpper(this.currency.symbol) + ')',
+                        market_data_age_seconds: this.currencyMarketAgeSeconds(),
+                        market_data_updated_at: this.currencyMarketUpdatedAt(),
+                        market_data: this.currencyInsightMarketData()
+                    };
+                },
+                alertInsightContext: function () {
+                    if (!this.currency || !GeckoClient.ai) return null;
+
+                    return {
+                        insight_type: 'alert_explanation',
+                        subject: 'Alert context for ' + this.currency.name,
+                        market_data_age_seconds: this.currencyMarketAgeSeconds(),
+                        market_data_updated_at: this.currencyMarketUpdatedAt(),
+                        market_data: Object.assign(
+                            this.currencyInsightMarketData(),
+                            {
+                                watchlisted: this.isWatched(this.currency),
+                                alert_context: {
+                                    current_price: this.currency.currentPrice,
+                                    high_24h: this.currency.high24h,
+                                    low_24h: this.currency.low24h,
+                                    change_24h_percent: this.currency.change24hPercent,
+                                    volume_market_cap_ratio: this.currency.volumePerMarketCap
+                                }
+                            }
+                        )
+                    };
                 }
             },
             methods: {
@@ -3786,6 +4140,38 @@
                 },
                 vsConverted: function (priceObj) {
                     return _.get(priceObj, this.$root.vsCurrencyId, null);
+                },
+                currencyMarketUpdatedAt: function () {
+                    return _.get(this.currency, 'last_updated') || _.get(this.currency, 'market_data.last_updated') || null;
+                },
+                currencyMarketAgeSeconds: function () {
+                    return GeckoClient.ai ? GeckoClient.ai.marketDataAgeSeconds({last_updated_at: this.currencyMarketUpdatedAt()}) : 0;
+                },
+                currencyInsightMarketData: function () {
+                    const currency = this.currency || {};
+                    return {
+                        vs_currency: this.$root.vsCurrencyId,
+                        asset: {
+                            id: currency.id,
+                            symbol: currency.symbol,
+                            name: currency.name,
+                            rank: currency.market_cap_rank,
+                            price: currency.currentPrice,
+                            change_24h_percent: currency.change24hPercent,
+                            market_cap: currency.marketCap,
+                            market_cap_change_24h: currency.marketCapChange24h,
+                            market_cap_change_24h_percent: currency.marketCapChange24hPercent,
+                            volume_24h: currency.totalVolume,
+                            circulating_supply: currency.circulatingSupply,
+                            total_supply: currency.totalSupply,
+                            volume_market_cap_ratio: currency.volumePerMarketCap,
+                            is_ton_asset: currency.isTonAsset
+                        },
+                        community_score: _.get(currency, 'community_score', null),
+                        developer_score: _.get(currency, 'developer_score', null),
+                        liquidity_score: _.get(currency, 'liquidity_score', null),
+                        coingecko_score: _.get(currency, 'coingecko_score', null)
+                    };
                 },
                 prepareAlertDraft: function () {
                     if (!this.currency) return;
@@ -3952,7 +4338,7 @@
         });
     }
 
-})(window, CoinGecko, GeckoClient);
+})(window, _, CoinGecko, GeckoClient);
 
 (function (window, document, _, GeckoClient) {
     'use strict';
@@ -4671,10 +5057,11 @@
 
 })(window, GeckoClient);
 
-(function (window, GeckoClient) {
+(function (window, _, CoinGecko, GeckoClient) {
     'use strict';
 
     const route = GeckoClient.routesConfig.ton;
+    const options = GeckoClient.getOptions('ton');
     if (!route) return;
 
     GeckoClient.router.addRoute({
@@ -4682,13 +5069,76 @@
         path: route.path,
         component: {
             template: '#route-ton',
+            data: function () {
+                return {
+                    tonCurrencies: [],
+                    tonMeta: null,
+                    tonConfig: null,
+                    loadingTonMarkets: false
+                };
+            },
             created: function () {
-                GeckoClient.setTitle(GeckoClient.getOptions('ton').title);
+                GeckoClient.setTitle(options.title);
+                this.fetchTonMarkets();
+            },
+            watch: {
+                '$root.vsCurrencyId': function () {
+                    this.fetchTonMarkets();
+                }
+            },
+            computed: {
+                tonInsightContext: function () {
+                    if (!GeckoClient.ai || !this.tonCurrencies.length) return null;
+
+                    return {
+                        insight_type: 'ton_ecosystem_pulse',
+                        subject: 'TON ecosystem pulse',
+                        market_data_age_seconds: GeckoClient.ai.marketDataAgeSeconds(this.tonMeta),
+                        market_data_updated_at: GeckoClient.ai.marketDataUpdatedAt(this.tonMeta),
+                        market_data: {
+                            vs_currency: this.$root.vsCurrencyId,
+                            assets: this.tonCurrencies.map(currency => GeckoClient.ai.marketCurrencySnapshot(currency)),
+                            coverage: [
+                                'Toncoin and core assets',
+                                'Telegram-native discovery',
+                                'Risk-aware market context'
+                            ]
+                        }
+                    };
+                }
+            },
+            methods: {
+                fetchTonMarkets: function () {
+                    const ids = options.tonCoinIds || ['toncoin'];
+                    const params = {
+                        ids: ids.join(','),
+                        per_page: Math.min(50, ids.length),
+                        page: 1,
+                        order: 'market_cap_desc',
+                        vs_currency: this.$root.vsCurrencyId,
+                        price_change_percentage: '24h,7d,30d',
+                        sparkline: false
+                    };
+
+                    this.tonConfig = {params: params};
+                    this.loadingTonMarkets = true;
+
+                    return CoinGecko.coinsMarkets(params)
+                        .then(currencies => {
+                            this.tonCurrencies = currencies || [];
+                            this.tonMeta = CoinGecko.metaGet('coins/markets', this.tonConfig) || null;
+                        })
+                        .catch(() => {
+                            this.tonCurrencies = [];
+                            this.tonMeta = null;
+                        })
+                        .finally(() => this.loadingTonMarkets = false);
+                }
             }
         }
     });
 
-})(window, GeckoClient);
+})(window, _, CoinGecko, GeckoClient);
 
 (function (window, GeckoClient) {
     'use strict';
@@ -4807,6 +5257,24 @@
 
                         return direction * ((parseFloat(aValue) || 0) - (parseFloat(bValue) || 0));
                     });
+                },
+                watchlistInsightContext: function () {
+                    if (this.isEmpty || !this.marketCurrencies.length || !GeckoClient.ai) return null;
+
+                    return {
+                        insight_type: 'watchlist_digest',
+                        subject: 'Watchlist digest',
+                        market_data_age_seconds: GeckoClient.ai.marketDataAgeSeconds(this.marketMeta),
+                        market_data_updated_at: GeckoClient.ai.marketDataUpdatedAt(this.marketMeta),
+                        market_data: {
+                            vs_currency: this.$root.vsCurrencyId,
+                            storage_mode: this.storageModeLabel,
+                            freshness_status: this.freshnessStatus || 'fresh',
+                            sort_key: this.sortKey,
+                            sort_direction: this.sortDirection,
+                            assets: this.sortedCurrencies.slice(0, 20).map(currency => this.aiCurrencySnapshot(currency))
+                        }
+                    };
                 }
             },
             methods: {
@@ -4883,6 +5351,9 @@
                         total_volume: null,
                         sparkline_in_7d: {price: []}
                     };
+                },
+                aiCurrencySnapshot: function (currency) {
+                    return GeckoClient.ai ? GeckoClient.ai.marketCurrencySnapshot(currency) : {};
                 },
                 removeFromWatchlist: function (currency) {
                     if (!GeckoClient.watchlist) return;

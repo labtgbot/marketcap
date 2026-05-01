@@ -6,6 +6,7 @@
 defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 
 $frontend_options['ton']['title'] = __( 'TON Ecosystem' );
+$frontend_options['ton']['tonCoinIds'] = [ 'toncoin' ];
 
 $route_ton_sections = [
     [
@@ -30,6 +31,17 @@ $route_ton_sections = [
     <p class="text-body-1">
         <?php echo esc_html( 'The TON ecosystem route is the public website entry point for TONBANKCARD V2 coverage of Toncoin, Telegram-native market discovery, and future curated TON asset lists.' ); ?>
     </p>
+
+    <v-row class="mt-6 ai-insight-grid">
+        <v-col cols="12">
+            <gc-ai-insight-card
+                title="<?php echo esc_attr( __( 'AI TON ecosystem pulse' ) ); ?>"
+                icon="mdi-diamond-stone"
+                :context="tonInsightContext"
+                source-route="ton_ecosystem"
+            ></gc-ai-insight-card>
+        </v-col>
+    </v-row>
 
     <v-row class="mt-6">
         <?php foreach ( $route_ton_sections as $section ) : ?>

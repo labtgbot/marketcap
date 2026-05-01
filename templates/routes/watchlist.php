@@ -84,6 +84,17 @@ $frontend_options['watchlist']['title'] = __( 'Watchlist' );
             <?php echo esc_html( __( 'No watched coins yet. Add coins from Market Pulse, market rows, search results, or coin detail pages.' ) ); ?>
         </v-alert>
 
+        <v-row class="mb-4 ai-insight-grid" v-if="!isEmpty">
+            <v-col cols="12">
+                <gc-ai-insight-card
+                    title="<?php echo esc_attr( __( 'AI watchlist digest' ) ); ?>"
+                    icon="mdi-star-check-outline"
+                    :context="watchlistInsightContext"
+                    source-route="watchlist"
+                ></gc-ai-insight-card>
+            </v-col>
+        </v-row>
+
         <v-row dense v-if="!isEmpty">
             <v-col cols="12" sm="6" lg="4" v-for="currency in sortedCurrencies" :key="currency.id">
                 <v-card class="watchlist-coin-card" outlined>
