@@ -2172,6 +2172,130 @@
     });
 
 })(window, _, Vue, GeckoClient);
+(function (window, document, _, Vue, GeckoClient) {
+    'use strict';
+
+    const currencyOptions = GeckoClient.getOptions('currency', {});
+    const widgetOptions = currencyOptions.exchangeWidget || {};
+    const defaultWidgetUrl = 'https://changenow.io/embeds/exchange-widget/v2/widget.html';
+    const defaultConnectorScriptUrl = 'https://changenow.io/embeds/exchange-widget/v2/stepper-connector.js';
+
+    function normalizeKey(value) {
+        return _.toLower(_.trim(value || ''));
+    }
+
+    function normalizeColor(value, fallback) {
+        value = _.trim(value || fallback || '').replace(/^#/, '');
+        return /^[0-9a-f]{6}$/i.test(value) ? _.toLower(value) : fallback;
+    }
+
+    function getSupportedAsset(currency) {
+        const supportedAssets = widgetOptions.supportedAssets || {};
+        const ids = supportedAssets.ids || {};
+        const symbols = supportedAssets.symbols || {};
+        const id = normalizeKey(_.get(currency, 'id'));
+        const symbol = normalizeKey(_.get(currency, 'symbol'));
+        const asset = ids[id] || symbols[symbol] || null;
+
+        if (!asset) return null;
+        if (_.isString(asset)) return {from: asset};
+
+        return _.cloneDeep(asset);
+    }
+
+    function buildWidgetUrl(baseUrl, params) {
+        const url = new URL(baseUrl || defaultWidgetUrl, window.location.href);
+
+        _.forOwn(params, (value, key) => {
+            url.searchParams.set(key, value === null || value === undefined ? '' : String(value));
+        });
+
+        return url.toString();
+    }
+
+    Vue.component('gc-currency-exchange-widget', {
+        props: {
+            currency: {}
+        },
+        template: '#component-currency-exchange-widget',
+        computed: {
+            providerName: function () {
+                return widgetOptions.provider || 'ChangeNOW';
+            },
+            isEnabled: function () {
+                return widgetOptions.enabled === true && !!this.linkId;
+            },
+            linkId: function () {
+                return _.trim(widgetOptions.linkId || '');
+            },
+            supportedAsset: function () {
+                return getSupportedAsset(this.currency);
+            },
+            widgetStatus: function () {
+                if (!this.isEnabled) return 'disabled';
+                if (!this.currency) return 'loading';
+                return this.supportedAsset ? 'ready' : 'unsupported';
+            },
+            isReady: function () {
+                return this.widgetStatus === 'ready';
+            },
+            assetLabel: function () {
+                return this.supportedAsset && this.supportedAsset.label
+                    ? this.supportedAsset.label
+                    : _.get(this.currency, 'name', this.providerName);
+            },
+            targetLabel: function () {
+                return this.supportedAsset && this.supportedAsset.toLabel
+                    ? this.supportedAsset.toLabel
+                    : 'USDT on TON';
+            },
+            iframeTitle: function () {
+                return this.providerName + ' exchange widget for ' + this.assetLabel;
+            },
+            iframeSrc: function () {
+                if (!this.isReady) return null;
+
+                const defaults = widgetOptions.defaults || {};
+                const target = this.supportedAsset.to || defaults.to || 'usdtton';
+                const params = Object.assign({}, defaults, {
+                    from: this.supportedAsset.from,
+                    to: target,
+                    link_id: this.linkId,
+                    primaryColor: normalizeColor(defaults.primaryColor, '1bb2da'),
+                    backgroundColor: normalizeColor(defaults.backgroundColor, 'f6fafd')
+                });
+
+                return buildWidgetUrl(widgetOptions.widgetUrl, params);
+            }
+        },
+        mounted: function () {
+            if (this.isReady) {
+                this.ensureConnectorScript();
+            }
+        },
+        updated: function () {
+            if (this.isReady) {
+                this.ensureConnectorScript();
+            }
+        },
+        methods: {
+            ensureConnectorScript: function () {
+                const scriptUrl = widgetOptions.connectorScriptUrl || defaultConnectorScriptUrl;
+                if (!scriptUrl || document.querySelector('script[data-tbc-changenow-connector="true"]')) {
+                    return;
+                }
+
+                const script = document.createElement('script');
+                script.src = scriptUrl;
+                script.defer = true;
+                script.setAttribute('data-tbc-changenow-connector', 'true');
+                document.body.appendChild(script);
+            }
+        }
+    });
+
+})(window, document, _, Vue, GeckoClient);
+
 (function (window, Vue) {
     'use strict';
 
@@ -2274,17 +2398,19 @@
 
 })(window, Vue);
 
-(function (window, _, axios, Vue, GeckoClient, CoinGecko) {
+(function (window, document, _, axios, Vue, GeckoClient) {
     'use strict';
 
     const __ = GeckoClient.__;
     const resultGroups = {
-        coin: __( 'Currencies' ),
+        recent: __( 'Recent searches' ),
+        action: __( 'Quick actions' ),
+        coin: __( 'Coins' ),
         ton_asset: __( 'TON assets' ),
         exchange: __( 'Exchanges' ),
-        category: __( 'Categories' ),
-        action: __( 'Actions' )
+        category: __( 'Categories' )
     };
+    const recentLimit = 5;
 
     Vue.component('gc-search-bar', {
         template: '#component-search-bar',
@@ -2293,49 +2419,63 @@
                 model: null,
                 search: null,
                 loading: false,
+                hasError: false,
                 items: [],
+                recent: [],
                 requestCounter: 0,
                 searchOpened: false,
+                searchTimer: null,
+                dialog: false,
+                menuProps: {
+                    contentClass: 'gc-search-menu',
+                    maxHeight: 420,
+                    offsetY: true,
+                    closeOnClick: false
+                },
+                dialogMenuProps: {
+                    contentClass: 'gc-search-menu gc-search-dialog-menu',
+                    maxHeight: 560,
+                    offsetY: true,
+                    closeOnClick: false
+                },
                 watchlistIds: [],
                 watchlistUnsubscribe: null
             };
         },
+        computed: {
+            compactSearch: function () {
+                return _.get(GeckoClient, 'telegram.active') || _.get(this.$vuetify, 'breakpoint.xs', window.innerWidth < 600);
+            },
+            noDataText: function () {
+                if (this.loading) return __( 'Searching...' );
+                if (this.hasError) return __( 'Search is unavailable. Try again.' );
+                if (this.getQueryText() === '') return __( 'Start typing or choose a quick action.' );
+                return __( 'No results found.' );
+            }
+        },
         created: function () {
             this.initWatchlist();
         },
-        beforeDestroy: function () {
-            if (this.watchlistUnsubscribe) this.watchlistUnsubscribe();
-        },
         watch: {
             model: function (selected) {
-                if (!selected || !selected.route || !selected.id) return;
-
-                this.trackSearchSelection(selected);
-
-                const route = selected.route || {};
-                let next = null;
-                if (route.name) {
-                    next = {
-                        name: route.name,
-                        params: route.params || {},
-                        query: route.query || {}
-                    };
-                } else if (route.path) {
-                    next = route.path;
-                }
-                if (!next) return;
-
-                const resolved = _.isString(next) ? this.$router.resolve(next).route : this.$router.resolve(next).route;
-                if (resolved.fullPath === this.$route.fullPath) return;
-                this.$router.push(next).catch(() => {});
+                this.selectResult(selected);
             }
+        },
+        mounted: function () {
+            this.loadRecentSearches();
+            window.addEventListener('keydown', this.onGlobalKeydown);
+        },
+        beforeDestroy: function () {
+            window.removeEventListener('keydown', this.onGlobalKeydown);
+            if (this.searchTimer) window.clearTimeout(this.searchTimer);
+            if (this.watchlistUnsubscribe) this.watchlistUnsubscribe();
         },
         methods: {
             avatarChar: function (name) {
-                return _.toUpper(_.first(name)) || '?';
+                return _.toUpper(_.first(name || '')) || '?';
             },
             getQueryText: function () {
-                return _.toLower(_.trim(this.search));
+                return _.toLower(_.trim(this.search || ''));
             },
             searchEndpoint: function () {
                 return _.get(GeckoClient, 'search.apiBaseUrl', '/api/search');
@@ -2364,7 +2504,8 @@
                 return this.isWatched(item) ? 'mdi-star' : 'mdi-star-outline';
             },
             watchlistLabel: function (item) {
-                return (this.isWatched(item) ? 'Remove ' : 'Add ') + item.name + ' ' + (this.isWatched(item) ? 'from' : 'to') + ' Watchlist';
+                const name = item.name || item.title || item.id || __( 'asset' );
+                return (this.isWatched(item) ? 'Remove ' : 'Add ') + name + ' ' + (this.isWatched(item) ? 'from' : 'to') + ' Watchlist';
             },
             toggleWatchlist: function (item) {
                 if (!GeckoClient.watchlist) return;
@@ -2372,18 +2513,120 @@
                 const entry = {
                     id: item.coin_id || item.id,
                     symbol: item.symbol,
-                    name: item.name,
-                    image: item.large || item.small || item.thumb
+                    name: item.name || item.title,
+                    image: item.large || item.small || item.thumb || item.image
                 };
 
                 GeckoClient.watchlist.toggle(entry, {sourceRoute: 'search'})
                     .then(() => this.syncWatchlistIds());
             },
+            recentStorageKey: function () {
+                const prefix = _.get(GeckoClient, 'preferences.prefix', 'GeckoClient:');
+                return prefix + 'recent_searches';
+            },
+            resultKey: function (item) {
+                if (!item) return '';
+                return item.originalSearchId || item.searchId || ((item.type || 'result') + ':' + item.id);
+            },
+            isResultItem: function (item) {
+                return !!(item && !item.header && item.route && item.id && this.resultKey(item));
+            },
+            normalizeResult: function (item) {
+                if (!item || item.header) return item;
+
+                const result = Object.assign({}, item);
+                result.type = result.type || 'action';
+                result.name = result.name || result.title || result.id || '';
+                result.title = result.title || result.name;
+                result.subtitle = result.subtitle || result.symbol || this.resultTypeLabel(result);
+                result.searchId = result.searchId || (result.type + ':' + result.id);
+
+                return result;
+            },
+            decoratedRecentSearch: function (item) {
+                const result = this.normalizeResult(_.cloneDeep(item));
+                const key = this.resultKey(result);
+                result.originalSearchId = key;
+                result.searchId = 'recent:' + key;
+                result.recent = true;
+                return result;
+            },
+            loadRecentSearches: function () {
+                let parsed = [];
+                try {
+                    parsed = JSON.parse(localStorage.getItem(this.recentStorageKey()) || '[]');
+                } catch (err) {
+                    parsed = [];
+                }
+
+                this.recent = (Array.isArray(parsed) ? parsed : [])
+                    .map(item => this.normalizeResult(item))
+                    .filter(item => this.isResultItem(item))
+                    .slice(0, recentLimit);
+            },
+            saveRecentSearches: function () {
+                try {
+                    localStorage.setItem(this.recentStorageKey(), JSON.stringify(this.recent.slice(0, recentLimit)));
+                } catch (err) {
+                    // Storage can be unavailable in private or constrained webviews.
+                }
+            },
+            rememberSearchResult: function (selected) {
+                if (!this.isResultItem(selected)) return;
+
+                const result = this.normalizeResult(selected);
+                const key = this.resultKey(result);
+                const stored = _.cloneDeep(
+                    _.pick(result, [
+                        'searchId',
+                        'type',
+                        'id',
+                        'coin_id',
+                        'exchange_id',
+                        'category_id',
+                        'title',
+                        'name',
+                        'subtitle',
+                        'symbol',
+                        'rank',
+                        'large',
+                        'image',
+                        'tags',
+                        'contract_addresses',
+                        'route',
+                        'links',
+                        'analytics'
+                    ])
+                );
+                stored.searchId = key;
+
+                this.recent = [stored]
+                    .concat(this.recent.filter(item => this.resultKey(item) !== key))
+                    .slice(0, recentLimit);
+                this.saveRecentSearches();
+            },
             setItems: function (results) {
+                const query = this.getQueryText();
                 const items = [];
                 const seenTypes = {};
+                const seenResults = {};
 
-                (results || []).forEach(item => {
+                if (query === '' && this.recent.length) {
+                    items.push({header: resultGroups.recent});
+                    this.recent.forEach(item => {
+                        const recent = this.decoratedRecentSearch(item);
+                        seenResults[this.resultKey(recent)] = true;
+                        items.push(recent);
+                    });
+                }
+
+                (results || []).map(item => this.normalizeResult(item)).forEach(item => {
+                    if (!this.isResultItem(item)) return;
+
+                    const key = this.resultKey(item);
+                    if (seenResults[key]) return;
+                    seenResults[key] = true;
+
                     const type = item.type || 'action';
                     if (!seenTypes[type]) {
                         seenTypes[type] = true;
@@ -2394,6 +2637,7 @@
                 });
 
                 this.items = items;
+                this.openSearchMenu();
             },
             searchParams: function () {
                 return {
@@ -2409,10 +2653,14 @@
 
                         const payload = response.data || {};
                         const data = payload.ok === true ? payload.data : payload;
+                        this.hasError = false;
                         this.setItems(_.get(data, 'results', []));
                     })
                     .catch(() => {
-                        if (requestId === this.requestCounter) this.items = [];
+                        if (requestId === this.requestCounter) {
+                            this.hasError = true;
+                            this.setItems([]);
+                        }
                     })
                     .finally(() => {
                         if (requestId === this.requestCounter) {
@@ -2423,14 +2671,114 @@
             searchItems: function () {
                 const requestId = ++this.requestCounter;
                 this.loading = true;
+                this.hasError = false;
+
+                if (this.getQueryText() === '') {
+                    this.setItems([]);
+                }
+
                 return this.fetchData(requestId);
             },
-            trackSearchOpened: function () {
+            queueSearchItems: function (value) {
+                if (value !== undefined) {
+                    this.search = value;
+                }
+
+                if (this.searchTimer) window.clearTimeout(this.searchTimer);
+                this.searchTimer = window.setTimeout(() => this.searchItems(), this.getQueryText() === '' ? 0 : 160);
+            },
+            clearSearch: function () {
+                this.search = null;
+                this.queueSearchItems('');
+            },
+            openSearch: function (trigger) {
+                this.trackSearchOpened(trigger || 'button');
+
+                if (this.compactSearch) {
+                    this.dialog = true;
+                    this.$nextTick(() => {
+                        this.focusSearchRef('dialogSearch');
+                        this.searchItems();
+                    });
+                    return;
+                }
+
+                this.$nextTick(() => {
+                    this.focusSearchRef('inlineSearch');
+                    this.searchItems();
+                });
+            },
+            closeSearch: function () {
+                this.dialog = false;
+                this.searchOpened = false;
+            },
+            focusSearchRef: function (refName) {
+                const ref = this.$refs[refName];
+                const root = ref && ref.$el ? ref.$el : ref;
+                const input = root && root.querySelector ? root.querySelector('input') : null;
+                if (!input) return;
+
+                input.focus();
+                input.select();
+                this.openSearchMenu(refName);
+            },
+            openSearchMenu: function (refName) {
+                this.$nextTick(() => {
+                    const name = refName || (this.dialog ? 'dialogSearch' : 'inlineSearch');
+                    const ref = this.$refs[name];
+                    const root = ref && ref.$el ? ref.$el : ref;
+                    const input = root && root.querySelector ? root.querySelector('input') : null;
+                    if (ref && (this.dialog || !input || document.activeElement === input)) ref.isMenuActive = true;
+                });
+            },
+            editableTarget: function (target) {
+                const tag = target && target.tagName ? target.tagName.toLowerCase() : '';
+                return ['input', 'textarea', 'select'].indexOf(tag) !== -1 || !!(target && target.isContentEditable);
+            },
+            onGlobalKeydown: function (event) {
+                const key = _.toLower(event.key || '');
+                const commandShortcut = (event.ctrlKey || event.metaKey) && key === 'k';
+                const slashShortcut = key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey && !this.editableTarget(event.target);
+
+                if (!commandShortcut && !slashShortcut) return;
+
+                event.preventDefault();
+                this.openSearch(commandShortcut ? 'shortcut' : 'slash');
+            },
+            selectResult: function (selected) {
+                if (!this.isResultItem(selected)) return;
+
+                this.trackSearchSelection(selected);
+                this.rememberSearchResult(selected);
+
+                const route = selected.route || {};
+                let next = null;
+                if (route.name) {
+                    next = {
+                        name: route.name,
+                        params: route.params || {},
+                        query: route.query || {}
+                    };
+                } else if (route.path) {
+                    next = route.path;
+                }
+                if (!next) return;
+
+                const resolved = this.$router.resolve(next).route;
+                this.model = null;
+                this.closeSearch();
+                this.search = null;
+                this.setItems([]);
+
+                if (resolved.fullPath === this.$route.fullPath) return;
+                this.$router.push(next).catch(() => {});
+            },
+            trackSearchOpened: function (trigger) {
                 if (!GeckoClient.analytics || this.searchOpened) return;
 
                 this.searchOpened = true;
                 GeckoClient.analytics.emit('search_opened', {
-                    trigger: 'focus',
+                    trigger: trigger || 'focus',
                     query_present: this.getQueryText() !== '',
                     surface: this.searchSurface()
                 });
@@ -2456,13 +2804,35 @@
                 GeckoClient.analytics.emit(analytics.event_name, analytics);
             },
             onFocus: function () {
-                this.trackSearchOpened();
+                this.trackSearchOpened('focus');
                 this.searchItems();
+            },
+            resultTypeLabel: function (item) {
+                if (!item) return '';
+                if (item.recent) return __( 'Recent' );
+                if (item.type === 'coin') return __( 'Coin' );
+                if (item.type === 'ton_asset') return __( 'TON asset' );
+                if (item.type === 'exchange') return __( 'Exchange' );
+                if (item.type === 'category') return __( 'Category' );
+                return __( 'Action' );
+            },
+            resultIcon: function (item) {
+                if (!item) return 'mdi-magnify';
+                if (item.recent) return 'mdi-history';
+                if (_.get(item, 'route.name') === 'crypto-exchange') return 'mdi-swap-horizontal-circle-outline';
+                if (item.type === 'ton_asset') return 'mdi-diamond-stone';
+                if (item.type === 'exchange') return 'mdi-bank-outline';
+                if (item.type === 'category') return 'mdi-tag-outline';
+                if (item.type === 'action') return 'mdi-lightning-bolt-outline';
+                return 'mdi-currency-btc';
+            },
+            itemImage: function (item) {
+                return item && (item.large || item.image);
             }
         }
     });
 
-})(window, _, axios, Vue, GeckoClient, CoinGecko);
+})(window, document, _, axios, Vue, GeckoClient);
 
 (function (window, _, Vue) {
     'use strict';
@@ -2878,6 +3248,8 @@
                     tab: null,
                     tabs: mainOptions.tabs,
                     loading: false,
+                    actionNotice: '',
+                    actionNoticeModel: false,
 
                     marketLoading: false,
                     marketTableHeaders: marketOptions.tableHeaders,
@@ -2926,6 +3298,20 @@
                     this.tabChanged(index)
                 }
             },
+            computed: {
+                isInWatchlist: function () {
+                    return this.isWatched(this.currency);
+                },
+                watchlistButtonLabel: function () {
+                    return this.watchlistLabel(this.currency);
+                },
+                alertButtonLabel: function () {
+                    return this.currency ? 'Create alert for ' + this.currency.name : 'Create alert';
+                },
+                shareButtonLabel: function () {
+                    return this.currency ? 'Share ' + this.currency.name : 'Share coin';
+                }
+            },
             methods: {
                 initWatchlist: function () {
                     const watchlist = GeckoClient.watchlist;
@@ -2950,6 +3336,7 @@
                 toggleWatchlist: function (currency) {
                     if (!currency || !GeckoClient.watchlist) return;
 
+                    const wasWatched = this.isWatched(currency);
                     GeckoClient.watchlist.toggle(
                         {
                             id: currency.id,
@@ -2958,7 +3345,10 @@
                             image: _.get(currency, 'image.large') || _.get(currency, 'image.small') || _.get(currency, 'image.thumb')
                         },
                         {sourceRoute: 'coin_detail'}
-                    ).then(() => this.syncWatchlistIds());
+                    ).then(() => {
+                        this.syncWatchlistIds();
+                        this.showActionNotice(currency.name + (wasWatched ? ' removed from watchlist.' : ' added to watchlist.'));
+                    });
                 },
                 resetData: function () {
                     this.marketTickers = [];
@@ -3009,6 +3399,7 @@
                     currency.totalVolume = this.vsConverted(md.total_volume);
                     currency.circulatingSupply = md.circulating_supply || null;
                     currency.totalSupply = md.total_supply || null;
+                    currency.isTonAsset = this.isTonAsset(currency);
 
                     const marketCap = parseFloat(currency.marketCap);
                     const totalVolume = parseFloat(currency.totalVolume);
@@ -3019,6 +3410,53 @@
                 },
                 vsConverted: function (priceObj) {
                     return _.get(priceObj, this.$root.vsCurrencyId, null);
+                },
+                prepareAlertDraft: function () {
+                    if (!this.currency) return;
+
+                    const draft = {
+                        coin_id: this.currency.id,
+                        symbol: this.currency.symbol,
+                        name: this.currency.name,
+                        vs_currency: this.$root.vsCurrencyId,
+                        created_at: (new Date()).toISOString()
+                    };
+
+                    window.localStorage.setItem('TONBANKCARD:alertDraft', JSON.stringify(draft));
+                    this.showActionNotice('Alert draft saved for ' + this.currency.name + '.');
+                },
+                shareCurrency: function () {
+                    if (!this.currency) return;
+
+                    const payload = {
+                        title: this.currency.name + ' price on TONBANKCARD',
+                        text: this.currency.name + ' market data on TONBANKCARD Crypto Tracker',
+                        url: window.location.href
+                    };
+
+                    if (navigator.share) {
+                        navigator.share(payload).catch(() => {});
+                        return;
+                    }
+
+                    this.$root.copyToClipboard(payload.url);
+                    this.showActionNotice('Share link copied for ' + this.currency.name + '.');
+                },
+                showActionNotice: function (message) {
+                    this.actionNotice = message;
+                    this.actionNoticeModel = true;
+                },
+                isTonAsset: function (currency) {
+                    const id = _.toLower(_.get(currency, 'id', ''));
+                    const symbol = _.toLower(_.get(currency, 'symbol', ''));
+                    const platforms = _.keys(_.get(currency, 'platforms', {})).map(key => _.toLower(key));
+                    const categories = (_.get(currency, 'categories', []) || []).map(category => _.toLower(category));
+
+                    return id === 'toncoin'
+                        || symbol === 'ton'
+                        || platforms.indexOf('the-open-network') >= 0
+                        || platforms.indexOf('ton') >= 0
+                        || categories.some(category => category.indexOf('ton ecosystem') >= 0 || category.indexOf('the open network') >= 0);
                 },
                 tabChanged: function (index) {
                     this.tab = this.tabs[index];
@@ -3139,6 +3577,155 @@
     }
 
 })(window, CoinGecko, GeckoClient);
+
+(function (window, document, _, GeckoClient) {
+    'use strict';
+
+    const routeConfig = GeckoClient.routesConfig['crypto-exchange'];
+    if (!routeConfig) return;
+
+    const setTitle = GeckoClient.setTitle;
+    const options = GeckoClient.getOptions('crypto-exchange', {});
+    const defaultFrom = sanitizeCurrency(options.defaultFrom, 'ton');
+    const defaultTo = sanitizeCurrency(options.defaultTo, 'usdtton');
+    const widgetBaseUrl = options.widgetBaseUrl || 'https://changenow.io/embeds/exchange-widget/v2/widget.html';
+    const stepperScriptUrl = options.stepperScriptUrl || 'https://changenow.io/embeds/exchange-widget/v2/stepper-connector.js';
+    const fallbackLinkId = '3cc0024a18fd9d';
+
+    function sanitizeCurrency(value, fallback) {
+        const sanitized = _.toLower(_.trim(value || '')).replace(/[^a-z0-9]/g, '');
+        return sanitized || fallback || '';
+    }
+
+    function sanitizeAssetId(value) {
+        return _.toLower(_.trim(value || '')).replace(/[^a-z0-9-]/g, '');
+    }
+
+    function sameQuery(left, right) {
+        return ['from', 'to', 'asset'].every(key => (left[key] || '') === (right[key] || ''));
+    }
+
+    GeckoClient.router.addRoute({
+        name: 'crypto-exchange',
+        path: routeConfig.path,
+        component: {
+            template: '#route-crypto-exchange',
+            data: function () {
+                return {
+                    fromInput: defaultFrom,
+                    toInput: defaultTo,
+                    assetId: '',
+                    presets: options.presets || []
+                };
+            },
+            computed: {
+                normalizedFrom: function () {
+                    return sanitizeCurrency(this.fromInput, defaultFrom);
+                },
+                normalizedTo: function () {
+                    return sanitizeCurrency(this.toInput, defaultTo);
+                },
+                pairLabel: function () {
+                    return this.assetLabel(this.normalizedFrom) + ' to ' + this.assetLabel(this.normalizedTo);
+                },
+                widgetSrc: function () {
+                    return this.buildWidgetSrc(this.normalizedFrom, this.normalizedTo);
+                }
+            },
+            created: function () {
+                setTitle(options.title || 'Crypto Exchange');
+                this.applyRouteQuery(this.$route.query || {});
+            },
+            mounted: function () {
+                this.loadStepperConnector();
+            },
+            beforeRouteUpdate: function (to, from, next) {
+                this.applyRouteQuery(to.query || {});
+                next();
+            },
+            methods: {
+                applyRouteQuery: function (query) {
+                    this.fromInput = sanitizeCurrency(query.from, defaultFrom);
+                    this.toInput = sanitizeCurrency(query.to, defaultTo);
+                    this.assetId = sanitizeAssetId(query.asset || '');
+                },
+                routeQuery: function () {
+                    const query = {
+                        from: this.normalizedFrom,
+                        to: this.normalizedTo
+                    };
+
+                    if (this.assetId) {
+                        query.asset = this.assetId;
+                    }
+
+                    return query;
+                },
+                syncRoute: function () {
+                    const query = this.routeQuery();
+                    if (sameQuery(this.$route.query || {}, query)) return;
+
+                    this.$router.replace({name: 'crypto-exchange', query}).catch(() => {});
+                },
+                swapPair: function () {
+                    const from = this.normalizedFrom;
+                    const to = this.normalizedTo;
+
+                    this.fromInput = to;
+                    this.toInput = from;
+                    this.assetId = '';
+                    this.syncRoute();
+                },
+                applyPreset: function (preset) {
+                    this.fromInput = sanitizeCurrency(preset.from, defaultFrom);
+                    this.toInput = sanitizeCurrency(preset.to, defaultTo);
+                    this.assetId = sanitizeAssetId(preset.asset || '');
+                    this.syncRoute();
+                },
+                assetLabel: function (value) {
+                    const id = sanitizeCurrency(value, '');
+                    return _.get(options.assetLabels, id) || _.toUpper(id);
+                },
+                buildWidgetSrc: function (from, to) {
+                    const url = new URL(widgetBaseUrl);
+                    const params = {
+                        FAQ: 'true',
+                        amount: '1',
+                        backgroundColor: 'f6fafd',
+                        darkMode: this.$root && this.$root.darkTheme ? 'true' : 'false',
+                        from: from,
+                        horizontal: 'false',
+                        isFiat: 'false',
+                        lang: 'en-EN',
+                        link_id: options.linkId || fallbackLinkId,
+                        locales: 'true',
+                        logo: 'false',
+                        primaryColor: '1bb2da',
+                        to: to,
+                        toTheMoon: 'false'
+                    };
+
+                    url.search = '';
+                    Object.keys(params).forEach(key => url.searchParams.set(key, params[key]));
+                    url.searchParams.append('amountFiat', '');
+
+                    return url.toString();
+                },
+                loadStepperConnector: function () {
+                    if (document.querySelector('script[data-changenow-stepper="true"]')) return;
+
+                    const script = document.createElement('script');
+                    script.defer = true;
+                    script.type = 'text/javascript';
+                    script.src = stepperScriptUrl;
+                    script.setAttribute('data-changenow-stepper', 'true');
+                    document.body.appendChild(script);
+                }
+            }
+        }
+    });
+
+})(window, document, _, GeckoClient);
 
 (function (window, CoinGecko, GeckoClient) {
     'use strict';

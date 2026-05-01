@@ -56,6 +56,8 @@ php_check() {
 
 assert_file api/search.php
 assert_file api/search-refresh.php
+assert_file dev/js/src/routes/crypto-exchange.js
+assert_file templates/routes/crypto-exchange.php
 assert_file "$doc"
 
 assert_contains "$doc" '^# TONBANKCARD V2 Smart Search API$' 'the smart search API title'
@@ -71,6 +73,7 @@ assert_contains package.json '"test:search-api"' 'the search API npm script'
 assert_contains api/router.php '/api/search' 'the search route registration'
 assert_contains dev/js/src/components/search-bar.js '/api/search' 'the browser search endpoint'
 assert_contains dev/js/src/components/search-bar.js 'search_result_selected' 'the search click analytics event'
+assert_contains dev/js/src/routes/crypto-exchange.js 'changenow.io/embeds/exchange-widget/v2/widget.html' 'the partner exchange widget URL'
 assert_contains dev/js/src/initial.js 'GeckoClient\.analytics' 'the frontend analytics helper'
 assert_not_contains dev/js/src/components/search-bar.js 'localstorage\.one' 'the legacy third-party search source'
 
@@ -156,6 +159,21 @@ if ( '/currency/bitcoin' !== $results[0]['links']['web'] || '/app/coin/bitcoin' 
 }
 if ( 'search_result_selected' !== $results[0]['analytics']['event_name'] || 'coin' !== $results[0]['analytics']['result_type'] ) {
     fwrite( STDERR, "BTC search result is missing analytics click metadata\n" );
+    exit( 1 );
+}
+$exchange_action = null;
+foreach ( $results as $result ) {
+    if ( 'action' === $result['type'] && 'exchange-bitcoin' === $result['id'] ) {
+        $exchange_action = $result;
+        break;
+    }
+}
+if ( empty( $exchange_action ) ) {
+    fwrite( STDERR, "BTC search did not include the first-party exchange action\n" );
+    exit( 1 );
+}
+if ( 'crypto-exchange' !== $exchange_action['route']['name'] || 'btc' !== $exchange_action['route']['query']['from'] || 'usdtton' !== $exchange_action['route']['query']['to'] ) {
+    fwrite( STDERR, "BTC exchange action did not target the ChangeNOW-backed crypto exchange route\n" );
     exit( 1 );
 }
 if ( '3-5' !== $payload['meta']['search']['query_length_bucket'] ) {
@@ -253,6 +271,21 @@ if ( 'tether-usd-ton' !== $payloads['usdt-ton']['data']['results'][0]['id'] || '
 }
 if ( empty( $payloads['usdt-ton']['data']['results'][0]['contract_addresses'][0] ) || ! in_array( 'ton_ecosystem', $payloads['usdt-ton']['data']['results'][0]['tags'], TRUE ) ) {
     fwrite( STDERR, "USDT TON result is missing its contract address or TON tag\n" );
+    exit( 1 );
+}
+$usdt_exchange_action = null;
+foreach ( $payloads['usdt-ton']['data']['results'] as $result ) {
+    if ( 'action' === $result['type'] && 'exchange-tether-usd-ton' === $result['id'] ) {
+        $usdt_exchange_action = $result;
+        break;
+    }
+}
+if ( empty( $usdt_exchange_action ) ) {
+    fwrite( STDERR, "USDT TON search did not include the first-party exchange action\n" );
+    exit( 1 );
+}
+if ( '/crypto-exchange?from=ton&to=usdtton&asset=tether-usd-ton' !== $usdt_exchange_action['links']['web'] ) {
+    fwrite( STDERR, "USDT TON exchange action did not deep-link to the TON pair\n" );
     exit( 1 );
 }
 if ( 'tether-usd-ton' !== $payloads['contract']['data']['results'][0]['id'] ) {

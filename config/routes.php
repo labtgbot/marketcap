@@ -80,6 +80,11 @@ $routes['ton'] = [
     'enabled' => TRUE,
 ];
 
+$routes['crypto-exchange'] = [
+    'path' => '/crypto-exchange',
+    'enabled' => TRUE,
+];
+
 $routes['watchlist'] = [
     'path' => '/watchlist',
     'enabled' => TRUE,
