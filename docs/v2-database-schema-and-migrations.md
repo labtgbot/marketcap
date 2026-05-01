@@ -34,6 +34,11 @@ Share/referral attribution uniqueness added for issue #33 lives in:
 - `database/migrations/0008_share_referral_attribution.up.sql`
 - `database/migrations/0008_share_referral_attribution.down.sql`
 
+Gamification achievement storage added for issue #34 lives in:
+
+- `database/migrations/0009_gamification_achievements.up.sql`
+- `database/migrations/0009_gamification_achievements.down.sql`
+
 ## Data Minimization
 
 - Store raw Telegram identity only where the application needs it for trusted
@@ -72,6 +77,9 @@ Share/referral attribution uniqueness added for issue #33 lives in:
 | `alert_deliveries` | Telegram bot alert delivery attempts, retry state, and Mini App deep links. | Stores delivery status, optional Telegram message id, and deep-link metadata, not message bodies. |
 | `referral_campaigns` | Campaign definitions for referral and share attribution. | Campaign metadata only. |
 | `referral_attributions` | First-touch referral attribution for trusted Telegram users. | Uses internal ids and payload hashes so raw invite payloads are not retained. |
+| `achievement_events` | Coarse achievement source events, such as watchlist add, alert create, market check, TON view, share start, and caught movement. | Stores event names, coarse route/coin context, hashes, and JSON metadata only; raw search text, exact alert rules, and secrets are excluded. |
+| `user_achievements` | Trusted-user badge unlocks, prompt state, dismissals, and share timestamps. | Tied to internal user id; anonymous achievement progress remains browser-local for MVP. |
+| `achievement_prompt_dismissals` | Dismissal audit for achievement prompts after trusted sync exists. | Stores badge id and context, not prompt body or private user content. |
 | `ai_insight_cache` | AI insight cache metadata and expiry. | Stores hashes and references, not raw prompts or full model responses. |
 | `ai_feedback` | AI insight card feedback for admin review. | Stores feedback type, provider metadata, route metadata, hashed subjects, and sanitized metadata only. |
 | `admin_users` | Operator accounts for support, content, admin, and owner roles. | Uses hashed email identity by default. |
@@ -100,6 +108,9 @@ and the issue #10 analytics/privacy baseline:
 | Report referrals by campaign. | `idx_referral_attributions_campaign` |
 | Report inviter attribution. | `idx_referral_attributions_inviter` |
 | Deduplicate first-touch referral attribution for the same user and campaign. | `uniq_referral_attributions_referred_campaign` from `0008_share_referral_attribution` |
+| Review achievement source events by user, event name, badge, or event hash. | `idx_achievement_events_user_time`, `idx_achievement_events_name_time`, `idx_achievement_events_achievement`, `idx_achievement_events_hash` from `0009_gamification_achievements` |
+| Load trusted-user achievement badges and prompt state. | `uniq_user_achievements_user_badge`, `idx_user_achievements_prompt`, `idx_user_achievements_unlocked` from `0009_gamification_achievements` |
+| Review achievement prompt dismissals by user or badge. | `idx_achievement_prompt_dismissals_user`, `idx_achievement_prompt_dismissals_badge` from `0009_gamification_achievements` |
 | Resolve AI cache entries by hashed cache key. | `uniq_ai_insight_cache_key` |
 | Expire AI cache metadata. | `idx_ai_insight_cache_expires` |
 | Review AI insight card feedback by status, type, insight type, provider, or user. | `idx_ai_feedback_review`, `idx_ai_feedback_insight`, `idx_ai_feedback_user` |
@@ -197,6 +208,8 @@ database.
 | Active alert rules | Keep while active or paused; purge deleted rules after 90 days unless needed for support review. |
 | Alert delivery records | Keep 180 days after delivery or 90 days after alert deletion, whichever is earlier. |
 | Referral attribution | Keep 180 days for MVP attribution reporting, then aggregate or anonymize. |
+| Achievement source events | Keep 180 days for trusted-user retention analysis, then aggregate or anonymize. |
+| User achievement unlocks and prompt dismissals | Keep while the account is active; purge or anonymize after account deletion. |
 | AI insight cache metadata | Purge expired rows after 30 days unless retained for a short incident review. |
 | AI insight feedback | Keep pending feedback until reviewed; purge or anonymize reviewed rows after the admin review period selected before launch. |
 | Provider settings and feature flags | Keep current values and audit changes; secrets remain in the secret store. |
@@ -204,7 +217,7 @@ database.
 | Premium entitlements | Keep active entitlement rows and retain expired/revoked rows for the business/accounting period selected before launch. |
 
 Retention jobs should use small batches and emit admin/system audit entries when
-they delete user, alert, referral, premium, or audit-adjacent data.
+they delete user, alert, referral, achievement, premium, or audit-adjacent data.
 
 ## Acceptance Criteria Mapping
 

@@ -325,14 +325,19 @@
     }
 
     function emitAnalytics(eventName, entry, options) {
-        if (!GeckoClient.analytics) return;
-
-        GeckoClient.analytics.emit(eventName, {
+        const properties = {
             coin_id: entry.coin_id,
             symbol: entry.symbol,
             source_route: _.get(options, 'sourceRoute') || _.get(options, 'source_route') || null,
             storage_mode: service.storageMode
-        });
+        };
+
+        if (GeckoClient.analytics) {
+            GeckoClient.analytics.emit(eventName, properties);
+        }
+        if (eventName === 'watchlist_added' && GeckoClient.achievements) {
+            GeckoClient.achievements.track('watchlist_added', properties);
+        }
     }
 
     function notify() {

@@ -142,6 +142,14 @@ $gecko_client['alertsConfig'] = [
 $gecko_client['shareConfig'] = [
     'apiBaseUrl' => site_url( 'api/share/resolve' ),
 ];
+// Gamification achievement definitions are safe to expose; opt-in state stays
+// browser-local until a trusted server sync is added.
+$achievement_settings = tonbankcard_api_achievements_settings( $runtime, $api );
+$gecko_client['achievementsConfig'] = [
+    'apiBaseUrl'  => site_url( 'api/achievements/settings' ),
+    'settings'    => $achievement_settings,
+    'definitions' => tonbankcard_api_achievements_definitions( $achievement_settings ),
+];
 // TON Connect wallet profile. The SDK is loaded lazily on user action; private
 // keys and wallet secrets never enter this browser payload.
 $gecko_client['tonConnect'] = [

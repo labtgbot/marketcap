@@ -95,6 +95,11 @@ $routes['alerts'] = [
     'enabled' => TRUE,
 ];
 
+$routes['achievements'] = [
+    'path' => '/achievements',
+    'enabled' => TRUE,
+];
+
 $routes['app-alerts'] = [
     'path' => '/app/alerts',
     'enabled' => TRUE,

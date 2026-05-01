@@ -38,6 +38,7 @@
             created: function () {
                 GeckoClient.setTitle(options.title);
                 this.syncFiltersFromRoute();
+                this.trackTonAchievement();
                 this.fetchTonEcosystem();
             },
             watch: {
@@ -272,6 +273,10 @@
                 shareTonMovers: function () {
                     if (!GeckoClient.share) return;
                     GeckoClient.share.share(this.tonShareCard);
+                },
+                trackTonAchievement: function () {
+                    if (!GeckoClient.achievements) return;
+                    GeckoClient.achievements.track('ton_viewed', {source_route: 'ton'});
                 }
             }
         }

@@ -12,6 +12,7 @@ require_once __DIR__ . '/observability.php';
 require_once __DIR__ . '/cache.php';
 require_once __DIR__ . '/market.php';
 require_once __DIR__ . '/share.php';
+require_once __DIR__ . '/achievements.php';
 require_once __DIR__ . '/ton.php';
 require_once __DIR__ . '/ai.php';
 require_once __DIR__ . '/search.php';
@@ -247,6 +248,7 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
                             '/api/ton',
                             '/api/ton/assets',
                             '/api/share/resolve',
+                            '/api/achievements/settings',
                             '/api/market',
                             '/api/market/*',
                             '/api/watchlist',
@@ -456,6 +458,17 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
             );
         }
 
+        if ( tonbankcard_api_achievements_is_request( $path ) ) {
+            return tonbankcard_api_finalize_response(
+                tonbankcard_api_achievements_handle( $request, $runtime, $config, $request_id, $headers ),
+                $request,
+                $runtime,
+                $config,
+                $request_id,
+                $started_at
+            );
+        }
+
         if ( tonbankcard_api_watchlist_is_request( $path ) ) {
             return tonbankcard_api_finalize_response(
                 tonbankcard_api_watchlist_handle( $request, $runtime, $config, $request_id, $headers ),
@@ -647,6 +660,9 @@ function tonbankcard_api_route_group( string $path ) {
     }
     if ( tonbankcard_api_share_is_request( $path ) ) {
         return 'share';
+    }
+    if ( tonbankcard_api_achievements_is_request( $path ) ) {
+        return 'achievements';
     }
     if ( tonbankcard_api_watchlist_is_request( $path ) ) {
         // Server writes rely on uniq_watchlist_entries_watchlist_coin to prevent duplicate coin rows.

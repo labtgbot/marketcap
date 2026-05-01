@@ -138,6 +138,15 @@ $routes_v2['public'] = [
         'sitemap_changefreq' => 'daily',
         'sitemap_priority'   => '0.7',
     ],
+    'achievements' => [
+        'path'        => '/achievements',
+        'title'       => 'Achievements',
+        'description' => 'Opt in to TONBANKCARD achievement badges, streaks, dismissible prompts, and shareable market progress cards.',
+        'og_type'     => 'website',
+        'schema_type' => 'WebApplication',
+        'sitemap_changefreq' => 'weekly',
+        'sitemap_priority'   => '0.6',
+    ],
     'about' => [
         'path'        => '/about',
         'title'       => 'About TONBANKCARD',

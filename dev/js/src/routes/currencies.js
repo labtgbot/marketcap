@@ -227,6 +227,7 @@
                         .then(currencies => {
                             this.marketCurrencies = currencies.map(currency => this.extendCurrency(currency));
                             this.marketMeta = CoinGecko.metaGet('coins/markets', this.marketConfig) || null;
+                            this.trackMarketPulseAchievements();
                         })
                         .catch(() => {
                             this.marketError = true;
@@ -289,6 +290,16 @@
                 shareMarketPulse: function () {
                     if (!GeckoClient.share) return;
                     GeckoClient.share.share(this.marketPulseShareCard);
+                },
+                trackMarketPulseAchievements: function () {
+                    if (!GeckoClient.achievements) return;
+
+                    GeckoClient.achievements.track('market_check', {source_route: 'market_pulse'});
+                    const movers = this.topGainers.concat(this.topLosers);
+                    const strongest = _.maxBy(movers, currency => Math.abs(percentChange(currency)));
+                    if (strongest) {
+                        GeckoClient.achievements.trackMarketMovement(strongest, 'market_pulse');
+                    }
                 }
             }
         }
