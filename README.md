@@ -130,6 +130,8 @@ See [docs/v2-telegram-session.md](docs/v2-telegram-session.md) for the `/api/tel
 
 See [docs/v2-watchlist-ux-persistence.md](docs/v2-watchlist-ux-persistence.md) for the Watchlist UX, localStorage, Telegram CloudStorage, MySQL trusted-session sync, and conflict behavior from issue #23.
 
+See [docs/v2-charting-and-market-visualization.md](docs/v2-charting-and-market-visualization.md) for the chart rendering decision, advanced coin chart views, lazy ECharts loading, stale state, and accessibility coverage from issue #25.
+
 See [docs/v2-observability-operational-logging.md](docs/v2-observability-operational-logging.md) for request ID tracing, frontend/API/provider error logging, verbose tracing flags, and operational health queries from issue #18.
 
 See [docs/v2-ai-provider-foundation.md](docs/v2-ai-provider-foundation.md) for the configurable Groq-first AI provider layer, structured insight validation, safety rules, and fallback behavior from issue #17.

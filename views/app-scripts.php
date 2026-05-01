@@ -61,6 +61,14 @@ foreach ( $enabled_routes as $name => $route ) {
 | FRONTEND DATA
 | -------------------------------------------------------------------------
 */
+$echarts_asset_url = GECKO_CLIENT_CDN
+    ? sprintf( 'https://cdn.jsdelivr.net/npm/echarts@%s/dist/echarts.min.js', ECHARTS_VERSION )
+    : vendor_url( 'echarts/echarts.min.js?v=' . ECHARTS_VERSION );
+
+if ( 'development' === GECKO_CLIENT_ENV ) {
+    $echarts_asset_url = vendor_url( 'echarts/echarts.js?v=' . ECHARTS_VERSION );
+}
+
 $gecko_client = [
     'version'               => GECKO_CLIENT_VERSION,
     'vuetifyOptions'        => vuetify_constructor_options(),
@@ -72,6 +80,9 @@ $gecko_client = [
     'routesConfig'          => $enabled_routes,
     'options'               => $frontend_options,
     'formats'               => $formats,
+    'assets'                => [
+        'echartsUrl' => $echarts_asset_url,
+    ],
 ];
 // Runtime metadata. Secret values from config/runtime.php are intentionally not
 // included in this browser payload.
@@ -143,7 +154,6 @@ if ( 'development' === GECKO_CLIENT_ENV ) {
     ?>
     <script src="<?php echo esc_url( vendor_url( 'lodash/lodash.js?v=' . LODASH_VERSION ) ); ?>"></script>
     <script src="<?php echo esc_url( vendor_url( 'axios/axios.js?v=' . AXIOS_VERSION ) ); ?>"></script>
-    <script src="<?php echo esc_url( vendor_url( 'echarts/echarts.js?v=' . ECHARTS_VERSION ) ); ?>"></script>
     <script src="<?php echo esc_url( vendor_url( 'vue/vue.js?v=' . VUE_VERSION ) ); ?>"></script>
     <script src="<?php echo esc_url( vendor_url( 'vue-router/vue-router.js?v=' . VUE_ROUTER_VERSION ) ); ?>"></script>
     <script src="<?php echo esc_url( vendor_url( 'vuetify/vuetify.js?v=' . VUETIFY_VERSION ) ); ?>"></script>
@@ -157,7 +167,6 @@ if ( 'development' === GECKO_CLIENT_ENV ) {
         ?>
         <script src="<?php echo esc_url( sprintf( 'https://cdn.jsdelivr.net/npm/lodash@%s/lodash.min.js', LODASH_VERSION ) ); ?>"></script>
         <script src="<?php echo esc_url( sprintf( 'https://cdn.jsdelivr.net/npm/axios@%s/dist/axios.min.js', AXIOS_VERSION ) ); ?>"></script>
-        <script src="<?php echo esc_url( sprintf( 'https://cdn.jsdelivr.net/npm/echarts@%s/dist/echarts.min.js', ECHARTS_VERSION ) ); ?>"></script>
         <script src="<?php echo esc_url( sprintf( 'https://cdn.jsdelivr.net/npm/vue@%s/dist/vue.min.js', VUE_VERSION ) ); ?>"></script>
         <script src="<?php echo esc_url( sprintf( 'https://cdn.jsdelivr.net/npm/vue-router@%s/dist/vue-router.min.js', VUE_ROUTER_VERSION ) ); ?>"></script>
         <script src="<?php echo esc_url( sprintf( 'https://cdn.jsdelivr.net/npm/vuetify@%s/dist/vuetify.min.js', VUETIFY_VERSION ) ); ?>"></script>
@@ -168,7 +177,6 @@ if ( 'development' === GECKO_CLIENT_ENV ) {
         ?>
         <script src="<?php echo esc_url( vendor_url( 'lodash/lodash.min.js?v=' . LODASH_VERSION ) ); ?>"></script>
         <script src="<?php echo esc_url( vendor_url( 'axios/axios.min.js?v=' . AXIOS_VERSION ) ); ?>"></script>
-        <script src="<?php echo esc_url( vendor_url( 'echarts/echarts.min.js?v=' . ECHARTS_VERSION ) ); ?>"></script>
         <script src="<?php echo esc_url( vendor_url( 'vue/vue.min.js?v=' . VUE_VERSION ) ); ?>"></script>
         <script src="<?php echo esc_url( vendor_url( 'vue-router/vue-router.min.js?v=' . VUE_ROUTER_VERSION ) ); ?>"></script>
         <script src="<?php echo esc_url( vendor_url( 'vuetify/vuetify.min.js?v=' . VUETIFY_VERSION ) ); ?>"></script>

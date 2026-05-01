@@ -21,18 +21,28 @@
      */
 
     (function(root, factory) {
+        function registerDarkTheme(echartsInstance) {
+            factory({}, echartsInstance);
+            return echartsInstance;
+        }
+
+        root.GeckoClient = root.GeckoClient || {};
+        root.GeckoClient.registerEChartsDarkTheme = registerDarkTheme;
+
         if (typeof define === 'function' && define.amd) {
             // AMD. Register as an anonymous module.
-            define(['exports', 'echarts'], factory);
+            define(['exports', 'echarts'], function(exports, echarts) {
+                factory(exports, echarts);
+            });
         } else if (
             typeof exports === 'object' &&
             typeof exports.nodeName !== 'string'
         ) {
             // CommonJS
             factory(exports, require('echarts/lib/echarts'));
-        } else {
+        } else if (root.echarts) {
             // Browser globals
-            factory({}, root.echarts);
+            registerDarkTheme(root.echarts);
         }
     })(window, function(exports, echarts) {
         let log = function(msg) {
@@ -41,7 +51,10 @@
             }
         };
         if (!echarts) {
-            log('ECharts is not Loaded');
+            log('ECharts is not loaded');
+            return;
+        }
+        if (echarts.__tbcDarkThemeRegistered) {
             return;
         }
         let contrastColor = '#B9B8CE';
@@ -224,5 +237,6 @@
 
         theme.categoryAxis.splitLine.show = false;
         echarts.registerTheme('dark', theme);
+        echarts.__tbcDarkThemeRegistered = true;
     });
 })(window);

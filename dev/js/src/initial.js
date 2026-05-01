@@ -258,6 +258,53 @@
 
     GeckoClient.telegram.init();
 
+    const scriptLoadPromises = {};
+
+    GeckoClient.loadScript = function (src) {
+        if (!src) return Promise.reject(new Error('Script URL is required'));
+        if (scriptLoadPromises[src]) return scriptLoadPromises[src];
+
+        scriptLoadPromises[src] = new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.async = true;
+            script.onload = () => resolve(script);
+            script.onerror = () => {
+                delete scriptLoadPromises[src];
+                reject(new Error('Failed to load script: ' + src));
+            };
+            document.head.appendChild(script);
+        });
+
+        return scriptLoadPromises[src];
+    };
+
+    GeckoClient.loadECharts = function () {
+        const registerDarkTheme = () => {
+            if (_.isFunction(GeckoClient.registerEChartsDarkTheme)) {
+                GeckoClient.registerEChartsDarkTheme(window.echarts);
+            }
+        };
+
+        if (window.echarts) {
+            registerDarkTheme();
+            return Promise.resolve(window.echarts);
+        }
+
+        const echartsUrl = _.get(GeckoClient, 'assets.echartsUrl');
+        if (!echartsUrl) {
+            return Promise.reject(new Error('ECharts asset URL is not configured'));
+        }
+
+        return GeckoClient.loadScript(echartsUrl).then(() => {
+            if (!window.echarts) {
+                throw new Error('ECharts failed to initialize');
+            }
+            registerDarkTheme();
+            return window.echarts;
+        });
+    };
+
     GeckoClient.getOptions = (path, defaultValue) => _.get(GeckoClient.options, path, defaultValue);
 
     GeckoClient.analytics = {
