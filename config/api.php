@@ -17,8 +17,12 @@ $api_upstash_configured = ! empty( $api_upstash['rest_url'] ) && ! empty( $api_u
 $api_redis_timeout = max( 1, (int) tonbankcard_env( 'TONBANKCARD_REDIS_TIMEOUT_SECONDS', 2 ) );
 $api_redis_key_prefix = trim( (string) tonbankcard_env( 'TONBANKCARD_REDIS_KEY_PREFIX', 'tonbankcard:v2' ), ':' );
 $api_sentiment_cache_ttl = tonbankcard_env_int( 'TONBANKCARD_SENTIMENT_CACHE_TTL_SECONDS', 300, 60, 21600 );
+$api_ton_curation_file = trim( (string) tonbankcard_env( 'TONBANKCARD_TON_CURATION_FILE', '' ) );
 if ( '' === $api_redis_key_prefix ) {
     $api_redis_key_prefix = 'tonbankcard:v2';
+}
+if ( '' === $api_ton_curation_file ) {
+    $api_ton_curation_file = sys_get_temp_dir() . '/tonbankcard-marketcap-ton-curation.json';
 }
 
 $api_allowed_origins = [];
@@ -31,12 +35,13 @@ foreach ( [ 'active', 'local', 'staging', 'public', 'telegram' ] as $url_key ) {
 $api = [
     'cors'       => [
         'allowed_origins'      => array_values( array_unique( array_filter( $api_allowed_origins ) ) ),
-        'allowed_methods'      => [ 'GET', 'POST', 'OPTIONS' ],
+        'allowed_methods'      => [ 'GET', 'POST', 'PUT', 'OPTIONS' ],
         'allowed_headers'      => [
             'Authorization',
             'Content-Type',
             'X-Request-ID',
             'X-TONBANKCARD-Search-Refresh-Token',
+            'X-TONBANKCARD-TON-Curation-Token',
             'X-TONBANKCARD-Admin',
             'X-TONBANKCARD-Session',
             'X-Telegram-Init-Data',
@@ -191,5 +196,9 @@ $api = [
         'max_limit'             => 30,
         'redis_timeout_seconds' => $api_redis_timeout,
         'refresh_token'         => (string) tonbankcard_env( 'TONBANKCARD_SEARCH_REFRESH_TOKEN', '' ),
+    ],
+    'ton_ecosystem' => [
+        'curation_store_path' => $api_ton_curation_file,
+        'curation_token'      => (string) tonbankcard_env( 'TONBANKCARD_TON_CURATION_TOKEN', '' ),
     ],
 ];

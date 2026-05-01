@@ -768,6 +768,128 @@ v-app {
 #ton {
     max-width: 1200px;
 }
+.ton-route-header,
+.ton-section-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+.ton-route-header > div:first-child {
+    min-width: 0;
+}
+.ton-route-summary {
+    display: grid;
+    min-width: 280px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+.ton-route-summary > div {
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--tbc-surface-border);
+    border-radius: var(--tbc-radius-control);
+    background: var(--tbc-surface-panel-muted);
+}
+.ton-route-summary strong {
+    display: block;
+    overflow-wrap: anywhere;
+    font-size: 1.2rem;
+    line-height: 1.2;
+}
+.ton-filter-bar {
+    display: grid;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--tbc-surface-border);
+    border-radius: var(--tbc-radius-card);
+    background: var(--tbc-surface-panel-muted);
+}
+.ton-market-filter-bar {
+    max-width: 1200px;
+    margin-right: auto;
+    margin-left: auto;
+}
+.ton-filter-group {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+.ton-filter-group > .text-caption {
+    flex: 0 0 100%;
+}
+.ton-filter-chip,
+.ton-screener-filter-chip {
+    max-width: 100%;
+    border-color: var(--tbc-surface-border) !important;
+}
+.ton-filter-chip.v-chip--active,
+.ton-screener-filter-chip.v-chip--active {
+    border-color: var(--tbc-brand-ton) !important;
+    background: rgba(27, 178, 218, 0.12) !important;
+}
+.ton-asset-grid {
+    align-items: stretch;
+}
+.ton-asset-card {
+    display: flex !important;
+    flex-direction: column;
+}
+.ton-asset-card .v-card__text {
+    flex: 1 1 auto;
+}
+.ton-asset-title {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+.min-width-0 {
+    min-width: 0;
+}
+.ton-asset-title .text-subtitle-1 {
+    overflow-wrap: anywhere;
+}
+.ton-asset-meta,
+.ton-asset-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.ton-asset-market-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+.ton-asset-market-grid > div:nth-child(3) {
+    grid-column: 1 / -1;
+}
+.ton-asset-market-grid > div {
+    min-width: 0;
+    padding: 8px;
+    border: 1px solid var(--tbc-surface-border);
+    border-radius: var(--tbc-radius-control);
+    background: var(--tbc-surface-panel-muted);
+}
+.ton-asset-market-grid strong {
+    display: block;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+}
+.ton-verification-chip {
+    flex: 0 0 auto;
+    font-weight: 700;
+}
+.ton-verification-chip--unverified {
+    border: 1px solid var(--tbc-brand-gold) !important;
+}
+.ton-asset-unverified {
+    border-style: dashed !important;
+    border-color: var(--tbc-brand-gold) !important;
+    background: linear-gradient(0deg, rgba(242, 184, 75, 0.08), rgba(242, 184, 75, 0.08)), var(--tbc-surface-panel) !important;
+}
 #crypto-exchange {
     max-width: 1280px;
 }
@@ -805,6 +927,19 @@ v-app {
 }
 #screener {
     max-width: 1200px;
+}
+@media only screen and (max-width: 759px) {
+    .ton-route-header,
+    .ton-section-heading {
+        display: block;
+    }
+    .ton-route-summary {
+        min-width: 0;
+        margin-top: 16px;
+    }
+    .ton-asset-market-grid {
+        grid-template-columns: 1fr;
+    }
 }
 #support {
     max-width: 1200px;

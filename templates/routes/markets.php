@@ -21,6 +21,34 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 |
 */
 $frontend_options['markets']['title'] = __( 'Cryptocurrency Markets' );
+$frontend_options['markets']['tonApiBaseUrl'] = site_url( 'api/ton/assets' );
+$frontend_options['markets']['tonFilters'] = [
+    [
+        'tag'   => 'ton_ecosystem',
+        'label' => 'TON ecosystem',
+        'icon'  => 'mdi-diamond-stone',
+    ],
+    [
+        'tag'   => 'stablecoin',
+        'label' => 'TON stablecoins',
+        'icon'  => 'mdi-cash-check',
+    ],
+    [
+        'tag'   => 'jetton',
+        'label' => 'Jettons',
+        'icon'  => 'mdi-layers-triple',
+    ],
+    [
+        'tag'   => 'defi',
+        'label' => 'TON DeFi',
+        'icon'  => 'mdi-bank-transfer',
+    ],
+    [
+        'tag'   => 'unverified',
+        'label' => 'Review queue',
+        'icon'  => 'mdi-alert-circle-outline',
+    ],
+];
 
 /*
 | -------------------------------------------------------------------------
@@ -171,6 +199,32 @@ $frontend_options['markets']['order'] = 'market_cap_desc';
             <?php echo esc_html( $frontend_options['markets']['title'] ); ?>
         </h1>
 
+        <div class="ton-filter-bar ton-market-filter-bar mb-5">
+            <div class="ton-filter-group">
+                <span class="text-caption text--secondary"><?php echo esc_html( 'TON filters' ); ?></span>
+                <v-chip
+                    v-for="chip in tonFilterChips"
+                    :key="'market-ton-' + chip.tag"
+                    small
+                    label
+                    class="ton-filter-chip"
+                    :class="{'v-chip--active': activeTonTag === chip.tag}"
+                    :color="activeTonTag === chip.tag ? 'primary' : undefined"
+                    :to="tonFilterRoute(activeTonTag === chip.tag ? '' : chip.tag)"
+                >
+                    <v-icon left small v-text="chip.icon || 'mdi-tag-outline'"></v-icon>
+                    <span v-text="chip.label"></span>
+                </v-chip>
+                <v-btn v-if="activeTonTag" small text :to="clearTonFilterRoute()">
+                    <?php echo esc_html( 'Clear' ); ?>
+                </v-btn>
+            </div>
+            <v-alert v-if="tonFilterError" type="warning" dense text class="mb-0" v-text="tonFilterError"></v-alert>
+            <div v-if="activeTonTag" class="text-caption text--secondary">
+                <?php echo esc_html( 'Showing' ); ?> <span v-text="activeTonFilterLabel"></span>
+            </div>
+        </div>
+
         <v-data-table
             id="currencies-table"
             :headers="tableHeaders"
@@ -192,6 +246,16 @@ $frontend_options['markets']['order'] = 'market_cap_desc';
                         <div>
                             <v-chip label small :ripple="false" :to="item.route" class="c-rank d-sm-none" v-text="item.market_cap_rank"></v-chip>
                             <span class="c-symbol text-uppercase font-weight-medium text--secondary" v-text="item.symbol"></span>
+                            <v-chip
+                                v-if="item.tonAsset"
+                                x-small
+                                label
+                                class="ton-verification-chip ml-1"
+                                :class="'ton-verification-chip--' + item.tonAsset.verification_state"
+                                :color="tonStateColor(item.tonAsset)"
+                                text-color="white"
+                                v-text="tonStateLabel(item.tonAsset)"
+                            ></v-chip>
                         </div>
                     </div>
                 </router-link>
@@ -202,6 +266,16 @@ $frontend_options['markets']['order'] = 'market_cap_desc';
                     <span class="font-weight-medium">
                         {{ item.name }}
                         <span class="text--secondary text-uppercase" v-text="item.symbol"></span>
+                        <v-chip
+                            v-if="item.tonAsset"
+                            x-small
+                            label
+                            class="ton-verification-chip ml-2"
+                            :class="'ton-verification-chip--' + item.tonAsset.verification_state"
+                            :color="tonStateColor(item.tonAsset)"
+                            text-color="white"
+                            v-text="tonStateLabel(item.tonAsset)"
+                        ></v-chip>
                     </span>
                 </v-chip>
             </template>

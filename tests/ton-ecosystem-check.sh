@@ -1,0 +1,227 @@
+#!/usr/bin/env sh
+set -eu
+
+failures=0
+doc=docs/v2-ton-ecosystem-curation.md
+
+fail() {
+    printf '%s\n' "FAIL: $1" >&2
+    failures=$((failures + 1))
+}
+
+assert_file() {
+    if [ ! -f "$1" ]; then
+        fail "Missing required file: $1"
+    fi
+}
+
+assert_contains() {
+    file=$1
+    pattern=$2
+    description=$3
+
+    if [ ! -f "$file" ]; then
+        fail "Cannot inspect missing file: $file"
+        return
+    fi
+
+    if ! grep -Eq "$pattern" "$file"; then
+        fail "$file does not contain $description"
+    fi
+}
+
+php_check() {
+    description=$1
+    shift
+
+    if ! "$@"; then
+        fail "$description"
+    fi
+}
+
+assert_file api/ton.php
+assert_file "$doc"
+assert_file database/migrations/0005_ton_ecosystem_curation.up.sql
+assert_file database/migrations/0005_ton_ecosystem_curation.down.sql
+assert_file dev/js/src/routes/screener.js
+
+assert_contains "$doc" '^# TONBANKCARD V2 TON Ecosystem Curation$' 'the TON ecosystem curation title'
+assert_contains "$doc" 'Issue: \[#29\]' 'the issue reference'
+assert_contains "$doc" '/api/ton/assets' 'the TON curation API endpoint'
+assert_contains "$doc" 'TONBANKCARD_TON_CURATION_FILE' 'the writable curation file configuration'
+assert_contains "$doc" 'verified' 'verified asset state'
+assert_contains "$doc" 'unverified' 'unverified asset state'
+assert_contains "$doc" 'without code deployment' 'the manual curation workflow'
+assert_contains README.md 'docs/v2-ton-ecosystem-curation\.md' 'the TON ecosystem documentation link'
+assert_contains .env.example '^TONBANKCARD_TON_CURATION_FILE=' 'the TON curation file environment variable'
+assert_contains .env.example '^TONBANKCARD_TON_CURATION_TOKEN=' 'the TON curation token environment variable'
+assert_contains package.json '"test:ton-ecosystem"' 'the TON ecosystem npm script'
+assert_contains package.json 'test:ton-ecosystem' 'the aggregate TON ecosystem check'
+assert_contains api/router.php '/api/ton/assets' 'the API route index entry'
+assert_contains api/search.php 'tonbankcard_api_ton_search_entries' 'TON curated entries in smart search'
+assert_contains dev/js/source.json '"routes/screener.js"' 'the screener route source bundle entry'
+assert_contains dev/js/src/routes/ton.js '/api/ton/assets' 'the TON route curation endpoint'
+assert_contains dev/js/src/routes/markets.js 'activeTonTag' 'the market table TON tag filter'
+assert_contains templates/routes/markets.php 'ton-filter-chip' 'TON filter chips on market tables'
+assert_contains templates/routes/screener.php 'ton-screener-filter-chip' 'TON filter chips on screener'
+assert_contains templates/routes/ton.php 'ton-verification-chip' 'TON verification visual indicator'
+assert_contains assets/css/style.css 'ton-asset-unverified' 'distinct unverified TON asset styling'
+
+php_check 'TON curation API should expose defaults, persist manual curation, and preserve verification states' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_TON_CURATION_FILE="$(mktemp)" \
+        TONBANKCARD_TON_CURATION_TOKEN='ton-curation-secret' \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$store_path = (string) getenv( 'TONBANKCARD_TON_CURATION_FILE' );
+@unlink( $store_path );
+
+$request = [
+    'method'  => 'GET',
+    'path'    => '/api/ton/assets?tag=stablecoin',
+    'headers' => [ 'x-request-id' => 'ton-defaults' ],
+    'body'    => '',
+];
+$response = tonbankcard_api_handle( $request, [], $GLOBALS['runtime_config'], $api );
+if ( 200 !== $response['status'] ) {
+    fwrite( STDERR, 'Expected default TON curation response 200, got ' . $response['status'] . "\n" );
+    exit( 1 );
+}
+$payload = json_decode( $response['body'], TRUE );
+if ( ! is_array( $payload ) || TRUE !== $payload['ok'] ) {
+    fwrite( STDERR, "Default TON curation response is not a success envelope\n" );
+    exit( 1 );
+}
+$assets = $payload['data']['assets'];
+if ( empty( $assets ) || 'tether-usd-ton' !== $assets[0]['id'] || 'verified' !== $assets[0]['verification_state'] ) {
+    fwrite( STDERR, "Stablecoin filter did not return verified USDT on TON first\n" );
+    exit( 1 );
+}
+if ( empty( $payload['data']['categories']['stablecoin'] ) || empty( $payload['data']['lists']['featured'] ) ) {
+    fwrite( STDERR, "TON curation response is missing categories or lists\n" );
+    exit( 1 );
+}
+
+$manual_payload = [
+    'assets' => [
+        [
+            'id'                 => 'community-jetton-alpha',
+            'coin_id'            => 'community-alpha',
+            'name'               => 'Community Jetton Alpha',
+            'symbol'             => 'ALPHA',
+            'category'           => 'jetton',
+            'verification_state' => 'unverified',
+            'tags'               => [ 'ton_ecosystem', 'jetton', 'community' ],
+            'list_ids'           => [ 'community_queue' ],
+            'description'        => 'Manual review queue asset.',
+            'featured'           => false,
+        ],
+    ],
+];
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'POST',
+        'path'    => '/api/ton/assets',
+        'headers' => [
+            'content-type' => 'application/json',
+            'x-request-id' => 'ton-curation-write',
+            'x-tonbankcard-ton-curation-token' => 'ton-curation-secret',
+        ],
+        'body'    => json_encode( $manual_payload ),
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $api
+);
+if ( 200 !== $response['status'] ) {
+    fwrite( STDERR, 'Expected curation write 200, got ' . $response['status'] . ' body ' . $response['body'] . "\n" );
+    exit( 1 );
+}
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'GET',
+        'path'    => '/api/ton/assets?state=unverified&tag=community',
+        'headers' => [ 'x-request-id' => 'ton-curation-read' ],
+        'body'    => '',
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $api
+);
+$payload = json_decode( $response['body'], TRUE );
+if ( 200 !== $response['status'] || TRUE !== $payload['ok'] || 1 !== count( $payload['data']['assets'] ) ) {
+    fwrite( STDERR, "Manual curation was not persisted and filterable\n" );
+    exit( 1 );
+}
+$asset = $payload['data']['assets'][0];
+if ( 'community-jetton-alpha' !== $asset['id'] || 'unverified' !== $asset['verification_state'] || ! empty( $asset['verified'] ) ) {
+    fwrite( STDERR, "Manual unverified asset state was not preserved\n" );
+    exit( 1 );
+}
+if ( ! is_file( $store_path ) ) {
+    fwrite( STDERR, "Manual curation did not write the configured store file\n" );
+    exit( 1 );
+}
+@unlink( $store_path );
+PHP
+
+php_check 'smart search should filter by curated TON tags and expose verification metadata' \
+    env -i PATH="$PATH" php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$test_api = $api;
+$test_api['market_data']['transport'] = function ( $request ) {
+    if ( 'coins/list' === $request['path'] || 'exchanges/list' === $request['path'] || 'coins/categories/list' === $request['path'] ) {
+        return [ 'status' => 200, 'headers' => [ 'content-type' => 'application/json' ], 'body' => '[]' ];
+    }
+    if ( 'search/trending' === $request['path'] ) {
+        return [ 'status' => 200, 'headers' => [ 'content-type' => 'application/json' ], 'body' => '{"coins":[],"exchanges":[]}' ];
+    }
+    fwrite( STDERR, 'Unexpected provider path: ' . $request['path'] . "\n" );
+    exit( 1 );
+};
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'GET',
+        'path'    => '/api/search?q=TON&tag=stablecoin&limit=5',
+        'headers' => [ 'x-request-id' => 'ton-search-tag' ],
+        'body'    => '',
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $test_api
+);
+if ( 200 !== $response['status'] ) {
+    fwrite( STDERR, 'Expected tagged search 200, got ' . $response['status'] . "\n" );
+    exit( 1 );
+}
+$payload = json_decode( $response['body'], TRUE );
+$results = $payload['data']['results'];
+if ( empty( $results ) || 'tether-usd-ton' !== $results[0]['id'] || 'ton_asset' !== $results[0]['type'] ) {
+    fwrite( STDERR, "Tagged TON search did not rank USDT on TON first\n" );
+    exit( 1 );
+}
+if ( 'verified' !== $results[0]['verification_state'] || empty( $results[0]['verified'] ) || empty( $results[0]['curated'] ) ) {
+    fwrite( STDERR, "Tagged TON search result is missing verification metadata\n" );
+    exit( 1 );
+}
+if ( 'stablecoin' !== $payload['data']['tag'] || 'stablecoin' !== $payload['meta']['search']['tag'] ) {
+    fwrite( STDERR, "Tagged TON search response did not echo safe tag metadata\n" );
+    exit( 1 );
+}
+PHP
+
+if [ "$failures" -gt 0 ]; then
+    exit 1
+fi
+
+printf '%s\n' 'TON ecosystem curation check passed.'
