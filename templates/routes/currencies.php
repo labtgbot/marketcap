@@ -128,8 +128,21 @@ $frontend_options['currencies']['tonCoinIds'] = [
                                 <v-list-item-title v-text="currency.name"></v-list-item-title>
                                 <v-list-item-subtitle class="text-uppercase" v-text="currency.symbol"></v-list-item-subtitle>
                             </v-list-item-content>
-                            <v-list-item-action class="font-weight-bold" :class="$root.changeColorClass(currency.price_change_percentage_24h_in_currency)">
-                                {{ $root.changeFormat(currency.price_change_percentage_24h_in_currency) || 'N/A' }}
+                            <v-list-item-action class="market-pulse-row-actions">
+                                <v-btn
+                                    icon
+                                    small
+                                    class="watchlist-icon-button"
+                                    :color="isWatched(currency) ? 'primary' : undefined"
+                                    :aria-label="watchlistLabel(currency)"
+                                    :title="watchlistLabel(currency)"
+                                    @click.stop.prevent="toggleWatchlist(currency)"
+                                >
+                                    <v-icon v-text="watchlistIcon(currency)"></v-icon>
+                                </v-btn>
+                                <span class="font-weight-bold" :class="$root.changeColorClass(currency.price_change_percentage_24h_in_currency)">
+                                    {{ $root.changeFormat(currency.price_change_percentage_24h_in_currency) || 'N/A' }}
+                                </span>
                             </v-list-item-action>
                         </v-list-item>
                     </v-list>
@@ -155,8 +168,21 @@ $frontend_options['currencies']['tonCoinIds'] = [
                                 <v-list-item-title v-text="currency.name"></v-list-item-title>
                                 <v-list-item-subtitle v-text="$root.priceFormat(currency.current_price)"></v-list-item-subtitle>
                             </v-list-item-content>
-                            <v-list-item-action class="high--text font-weight-bold">
-                                {{ $root.changeFormat(currency.price_change_percentage_24h_in_currency) }}
+                            <v-list-item-action class="market-pulse-row-actions">
+                                <v-btn
+                                    icon
+                                    small
+                                    class="watchlist-icon-button"
+                                    :color="isWatched(currency) ? 'primary' : undefined"
+                                    :aria-label="watchlistLabel(currency)"
+                                    :title="watchlistLabel(currency)"
+                                    @click.stop.prevent="toggleWatchlist(currency)"
+                                >
+                                    <v-icon v-text="watchlistIcon(currency)"></v-icon>
+                                </v-btn>
+                                <span class="high--text font-weight-bold">
+                                    {{ $root.changeFormat(currency.price_change_percentage_24h_in_currency) }}
+                                </span>
                             </v-list-item-action>
                         </v-list-item>
                     </v-list>
@@ -182,8 +208,21 @@ $frontend_options['currencies']['tonCoinIds'] = [
                                 <v-list-item-title v-text="currency.name"></v-list-item-title>
                                 <v-list-item-subtitle v-text="$root.priceFormat(currency.current_price)"></v-list-item-subtitle>
                             </v-list-item-content>
-                            <v-list-item-action class="low--text font-weight-bold">
-                                {{ $root.changeFormat(currency.price_change_percentage_24h_in_currency) }}
+                            <v-list-item-action class="market-pulse-row-actions">
+                                <v-btn
+                                    icon
+                                    small
+                                    class="watchlist-icon-button"
+                                    :color="isWatched(currency) ? 'primary' : undefined"
+                                    :aria-label="watchlistLabel(currency)"
+                                    :title="watchlistLabel(currency)"
+                                    @click.stop.prevent="toggleWatchlist(currency)"
+                                >
+                                    <v-icon v-text="watchlistIcon(currency)"></v-icon>
+                                </v-btn>
+                                <span class="low--text font-weight-bold">
+                                    {{ $root.changeFormat(currency.price_change_percentage_24h_in_currency) }}
+                                </span>
                             </v-list-item-action>
                         </v-list-item>
                     </v-list>
@@ -209,6 +248,19 @@ $frontend_options['currencies']['tonCoinIds'] = [
                                 <v-list-item-title v-text="coin.name"></v-list-item-title>
                                 <v-list-item-subtitle class="text-uppercase" v-text="coin.symbol"></v-list-item-subtitle>
                             </v-list-item-content>
+                            <v-list-item-action class="market-pulse-row-actions">
+                                <v-btn
+                                    icon
+                                    small
+                                    class="watchlist-icon-button"
+                                    :color="isWatched(coin) ? 'primary' : undefined"
+                                    :aria-label="watchlistLabel(coin)"
+                                    :title="watchlistLabel(coin)"
+                                    @click.stop.prevent="toggleWatchlist(coin)"
+                                >
+                                    <v-icon v-text="watchlistIcon(coin)"></v-icon>
+                                </v-btn>
+                            </v-list-item-action>
                         </v-list-item>
                     </v-list>
                     <v-card-text v-else>
@@ -237,6 +289,19 @@ $frontend_options['currencies']['tonCoinIds'] = [
                                 <v-list-item-title v-text="currency.name"></v-list-item-title>
                                 <v-list-item-subtitle v-text="$root.priceFormat(currency.current_price)"></v-list-item-subtitle>
                             </v-list-item-content>
+                            <v-list-item-action class="market-pulse-row-actions">
+                                <v-btn
+                                    icon
+                                    small
+                                    class="watchlist-icon-button"
+                                    color="primary"
+                                    :aria-label="watchlistLabel(currency)"
+                                    :title="watchlistLabel(currency)"
+                                    @click.stop.prevent="toggleWatchlist(currency)"
+                                >
+                                    <v-icon v-text="watchlistIcon(currency)"></v-icon>
+                                </v-btn>
+                            </v-list-item-action>
                         </v-list-item>
                     </v-list>
                     <v-card-text v-else>

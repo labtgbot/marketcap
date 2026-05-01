@@ -25,12 +25,18 @@
                     loading: false,
                     loadMore: true,
                     loadMoreLoading: false,
+                    watchlistIds: [],
+                    watchlistUnsubscribe: null
                 };
             },
             created: function () {
+                this.initWatchlist();
                 this.fetchFirstCurrencies();
                 // update title meta tags
                 setTitle(marketsOptions.title);
+            },
+            beforeDestroy: function () {
+                if (this.watchlistUnsubscribe) this.watchlistUnsubscribe();
             },
             watch: {
                 '$root.vsCurrencyId': function () {
@@ -48,6 +54,16 @@
                 }
             },
             methods: {
+                initWatchlist: function () {
+                    const watchlist = GeckoClient.watchlist;
+                    if (!watchlist) return;
+
+                    this.watchlistUnsubscribe = watchlist.onChange(() => this.syncWatchlistIds());
+                    watchlist.init().then(() => this.syncWatchlistIds());
+                },
+                syncWatchlistIds: function () {
+                    this.watchlistIds = GeckoClient.watchlist ? GeckoClient.watchlist.ids() : [];
+                },
                 fetchCurrencies: function () {
                     const params = {
                         per_page: this.perPage,
@@ -81,6 +97,21 @@
                 fetchMoreCurrencies: function () {
                     this.loadMoreLoading = true;
                     return this.fetchCurrencies().finally(() => this.loadMoreLoading = false);
+                },
+                isWatched: function (currency) {
+                    return this.watchlistIds.indexOf(currency.id) >= 0;
+                },
+                watchlistIcon: function (currency) {
+                    return this.isWatched(currency) ? 'mdi-star' : 'mdi-star-outline';
+                },
+                watchlistLabel: function (currency) {
+                    return (this.isWatched(currency) ? 'Remove ' : 'Add ') + currency.name + ' ' + (this.isWatched(currency) ? 'from' : 'to') + ' Watchlist';
+                },
+                toggleWatchlist: function (currency) {
+                    if (!GeckoClient.watchlist) return;
+
+                    GeckoClient.watchlist.toggle(currency, {sourceRoute: 'markets'})
+                        .then(() => this.syncWatchlistIds());
                 },
                 toCurrency: function (currency) {
                     this.$router.push(currency.route);

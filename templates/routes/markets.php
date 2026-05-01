@@ -73,6 +73,14 @@ $frontend_options['markets']['tableHeaders'] = [
         'show' => TRUE,
     ],
     [
+        'text' => 'Watchlist',
+        'value' => 'watchlist',
+        'sortable' => FALSE,
+        'align' => 'center',
+        'width' => 72,
+        'show' => TRUE,
+    ],
+    [
         'text' => 'Price',
         'value' => 'current_price',
         'sortable' => TRUE,
@@ -196,6 +204,19 @@ $frontend_options['markets']['order'] = 'market_cap_desc';
                         <span class="text--secondary text-uppercase" v-text="item.symbol"></span>
                     </span>
                 </v-chip>
+            </template>
+            <template v-slot:item.watchlist="{ item }">
+                <v-btn
+                    icon
+                    small
+                    class="watchlist-icon-button"
+                    :color="isWatched(item) ? 'primary' : undefined"
+                    :aria-label="watchlistLabel(item)"
+                    :title="watchlistLabel(item)"
+                    @click.stop.prevent="toggleWatchlist(item)"
+                >
+                    <v-icon v-text="watchlistIcon(item)"></v-icon>
+                </v-btn>
             </template>
             <template v-slot:item.current_price="{ item }">
                 <span class="font-weight-medium" v-text="$root.priceFormat(item.current_price)"></span>

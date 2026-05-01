@@ -112,6 +112,10 @@ $gecko_client['search'] = [
     'defaultLimit' => 12,
     'maxLimit'     => 30,
 ];
+// Watchlist persistence and trusted-session sync endpoint.
+$gecko_client['watchlistConfig'] = [
+    'apiBaseUrl' => site_url( 'api/watchlist' ),
+];
 // Custom Links
 $gecko_client['links'] = [
     'currencies'         => (object) $links['currencies'],
