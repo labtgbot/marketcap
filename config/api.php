@@ -35,7 +35,7 @@ foreach ( [ 'active', 'local', 'staging', 'public', 'telegram' ] as $url_key ) {
 $api = [
     'cors'       => [
         'allowed_origins'      => array_values( array_unique( array_filter( $api_allowed_origins ) ) ),
-        'allowed_methods'      => [ 'GET', 'POST', 'PUT', 'OPTIONS' ],
+        'allowed_methods'      => [ 'GET', 'POST', 'PUT', 'DELETE', 'OPTIONS' ],
         'allowed_headers'      => [
             'Authorization',
             'Content-Type',

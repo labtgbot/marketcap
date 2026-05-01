@@ -14,6 +14,7 @@
     "test:cache-rate-limit": "sh tests/cache-rate-limit-check.sh",
     "test:telegram-session": "sh tests/telegram-session-check.sh",
     "test:watchlist": "sh tests/watchlist-check.sh",
+    "test:screener": "sh tests/screener-check.sh",
     "test:public-shell": "sh tests/public-website-shell-check.sh",
     "test:seo": "sh tests/seo-optimization-check.sh",
     "test:ai-provider": "sh tests/ai-provider-check.sh",
@@ -27,7 +28,7 @@
     "test:workflow": "sh tests/development-workflow-check.sh",
     "test:design-system": "sh tests/design-system-check.sh",
     "test:smoke": "node tests/browser-smoke.js",
-    "test": "npm run test:workflow && npm run lint:php && npm run test:content && npm run test:architecture && npm run test:analytics && npm run test:database && npm run test:api && npm run test:market-gateway && npm run test:cache-rate-limit && npm run test:search-api && npm run test:ton-ecosystem && npm run test:telegram-session && npm run test:watchlist && npm run test:public-shell && npm run test:seo && npm run test:ai-provider && npm run test:ai-sentiment && npm run test:ai-insights && npm run test:observability && npm run test:design-system && npm run test:charts && npm run test:pwa-telegram && npm run test:ton-connect && npm run validate:bundle && npm run test:smoke"
+    "test": "npm run test:workflow && npm run lint:php && npm run test:content && npm run test:architecture && npm run test:analytics && npm run test:database && npm run test:api && npm run test:market-gateway && npm run test:cache-rate-limit && npm run test:search-api && npm run test:ton-ecosystem && npm run test:telegram-session && npm run test:watchlist && npm run test:screener && npm run test:public-shell && npm run test:seo && npm run test:ai-provider && npm run test:ai-sentiment && npm run test:ai-insights && npm run test:observability && npm run test:design-system && npm run test:charts && npm run test:pwa-telegram && npm run test:ton-connect && npm run validate:bundle && npm run test:smoke"
   },
   "devDependencies": {
     "playwright": "^1.59.1",

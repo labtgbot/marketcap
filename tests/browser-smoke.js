@@ -143,6 +143,23 @@ function fulfillSearchJson(route, data) {
     });
 }
 
+function fulfillScreenerJson(route, data) {
+    return fulfillJson(route, {
+        ok: true,
+        data,
+        meta: {
+            request_id: 'browser-smoke-screener',
+            route_group: 'screener',
+            screener: {
+                filters: data.filters,
+                source_count: data.summary.source_count,
+                result_count: data.summary.result_count,
+                csv_export_enabled: false,
+            },
+        },
+    });
+}
+
 function nowSeries() {
     const now = Date.now();
     return [
@@ -576,6 +593,67 @@ async function installRoutes(context, requestLog) {
         });
     });
 
+    await context.route(`${baseURL}/api/screener/markets**`, route => {
+        const url = new URL(route.request().url());
+        requestLog.screeners.push({
+            path: url.pathname,
+            params: Object.fromEntries(url.searchParams.entries()),
+        });
+
+        const filters = {
+            vs_currency: url.searchParams.get('vs_currency') || 'usd',
+            ton_tag: url.searchParams.get('ton_tag') || '',
+            market_cap_min: url.searchParams.get('market_cap_min') || null,
+            watchlist: url.searchParams.get('watchlist') || 'all',
+        };
+        const toncoin = marketCurrency('toncoin', 'ton', 'Toncoin', 12, 6.5, 4.2);
+        toncoin.ton_asset = {
+            id: 'toncoin',
+            coin_id: 'toncoin',
+            name: 'Toncoin',
+            verification_state: 'verified',
+            tags: ['ton_ecosystem', 'layer_1'],
+        };
+        toncoin.watchlist = {
+            watched: false,
+            source: 'client_snapshot',
+        };
+        toncoin.sentiment = {
+            score: 42,
+            label: 'bullish',
+            confidence: 0.82,
+            source: 'deterministic_market_movement',
+        };
+        toncoin.sentiment_score = 42;
+        toncoin.exchange_availability = {
+            requested: url.searchParams.get('exchange') || '',
+            matched: url.searchParams.get('exchange') ? true : null,
+            checked: !!url.searchParams.get('exchange'),
+        };
+
+        return fulfillScreenerJson(route, {
+            filters,
+            sort: {
+                key: url.searchParams.get('sort') || 'market_cap_rank',
+                direction: url.searchParams.get('direction') || 'asc',
+            },
+            summary: {
+                source_count: 2,
+                result_count: 1,
+                watched_count: 0,
+                ton_count: 1,
+                average_sentiment: 42,
+                csv_export_enabled: false,
+            },
+            filter_options: {
+                ton_tags: ['ton_ecosystem', 'stablecoin'],
+                categories: [],
+                exchanges: [{id: 'binance', name: 'Binance'}],
+            },
+            items: [toncoin],
+        });
+    });
+
     await context.route('https://changenow.io/**', route => {
         if (route.request().url().endsWith('/stepper-connector.js')) {
             return route.fulfill({
@@ -770,6 +848,46 @@ async function checkMarketsList(page, errors, requestLog) {
     assertEqual(request.params.per_page, '100', 'markets table per_page');
     assertEqual(request.params.page, '1', 'markets table page');
     await assertNoErrors(errors, 'markets table');
+}
+
+async function checkAdvancedScreener(page, errors, requestLog) {
+    log('Checking advanced screener render and mobile filters');
+    requestLog.screeners = [];
+
+    await page.setViewportSize({width: 1280, height: 900});
+    await page.goto(`${baseURL}/screener?ton_tag=ton_ecosystem&market_cap_min=1000000000`, {waitUntil: 'domcontentloaded'});
+    await page.locator('#screener').waitFor({state: 'visible'});
+    await page.locator('#screener-results-table').waitFor({state: 'visible'});
+    await page.locator('#screener-results-table tbody tr', {hasText: 'Toncoin'}).first().waitFor({state: 'visible'});
+    await page.getByText('Preset sync requires', {exact: false}).first().waitFor({state: 'visible'});
+
+    const request = lastRequest(requestLog.screeners, 'advanced screener request');
+    assertEqual(request.params.vs_currency, 'usd', 'advanced screener vs_currency');
+    assertEqual(request.params.ton_tag, 'ton_ecosystem', 'advanced screener TON tag');
+    assertEqual(request.params.market_cap_min, '1000000000', 'advanced screener market cap filter');
+
+    await page.setViewportSize({width: 390, height: 844});
+    await page.goto(`${baseURL}/screener?watchlist=watched`, {waitUntil: 'domcontentloaded'});
+    await page.locator('#screener').waitFor({state: 'visible'});
+    await page.getByRole('button', {name: 'Open filters'}).click();
+    await page.locator('.screener-filter-drawer').waitFor({state: 'visible'});
+
+    const mobileResult = await page.evaluate(() => {
+        const root = document.documentElement;
+        const drawer = document.querySelector('.screener-filter-drawer');
+        const drawerBox = drawer ? drawer.getBoundingClientRect() : null;
+        return {
+            viewportWidth: window.innerWidth,
+            scrollWidth: Math.max(root.scrollWidth, document.body.scrollWidth),
+            drawerWidth: drawerBox ? drawerBox.width : 0,
+        };
+    });
+    if (mobileResult.scrollWidth > mobileResult.viewportWidth || mobileResult.drawerWidth > mobileResult.viewportWidth) {
+        fail(`Mobile screener filters overflowed: ${JSON.stringify(mobileResult)}`);
+    }
+
+    await page.setViewportSize({width: 1280, height: 900});
+    await assertNoErrors(errors, 'advanced screener');
 }
 
 async function checkCoinDetail(page, errors, requestLog) {
@@ -1156,6 +1274,7 @@ async function checkWatchlistUnavailableStorageFallback(browser) {
         trending: [],
         tonDominanceMarkets: [],
         searches: [],
+        screeners: [],
     };
     await installRoutes(context, requestLog);
     await context.addInitScript(() => {
@@ -1612,6 +1731,7 @@ async function run() {
     try {
         await checkMarketPulseHome(page, errors, requestLog);
         await checkMarketsList(page, errors, requestLog);
+        await checkAdvancedScreener(page, errors, requestLog);
         await checkCoinDetail(page, errors, requestLog);
         await checkCoinChartVisualization(page, errors, requestLog);
         await checkCoinChartFailureFallback(page, errors, requestLog);
