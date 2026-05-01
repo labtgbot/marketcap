@@ -40,6 +40,11 @@ function assertEqual(actual, expected, label) {
     }
 }
 
+function assertURLParam(urlString, param, expected, label) {
+    const actual = new URL(urlString).searchParams.get(param);
+    assertEqual(actual, expected, label);
+}
+
 function lastRequest(requests, label) {
     if (!requests.length) {
         fail(`${label}: expected a matching API request`);
@@ -216,6 +221,8 @@ function startServer() {
             TONBANKCARD_BASE_URL: `${baseURL}/`,
             TONBANKCARD_LOCAL_BASE_URL: `${baseURL}/`,
             TONBANKCARD_CDN: 'false',
+            TONBANKCARD_FEATURE_CHANGENOW: 'true',
+            CHANGENOW_LINK_ID: '3cc0024a18fd9d',
         },
         stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -244,6 +251,22 @@ async function stopServer() {
 }
 
 async function installRoutes(context, requestLog) {
+    await context.route('https://changenow.io/embeds/**', route => {
+        if (route.request().url().endsWith('.js')) {
+            return route.fulfill({
+                status: 200,
+                contentType: 'application/javascript',
+                body: 'window.__tbcChangeNowConnectorLoaded = true;',
+            });
+        }
+
+        return route.fulfill({
+            status: 200,
+            contentType: 'text/html',
+            body: '<!doctype html><title>ChangeNOW test widget</title><main>ChangeNOW widget placeholder</main>',
+        });
+    });
+
     await context.route(`${baseURL}/api/search**`, route => {
         const url = new URL(route.request().url());
         requestLog.searches.push({
@@ -391,7 +414,12 @@ async function installRoutes(context, requestLog) {
             return fulfillMarketJson(route, coinDetail('toncoin', 'ton', 'Toncoin', 12, 6.5));
         }
 
-        if (apiPath === 'coins/bitcoin/market_chart' || apiPath === 'coins/toncoin/market_chart') {
+        if (apiPath === 'coins/unsupported-coin') {
+            requestLog.coinDetails.push(requestRecord(url));
+            return fulfillMarketJson(route, coinDetail('unsupported-coin', 'zzzz', 'Unsupported Coin', 999, 1));
+        }
+
+        if (apiPath === 'coins/bitcoin/market_chart' || apiPath === 'coins/toncoin/market_chart' || apiPath === 'coins/unsupported-coin/market_chart') {
             requestLog.marketCharts.push(requestRecord(url));
             return fulfillMarketJson(route, marketChart());
         }
@@ -478,7 +506,7 @@ async function checkMarketsList(page, errors, requestLog) {
 }
 
 async function checkCoinDetail(page, errors, requestLog) {
-    log('Checking coin detail, chart tab, and converter regression coverage');
+    log('Checking coin detail, chart tab, and ChangeNOW widget regression coverage');
     requestLog.coinDetails = [];
     requestLog.marketCharts = [];
 
@@ -487,10 +515,21 @@ async function checkCoinDetail(page, errors, requestLog) {
     await page.getByText('Bitcoin Price', {exact: false}).first().waitFor({state: 'visible'});
     await page.getByText('Rank #1', {exact: false}).first().waitFor({state: 'visible'});
     await page.locator('.gc-currency-chart-container canvas').first().waitFor({state: 'visible'});
-    await page.locator('.gc-currency-converter').waitFor({state: 'visible'});
-    await page.locator('.gc-currency-converter input').first().waitFor({state: 'visible'});
-    await page.getByText('Buy', {exact: true}).first().waitFor({state: 'visible'});
-    await page.getByText('Sell', {exact: true}).first().waitFor({state: 'visible'});
+    await page.locator('.currency-exchange-widget[data-widget-status="ready"]').waitFor({state: 'visible'});
+    await page.locator('.currency-exchange-widget iframe').waitFor({state: 'attached'});
+    await page.getByRole('button', {name: /Add to watchlist/i}).first().waitFor({state: 'visible'});
+    await page.getByRole('button', {name: /Create alert/i}).first().waitFor({state: 'visible'});
+    await page.getByRole('button', {name: /Share Bitcoin/i}).first().waitFor({state: 'visible'});
+
+    const bitcoinWidgetSrc = await page.locator('.currency-exchange-widget iframe').first().getAttribute('src');
+    assertURLParam(bitcoinWidgetSrc, 'from', 'btc', 'Bitcoin widget from asset');
+    assertURLParam(bitcoinWidgetSrc, 'to', 'usdtton', 'Bitcoin widget target asset');
+    assertURLParam(bitcoinWidgetSrc, 'link_id', '3cc0024a18fd9d', 'Bitcoin widget partner link id');
+    assertURLParam(bitcoinWidgetSrc, 'primaryColor', '1bb2da', 'Bitcoin widget primary color');
+    assertURLParam(bitcoinWidgetSrc, 'backgroundColor', 'f6fafd', 'Bitcoin widget background color');
+
+    const converterCount = await page.locator('.gc-currency-converter').count();
+    assertEqual(converterCount, 0, 'legacy converter count');
 
     const detailRequest = lastRequest(requestLog.coinDetails, 'coin detail request');
     assertEqual(detailRequest.path, 'coins/bitcoin', 'coin detail path');
@@ -504,6 +543,46 @@ async function checkCoinDetail(page, errors, requestLog) {
     assertEqual(chartRequest.params.vs_currency, 'usd', 'coin chart vs_currency');
     assertEqual(chartRequest.params.days, '30', 'coin chart default interval');
     await assertNoErrors(errors, 'coin detail');
+}
+
+async function checkToncoinChangeNowDefaults(page, errors, requestLog) {
+    log('Checking Toncoin ChangeNOW defaults and TON indicators');
+    requestLog.coinDetails = [];
+
+    await page.goto(`${baseURL}/currency/toncoin`, {waitUntil: 'domcontentloaded'});
+    await page.locator('#currency').waitFor({state: 'visible'});
+    await page.getByText('Toncoin Price', {exact: false}).first().waitFor({state: 'visible'});
+    await page.locator('.currency-ton-asset-chip', {hasText: 'TON ecosystem'}).waitFor({state: 'visible'});
+    await page.locator('.currency-exchange-widget[data-widget-status="ready"]').waitFor({state: 'visible'});
+
+    const tonWidgetSrc = await page.locator('.currency-exchange-widget iframe').first().getAttribute('src');
+    assertURLParam(tonWidgetSrc, 'from', 'ton', 'Toncoin widget from asset');
+    assertURLParam(tonWidgetSrc, 'to', 'usdtton', 'Toncoin widget target asset');
+    assertURLParam(tonWidgetSrc, 'link_id', '3cc0024a18fd9d', 'Toncoin widget partner link id');
+    assertURLParam(tonWidgetSrc, 'primaryColor', '1bb2da', 'Toncoin widget primary color');
+    assertURLParam(tonWidgetSrc, 'backgroundColor', 'f6fafd', 'Toncoin widget background color');
+
+    const detailRequest = lastRequest(requestLog.coinDetails, 'Toncoin detail request');
+    assertEqual(detailRequest.path, 'coins/toncoin', 'Toncoin detail path');
+    await assertNoErrors(errors, 'Toncoin ChangeNOW defaults');
+}
+
+async function checkUnsupportedCoinFallback(page, errors, requestLog) {
+    log('Checking unsupported coin ChangeNOW fallback');
+    requestLog.coinDetails = [];
+
+    await page.goto(`${baseURL}/currency/unsupported-coin`, {waitUntil: 'domcontentloaded'});
+    await page.locator('#currency').waitFor({state: 'visible'});
+    await page.getByText('Unsupported Coin Price', {exact: false}).first().waitFor({state: 'visible'});
+    await page.locator('.currency-exchange-widget[data-widget-status="unsupported"]').waitFor({state: 'visible'});
+    await page.getByText('ChangeNOW does not list this asset for the embedded widget yet.', {exact: false}).first().waitFor({state: 'visible'});
+
+    const frameCount = await page.locator('.currency-exchange-widget iframe').count();
+    assertEqual(frameCount, 0, 'unsupported coin iframe count');
+
+    const detailRequest = lastRequest(requestLog.coinDetails, 'unsupported coin detail request');
+    assertEqual(detailRequest.path, 'coins/unsupported-coin', 'unsupported coin detail path');
+    await assertNoErrors(errors, 'unsupported coin ChangeNOW fallback');
 }
 
 async function checkExchangesList(page, errors, requestLog) {
@@ -629,6 +708,31 @@ async function checkResponsiveDesignSystem(page, errors) {
         fail(`Theme color meta did not follow Telegram or Vuetify theme: ${JSON.stringify(result)}`);
     }
 
+    await page.goto(`${baseURL}/currency/toncoin`, {waitUntil: 'domcontentloaded'});
+    await page.locator('#currency').waitFor({state: 'visible'});
+    await page.locator('.currency-ton-asset-chip', {hasText: 'TON ecosystem'}).waitFor({state: 'visible'});
+    await page.locator('.currency-exchange-widget[data-widget-status="ready"]').waitFor({state: 'visible'});
+
+    const coinDetailResult = await page.evaluate(() => {
+        const root = document.documentElement;
+        const widget = document.querySelector('.currency-exchange-widget');
+        const widgetBox = widget ? widget.getBoundingClientRect() : null;
+
+        return {
+            viewportWidth: window.innerWidth,
+            scrollWidth: Math.max(root.scrollWidth, document.body.scrollWidth),
+            widgetWidth: widgetBox ? widgetBox.width : 0,
+        };
+    });
+
+    if (coinDetailResult.scrollWidth > coinDetailResult.viewportWidth) {
+        fail(`360px coin detail viewport overflowed: ${JSON.stringify(coinDetailResult)}`);
+    }
+
+    if (coinDetailResult.widgetWidth <= 0 || coinDetailResult.widgetWidth > coinDetailResult.viewportWidth) {
+        fail(`Mobile ChangeNOW widget was not sized inside the viewport: ${JSON.stringify(coinDetailResult)}`);
+    }
+
     await assertNoErrors(errors, 'responsive design system');
 }
 
@@ -673,6 +777,8 @@ async function run() {
         await checkMarketPulseHome(page, errors, requestLog);
         await checkMarketsList(page, errors, requestLog);
         await checkCoinDetail(page, errors, requestLog);
+        await checkToncoinChangeNowDefaults(page, errors, requestLog);
+        await checkUnsupportedCoinFallback(page, errors, requestLog);
         await checkExchangesList(page, errors, requestLog);
         await checkSearchInteraction(page, errors, requestLog);
         await checkResponsiveDesignSystem(page, errors);

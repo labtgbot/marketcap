@@ -60,7 +60,81 @@ $route_currency['scores'] = TRUE;
 | DESCRIPTION: Set TRUE to display currency converter component.
 |
 */
-$route_currency['converter'] = TRUE;
+$route_currency['converter'] = FALSE;
+
+/*
+| -------------------------------------------------------------------------
+| EXCHANGE WIDGET
+| -------------------------------------------------------------------------
+| TYPE: array
+| DESCRIPTION: ChangeNOW partner widget defaults for the V2 coin detail page.
+|
+*/
+$runtime_config = isset( $GLOBALS['runtime_config'] ) && is_array( $GLOBALS['runtime_config'] ) ? $GLOBALS['runtime_config'] : [];
+$changenow_link_id = '';
+if ( ! empty( $runtime_config['providers']['changenow']['link_id'] ) ) {
+    $changenow_link_id = trim( (string) $runtime_config['providers']['changenow']['link_id'] );
+}
+
+$route_currency['exchange_widget'] = [
+    'enabled'            => ! empty( $runtime_config['feature_flags']['changenow'] ),
+    'provider'           => 'ChangeNOW',
+    'widgetUrl'          => 'https://changenow.io/embeds/exchange-widget/v2/widget.html',
+    'connectorScriptUrl' => 'https://changenow.io/embeds/exchange-widget/v2/stepper-connector.js',
+    'linkId'             => '' === $changenow_link_id ? '3cc0024a18fd9d' : $changenow_link_id,
+    'defaults'           => [
+        'FAQ'             => 'true',
+        'amount'          => '0.1',
+        'amountFiat'      => '1500',
+        'backgroundColor' => 'f6fafd',
+        'darkMode'        => 'false',
+        'from'            => 'ton',
+        'fromFiat'        => 'eur',
+        'horizontal'      => 'false',
+        'isFiat'          => '',
+        'lang'            => 'en-US',
+        'locales'         => 'true',
+        'logo'            => 'true',
+        'primaryColor'    => '1bb2da',
+        'to'              => 'usdtton',
+        'toFiat'          => 'eth',
+        'toTheMoon'       => 'true',
+    ],
+    'supportedAssets'    => [
+        'ids'     => [
+            'toncoin'     => [ 'from' => 'ton', 'to' => 'usdtton', 'label' => 'Toncoin', 'network' => 'TON' ],
+            'bitcoin'     => [ 'from' => 'btc', 'label' => 'Bitcoin' ],
+            'ethereum'    => [ 'from' => 'eth', 'label' => 'Ethereum' ],
+            'litecoin'    => [ 'from' => 'ltc', 'label' => 'Litecoin' ],
+            'ripple'      => [ 'from' => 'xrp', 'label' => 'XRP' ],
+            'dogecoin'    => [ 'from' => 'doge', 'label' => 'Dogecoin' ],
+            'tron'        => [ 'from' => 'trx', 'label' => 'TRON' ],
+            'solana'      => [ 'from' => 'sol', 'label' => 'Solana' ],
+            'cardano'     => [ 'from' => 'ada', 'label' => 'Cardano' ],
+            'polkadot'    => [ 'from' => 'dot', 'label' => 'Polkadot' ],
+            'chainlink'   => [ 'from' => 'link', 'label' => 'Chainlink' ],
+            'avalanche-2' => [ 'from' => 'avaxc', 'label' => 'Avalanche C-Chain' ],
+            'binancecoin' => [ 'from' => 'bnbbsc', 'label' => 'BNB Smart Chain' ],
+        ],
+        'symbols' => [
+            'ton'  => [ 'from' => 'ton', 'to' => 'usdtton', 'label' => 'Toncoin', 'network' => 'TON' ],
+            'btc'  => [ 'from' => 'btc', 'label' => 'Bitcoin' ],
+            'eth'  => [ 'from' => 'eth', 'label' => 'Ethereum' ],
+            'ltc'  => [ 'from' => 'ltc', 'label' => 'Litecoin' ],
+            'xrp'  => [ 'from' => 'xrp', 'label' => 'XRP' ],
+            'doge' => [ 'from' => 'doge', 'label' => 'Dogecoin' ],
+            'trx'  => [ 'from' => 'trx', 'label' => 'TRON' ],
+            'sol'  => [ 'from' => 'sol', 'label' => 'Solana' ],
+            'ada'  => [ 'from' => 'ada', 'label' => 'Cardano' ],
+            'dot'  => [ 'from' => 'dot', 'label' => 'Polkadot' ],
+            'link' => [ 'from' => 'link', 'label' => 'Chainlink' ],
+            'avax' => [ 'from' => 'avaxc', 'label' => 'Avalanche C-Chain' ],
+            'bnb'  => [ 'from' => 'bnbbsc', 'label' => 'BNB Smart Chain' ],
+        ],
+    ],
+];
+
+$frontend_options['currency']['exchangeWidget'] = $route_currency['exchange_widget'];
 
 /*
 | -------------------------------------------------------------------------
@@ -143,9 +217,28 @@ foreach ( $route_currency['tabs'] as $tab ) {
                     <v-chip label outlined :ripple="false" v-if="currency.market_cap_rank">
                         <?php echo esc_html( __( 'Rank' ) ); ?> #{{ currency.market_cap_rank }}
                     </v-chip>
+                    <v-chip label outlined color="primary" class="currency-ton-asset-chip" :ripple="false" v-if="currency.isTonAsset">
+                        <v-icon left small>mdi-diamond-stone</v-icon>
+                        <?php echo esc_html( __( 'TON ecosystem' ) ); ?>
+                    </v-chip>
                     <v-chip label outlined :ripple="false" v-text="currency.category" v-if="currency.category"></v-chip>
                     <v-chip label outlined :ripple="false" v-text="currency.hashing_algorithm" v-if="currency.hashing_algorithm"></v-chip>
                 </v-chip-group>
+
+                <div class="currency-actions mb-4">
+                    <v-btn small outlined color="primary" :aria-label="watchlistButtonLabel" @click="toggleWatchlist">
+                        <v-icon left small v-text="isInWatchlist ? 'mdi-star' : 'mdi-star-outline'"></v-icon>
+                        {{ isInWatchlist ? 'Watching' : 'Watchlist' }}
+                    </v-btn>
+                    <v-btn small outlined color="primary" :aria-label="alertButtonLabel" @click="prepareAlertDraft">
+                        <v-icon left small>mdi-bell-outline</v-icon>
+                        <?php echo esc_html( __( 'Alert' ) ); ?>
+                    </v-btn>
+                    <v-btn small outlined color="primary" :aria-label="shareButtonLabel" @click="shareCurrency">
+                        <v-icon left small>mdi-share-variant</v-icon>
+                        <?php echo esc_html( __( 'Share' ) ); ?>
+                    </v-btn>
+                </div>
 
                 <div id="currency-info-menus">
                     <?php
@@ -382,34 +475,19 @@ foreach ( $route_currency['tabs'] as $tab ) {
 
         <?php
         /*
-         * Converter
+         * Exchange Widget
          */
-        if ( ! empty( $route_currency['converter'] ) ) {
-            ?>
-            <div class="my-6">
-                <v-divider></v-divider>
-
-                <gc-currency-converter
-                    :base-symbol="currency.symbol"
-                    :quote-symbol="$root.vsCurrencyId"
-                    :rate="currency.currentPrice"
-                    :buy-href="currency.url"
-                    :sell-href="currency.url"
-                    class="py-4"
-                ></gc-currency-converter>
-
-                <v-divider></v-divider>
-            </div>
-            <?php
-        }
         ?>
+        <div class="my-6">
+            <gc-currency-exchange-widget :currency="currency"></gc-currency-exchange-widget>
+        </div>
 
         <?php
         /*
          * Indicators & Information
          */
         ?>
-        <v-row class="my-6">
+        <v-row class="my-6 currency-stats-row">
             <v-col cols="6" sm="4" md="3" v-if="currency.marketCap">
                 <div class="font-weight-medium text--secondary"><?php echo esc_html( __( 'Market Cap' ) ); ?></div>
                 <div class="font-weight-bold" v-text="$root.marketCapFormat(currency.marketCap)"></div>
@@ -507,6 +585,10 @@ foreach ( $route_currency['tabs'] as $tab ) {
                 </v-tabs-items>
             </v-card-text>
         </v-card>
+
+        <v-snackbar v-model="actionNoticeModel" timeout="2400">
+            {{ actionNotice }}
+        </v-snackbar>
 
     </v-container>
 </section>
