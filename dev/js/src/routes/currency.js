@@ -1,4 +1,4 @@
-(function (window, CoinGecko, GeckoClient) {
+(function (window, _, CoinGecko, GeckoClient) {
     'use strict';
 
     const setTitle = GeckoClient.setTitle;
@@ -90,6 +90,40 @@
                 },
                 shareButtonLabel: function () {
                     return this.currency ? 'Share ' + this.currency.name : 'Share coin';
+                },
+                coinInsightContext: function () {
+                    if (!this.currency || !GeckoClient.ai) return null;
+
+                    return {
+                        insight_type: 'coin_summary',
+                        subject: this.currency.name + ' (' + _.toUpper(this.currency.symbol) + ')',
+                        market_data_age_seconds: this.currencyMarketAgeSeconds(),
+                        market_data_updated_at: this.currencyMarketUpdatedAt(),
+                        market_data: this.currencyInsightMarketData()
+                    };
+                },
+                alertInsightContext: function () {
+                    if (!this.currency || !GeckoClient.ai) return null;
+
+                    return {
+                        insight_type: 'alert_explanation',
+                        subject: 'Alert context for ' + this.currency.name,
+                        market_data_age_seconds: this.currencyMarketAgeSeconds(),
+                        market_data_updated_at: this.currencyMarketUpdatedAt(),
+                        market_data: Object.assign(
+                            this.currencyInsightMarketData(),
+                            {
+                                watchlisted: this.isWatched(this.currency),
+                                alert_context: {
+                                    current_price: this.currency.currentPrice,
+                                    high_24h: this.currency.high24h,
+                                    low_24h: this.currency.low24h,
+                                    change_24h_percent: this.currency.change24hPercent,
+                                    volume_market_cap_ratio: this.currency.volumePerMarketCap
+                                }
+                            }
+                        )
+                    };
                 }
             },
             methods: {
@@ -190,6 +224,38 @@
                 },
                 vsConverted: function (priceObj) {
                     return _.get(priceObj, this.$root.vsCurrencyId, null);
+                },
+                currencyMarketUpdatedAt: function () {
+                    return _.get(this.currency, 'last_updated') || _.get(this.currency, 'market_data.last_updated') || null;
+                },
+                currencyMarketAgeSeconds: function () {
+                    return GeckoClient.ai ? GeckoClient.ai.marketDataAgeSeconds({last_updated_at: this.currencyMarketUpdatedAt()}) : 0;
+                },
+                currencyInsightMarketData: function () {
+                    const currency = this.currency || {};
+                    return {
+                        vs_currency: this.$root.vsCurrencyId,
+                        asset: {
+                            id: currency.id,
+                            symbol: currency.symbol,
+                            name: currency.name,
+                            rank: currency.market_cap_rank,
+                            price: currency.currentPrice,
+                            change_24h_percent: currency.change24hPercent,
+                            market_cap: currency.marketCap,
+                            market_cap_change_24h: currency.marketCapChange24h,
+                            market_cap_change_24h_percent: currency.marketCapChange24hPercent,
+                            volume_24h: currency.totalVolume,
+                            circulating_supply: currency.circulatingSupply,
+                            total_supply: currency.totalSupply,
+                            volume_market_cap_ratio: currency.volumePerMarketCap,
+                            is_ton_asset: currency.isTonAsset
+                        },
+                        community_score: _.get(currency, 'community_score', null),
+                        developer_score: _.get(currency, 'developer_score', null),
+                        liquidity_score: _.get(currency, 'liquidity_score', null),
+                        coingecko_score: _.get(currency, 'coingecko_score', null)
+                    };
                 },
                 prepareAlertDraft: function () {
                     if (!this.currency) return;
@@ -356,4 +422,4 @@
         });
     }
 
-})(window, CoinGecko, GeckoClient);
+})(window, _, CoinGecko, GeckoClient);

@@ -19,6 +19,11 @@ Telegram session context added for issue #13 lives in:
 - `database/migrations/0002_telegram_session_context.up.sql`
 - `database/migrations/0002_telegram_session_context.down.sql`
 
+AI insight card feedback added for issue #28 lives in:
+
+- `database/migrations/0004_ai_feedback.up.sql`
+- `database/migrations/0004_ai_feedback.down.sql`
+
 ## Data Minimization
 
 - Store raw Telegram identity only where the application needs it for trusted
@@ -34,6 +39,9 @@ Telegram session context added for issue #13 lives in:
 - Store AI insight cache metadata rather than raw prompts or full model
   responses. `ai_insight_cache` tracks provider, model, prompt version, market
   data hash, safety state, output hash, response reference, and expiry.
+- Store AI insight feedback for admin review with hashed subjects and session
+  tokens only. `ai_feedback` must not contain raw prompts, raw provider
+  responses, or raw insight subject text.
 - Store provider secrets outside the database when possible. `provider_settings`
   uses `secret_ref` for secret-manager references and `value_is_secret` to
   prevent secret values from being shown in admin diffs.
@@ -55,6 +63,7 @@ Telegram session context added for issue #13 lives in:
 | `referral_campaigns` | Campaign definitions for referral and share attribution. | Campaign metadata only. |
 | `referral_attributions` | First-touch referral attribution for trusted Telegram users. | Uses internal ids and payload hashes so raw invite payloads are not retained. |
 | `ai_insight_cache` | AI insight cache metadata and expiry. | Stores hashes and references, not raw prompts or full model responses. |
+| `ai_feedback` | AI insight card feedback for admin review. | Stores feedback type, provider metadata, route metadata, hashed subjects, and sanitized metadata only. |
 | `admin_users` | Operator accounts for support, content, admin, and owner roles. | Uses hashed email identity by default. |
 | `provider_settings` | Provider settings for CoinGecko, Groq, Upstash, ChangeNOW, Telegram, and future providers. | Secrets are stored as `secret_ref` references, not plaintext values. |
 | `feature_flags` | Runtime feature controls for AI, alerts, ChangeNOW, TON Connect, referrals, gamification, and premium. | Rule JSON must not contain secrets. |
@@ -82,6 +91,7 @@ and the issue #10 analytics/privacy baseline:
 | Report inviter attribution. | `idx_referral_attributions_inviter` |
 | Resolve AI cache entries by hashed cache key. | `uniq_ai_insight_cache_key` |
 | Expire AI cache metadata. | `idx_ai_insight_cache_expires` |
+| Review AI insight card feedback by status, type, insight type, provider, or user. | `idx_ai_feedback_review`, `idx_ai_feedback_insight`, `idx_ai_feedback_user` |
 | Read provider settings by provider. | `idx_provider_settings_provider_enabled` |
 | Read enabled feature flags. | `idx_feature_flags_enabled` |
 | Review audit logs by actor. | `idx_admin_audit_logs_actor` |
@@ -177,6 +187,7 @@ database.
 | Alert delivery records | Keep 180 days after delivery or 90 days after alert deletion, whichever is earlier. |
 | Referral attribution | Keep 180 days for MVP attribution reporting, then aggregate or anonymize. |
 | AI insight cache metadata | Purge expired rows after 30 days unless retained for a short incident review. |
+| AI insight feedback | Keep pending feedback until reviewed; purge or anonymize reviewed rows after the admin review period selected before launch. |
 | Provider settings and feature flags | Keep current values and audit changes; secrets remain in the secret store. |
 | Admin audit logs | Keep at least 365 days for support, security, and configuration accountability. |
 | Premium entitlements | Keep active entitlement rows and retain expired/revoked rows for the business/accounting period selected before launch. |

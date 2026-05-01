@@ -316,21 +316,13 @@ $frontend_options['currencies']['tonCoinIds'] = [
             </v-col>
 
             <v-col cols="12" md="6" lg="4">
-                <v-card class="market-pulse-panel" outlined>
-                    <v-card-title class="text-subtitle-1 font-weight-bold">
-                        <v-icon left color="primary">mdi-brain</v-icon>
-                        <?php echo esc_html( __( 'AI market summary' ) ); ?>
-                    </v-card-title>
-                    <v-divider></v-divider>
-                    <v-card-text>
-                        <div class="font-weight-medium mb-2">
-                            <?php echo esc_html( __( 'Provider-backed insight placeholder' ) ); ?>
-                        </div>
-                        <div class="text--secondary">
-                            <?php echo esc_html( __( 'AI summaries will appear here after validated market signals, cache freshness, and safety checks are available.' ) ); ?>
-                        </div>
-                    </v-card-text>
-                </v-card>
+                <gc-ai-insight-card
+                    class="market-pulse-panel"
+                    title="<?php echo esc_attr( __( 'AI market summary' ) ); ?>"
+                    icon="mdi-brain"
+                    :context="marketInsightContext"
+                    source-route="market_pulse"
+                ></gc-ai-insight-card>
             </v-col>
         </v-row>
     </v-container>

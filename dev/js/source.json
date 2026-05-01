@@ -4,6 +4,8 @@
   "observability.js",
   "coingecko.js",
   "watchlist.js",
+  "ai.js",
+  "components/ai-insight-card.js",
   "components/cookies-dialog.js",
   "components/currency-chart.js",
   "components/currency-converter.js",

@@ -121,6 +121,10 @@ $api = [
         'prompt_version'    => $api_runtime['ai']['prompt_version'],
         'enabled_features'  => $api_runtime['ai']['enabled_features'],
         'fallback_behavior' => $api_runtime['ai']['fallback_behavior'],
+        'feedback_store_path' => (string) tonbankcard_env(
+            'TONBANKCARD_AI_FEEDBACK_STORE',
+            sys_get_temp_dir() . '/tonbankcard-marketcap-ai-feedback.json'
+        ),
         'safety'            => [
             'require_not_financial_advice' => TRUE,
             'require_uncertainty'          => TRUE,

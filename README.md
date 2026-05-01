@@ -141,6 +141,8 @@ See [docs/v2-ai-provider-foundation.md](docs/v2-ai-provider-foundation.md) for t
 
 See [docs/v2-ai-sentiment-ingestion.md](docs/v2-ai-sentiment-ingestion.md) for the deterministic sentiment ingestion and scoring pipeline from issue #27.
 
+See [docs/v2-ai-insight-cards.md](docs/v2-ai-insight-cards.md) for the AI insight card surfaces, safety controls, feedback storage, and regression coverage from issue #28.
+
 See [docs/v2-responsive-design-system.md](docs/v2-responsive-design-system.md) for the responsive TONBANKCARD design tokens, Telegram theme behavior, safe-area rules, accessibility states, and dense desktop/mobile UI guidance from issue #19.
 
 See [docs/v2-pwa-telegram-webapp.md](docs/v2-pwa-telegram-webapp.md) for the PWA install shell, service worker strategy, offline fallback, and Telegram WebApp adapter behavior from issue #26.

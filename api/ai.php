@@ -30,7 +30,24 @@ function tonbankcard_api_ai_routes() {
     return [
         '/api/ai',
         '/api/ai/insight',
+        '/api/ai/feedback',
         '/api/ai/sentiment-inputs',
+    ];
+}
+
+/**
+ * Returns the AI insight types accepted by the public API.
+ *
+ * @return array
+ */
+function tonbankcard_api_ai_allowed_insight_types() {
+    return [
+        'market_summary',
+        'coin_summary',
+        'watchlist_digest',
+        'ton_ecosystem_pulse',
+        'alert_explanation',
+        'sentiment',
     ];
 }
 
@@ -62,6 +79,14 @@ function tonbankcard_api_ai_handle( array $request, array $runtime, array $confi
             $request_id,
             $headers
         );
+    }
+
+    if ( '/api/ai/feedback' === $path ) {
+        if ( 'POST' !== $request['method'] ) {
+            return tonbankcard_api_method_not_allowed_response( [ 'POST', 'OPTIONS' ], $request_id, $headers );
+        }
+
+        return tonbankcard_api_ai_feedback_response( $request, $runtime, $config, $provider, $request_id, $headers );
     }
 
     if ( '/api/ai/sentiment-inputs' === $path && function_exists( 'tonbankcard_api_ai_sentiment_handle' ) ) {
@@ -208,7 +233,7 @@ function tonbankcard_api_ai_provider_health_check( array $runtime, array $config
  */
 function tonbankcard_api_ai_validate_request_payload( array $payload ) {
     $type = isset( $payload['insight_type'] ) ? strtolower( trim( (string) $payload['insight_type'] ) ) : '';
-    $allowed_types = [ 'market_summary', 'coin_summary', 'watchlist_digest', 'alert_explanation', 'sentiment' ];
+    $allowed_types = tonbankcard_api_ai_allowed_insight_types();
     if ( ! in_array( $type, $allowed_types, TRUE ) ) {
         return [
             'ok'      => FALSE,
@@ -260,7 +285,7 @@ function tonbankcard_api_ai_feature_for_insight_type( string $type ) {
     if ( 'sentiment' === $type ) {
         return 'sentiment';
     }
-    if ( in_array( $type, [ 'market_summary', 'coin_summary', 'watchlist_digest' ], TRUE ) ) {
+    if ( in_array( $type, [ 'market_summary', 'coin_summary', 'watchlist_digest', 'ton_ecosystem_pulse' ], TRUE ) ) {
         return 'summary';
     }
 
@@ -317,6 +342,360 @@ function tonbankcard_api_ai_insight_response( array $context, array $runtime, ar
             'cost'     => $execution['cost'],
         ]
     );
+}
+
+/**
+ * Validates and stores an AI insight feedback event for admin review.
+ *
+ * @param array $request
+ * @param array $runtime
+ * @param array $config
+ * @param array $provider
+ * @param string $request_id
+ * @param array $headers
+ * @return array
+ */
+function tonbankcard_api_ai_feedback_response( array $request, array $runtime, array $config, array $provider, string $request_id, array $headers ) {
+    $validation = tonbankcard_api_ai_validate_feedback_payload( tonbankcard_api_json_body( $request ) );
+    if ( empty( $validation['ok'] ) ) {
+        return tonbankcard_api_error_response(
+            400,
+            isset( $validation['code'] ) ? $validation['code'] : 'invalid_ai_feedback',
+            isset( $validation['message'] ) ? $validation['message'] : 'The AI feedback payload is invalid.',
+            isset( $validation['details'] ) && is_array( $validation['details'] ) ? $validation['details'] : [],
+            $request_id,
+            $headers
+        );
+    }
+
+    $feedback = tonbankcard_api_ai_feedback_record(
+        $validation['feedback'],
+        $request,
+        $provider,
+        $request_id
+    );
+    $stored = tonbankcard_api_ai_store_feedback( $feedback, $runtime, $config );
+    if ( empty( $stored['ok'] ) ) {
+        return tonbankcard_api_error_response(
+            503,
+            'ai_feedback_store_unavailable',
+            'AI feedback could not be stored for review.',
+            [ 'storage' => isset( $stored['storage'] ) ? $stored['storage'] : 'database' ],
+            $request_id,
+            $headers
+        );
+    }
+
+    return tonbankcard_api_success_response(
+        [
+            'status'   => 'stored',
+            'storage'  => isset( $stored['storage'] ) ? $stored['storage'] : 'database',
+            'feedback' => [
+                'feedback_type' => $feedback['feedback_type'],
+                'insight_type'  => $feedback['insight_type'],
+                'review_state'  => $feedback['review_state'],
+            ],
+        ],
+        $request_id,
+        $headers
+    );
+}
+
+/**
+ * Validates an AI feedback payload before it can be persisted.
+ *
+ * @param array $payload
+ * @return array
+ */
+function tonbankcard_api_ai_validate_feedback_payload( array $payload ) {
+    $feedback_type = isset( $payload['feedback_type'] ) ? strtolower( trim( (string) $payload['feedback_type'] ) ) : '';
+    $allowed_feedback = [ 'helpful', 'stale', 'wrong', 'unsafe' ];
+    if ( ! in_array( $feedback_type, $allowed_feedback, TRUE ) ) {
+        return [
+            'ok'      => FALSE,
+            'code'    => 'unsupported_feedback_type',
+            'message' => 'AI feedback_type is not supported.',
+            'details' => [ 'allowed' => $allowed_feedback ],
+        ];
+    }
+
+    $insight_type = isset( $payload['insight_type'] ) ? strtolower( trim( (string) $payload['insight_type'] ) ) : '';
+    $allowed_insights = tonbankcard_api_ai_allowed_insight_types();
+    if ( ! in_array( $insight_type, $allowed_insights, TRUE ) ) {
+        return [
+            'ok'      => FALSE,
+            'code'    => 'unsupported_insight_type',
+            'message' => 'AI insight_type is not supported for feedback.',
+            'details' => [ 'allowed' => $allowed_insights ],
+        ];
+    }
+
+    $insight_id = isset( $payload['insight_id'] ) ? strtolower( trim( (string) $payload['insight_id'] ) ) : '';
+    if ( ! preg_match( '/^[a-f0-9]{64}$/', $insight_id ) ) {
+        return [
+            'ok'      => FALSE,
+            'code'    => 'invalid_insight_id',
+            'message' => 'AI feedback requires a valid insight_id.',
+            'details' => [ 'field' => 'insight_id' ],
+        ];
+    }
+
+    $age = null;
+    if ( isset( $payload['market_data_age_seconds'] ) && is_numeric( $payload['market_data_age_seconds'] ) ) {
+        $age = max( 0, (int) $payload['market_data_age_seconds'] );
+    }
+
+    $surface = isset( $payload['surface'] ) ? strtolower( trim( (string) $payload['surface'] ) ) : 'public_web';
+    $allowed_surfaces = [ 'public_web', 'mobile_web', 'telegram_mini_app', 'telegram_bot', 'admin' ];
+    if ( ! in_array( $surface, $allowed_surfaces, TRUE ) ) {
+        $surface = 'public_web';
+    }
+
+    return [
+        'ok'       => TRUE,
+        'feedback' => [
+            'feedback_type'            => $feedback_type,
+            'insight_type'             => $insight_type,
+            'insight_id'               => $insight_id,
+            'subject_hash'             => tonbankcard_api_ai_subject_hash( isset( $payload['subject'] ) ? (string) $payload['subject'] : '' ),
+            'provider'                 => isset( $payload['provider'] ) ? tonbankcard_api_ai_clean_identifier( (string) $payload['provider'], 64 ) : null,
+            'model'                    => isset( $payload['model'] ) ? tonbankcard_api_ai_clean_text( (string) $payload['model'], 128 ) : null,
+            'prompt_version'           => isset( $payload['prompt_version'] ) ? tonbankcard_api_ai_clean_identifier( (string) $payload['prompt_version'], 64 ) : null,
+            'route_path'               => isset( $payload['route_path'] ) ? tonbankcard_api_ai_clean_text( (string) $payload['route_path'], 191 ) : null,
+            'source_route'             => isset( $payload['source_route'] ) ? tonbankcard_api_ai_clean_identifier( (string) $payload['source_route'], 80 ) : null,
+            'source_surface'           => $surface,
+            'market_data_age_seconds'  => $age,
+            'metadata'                 => tonbankcard_api_ai_sanitize_context( isset( $payload['metadata'] ) ? $payload['metadata'] : [] ),
+        ],
+    ];
+}
+
+/**
+ * Builds a durable AI feedback record without raw prompts, responses, or subjects.
+ *
+ * @param array $feedback
+ * @param array $request
+ * @param array $provider
+ * @param string $request_id
+ * @return array
+ */
+function tonbankcard_api_ai_feedback_record( array $feedback, array $request, array $provider, string $request_id ) {
+    $session_token = tonbankcard_api_session_token_from_request( $request );
+    $session_hash = tonbankcard_api_optional_hash( $session_token );
+
+    if ( empty( $feedback['provider'] ) ) {
+        $feedback['provider'] = $provider['name'];
+    }
+    if ( empty( $feedback['model'] ) ) {
+        $feedback['model'] = $provider['model_id'];
+    }
+    if ( empty( $feedback['prompt_version'] ) ) {
+        $feedback['prompt_version'] = $provider['prompt_version'];
+    }
+    if ( empty( $feedback['route_path'] ) ) {
+        $feedback['route_path'] = isset( $request['headers']['referer'] ) ? tonbankcard_api_ai_referer_path( (string) $request['headers']['referer'] ) : null;
+    }
+
+    $feedback['session_token_hash'] = $session_hash;
+    $feedback['user_id'] = null;
+    $feedback['request_id'] = substr( $request_id, 0, 128 );
+    $feedback['review_state'] = 'pending';
+    $feedback['created_at'] = tonbankcard_api_iso_datetime( time() );
+
+    return $feedback;
+}
+
+/**
+ * Stores AI feedback in MySQL/MariaDB or a local-only file fallback.
+ *
+ * @param array $feedback
+ * @param array $runtime
+ * @param array $config
+ * @return array
+ */
+function tonbankcard_api_ai_store_feedback( array $feedback, array $runtime, array $config ) {
+    $database_error = null;
+    $pdo = tonbankcard_api_session_database_connection( $runtime, $database_error );
+    if ( null !== $pdo ) {
+        try {
+            tonbankcard_api_ai_store_database_feedback( $pdo, $feedback );
+            return [
+                'ok'      => TRUE,
+                'storage' => 'database',
+            ];
+        } catch ( Throwable $error ) {
+            $database_error = 'AI feedback database write failed.';
+        }
+    }
+
+    if ( tonbankcard_api_local_browser_fallback_allowed( $runtime ) ) {
+        return tonbankcard_api_ai_store_local_feedback( $feedback, tonbankcard_api_ai_feedback_settings( $config ) );
+    }
+
+    return [
+        'ok'      => FALSE,
+        'storage' => 'database',
+        'error'   => $database_error,
+    ];
+}
+
+/**
+ * Returns AI feedback storage settings.
+ *
+ * @param array $config
+ * @return array
+ */
+function tonbankcard_api_ai_feedback_settings( array $config ) {
+    $ai = isset( $config['ai'] ) && is_array( $config['ai'] ) ? $config['ai'] : [];
+
+    return [
+        'local_feedback_store_path' => ! empty( $ai['feedback_store_path'] )
+            ? (string) $ai['feedback_store_path']
+            : sys_get_temp_dir() . '/tonbankcard-marketcap-ai-feedback.json',
+    ];
+}
+
+/**
+ * Persists AI feedback in the V2 database schema.
+ *
+ * @param PDO $pdo
+ * @param array $feedback
+ * @return void
+ */
+function tonbankcard_api_ai_store_database_feedback( PDO $pdo, array $feedback ) {
+    $feedback['user_id'] = tonbankcard_api_ai_feedback_user_id( $pdo, $feedback['session_token_hash'] );
+    $statement = $pdo->prepare(
+        'INSERT INTO ai_feedback (
+            user_id,
+            session_token_hash,
+            insight_id,
+            insight_type,
+            feedback_type,
+            provider,
+            model,
+            prompt_version,
+            subject_hash,
+            route_path,
+            source_route,
+            source_surface,
+            market_data_age_seconds,
+            request_id,
+            metadata_json,
+            review_state
+         )
+         VALUES (
+            :user_id,
+            :session_token_hash,
+            :insight_id,
+            :insight_type,
+            :feedback_type,
+            :provider,
+            :model,
+            :prompt_version,
+            :subject_hash,
+            :route_path,
+            :source_route,
+            :source_surface,
+            :market_data_age_seconds,
+            :request_id,
+            :metadata_json,
+            :review_state
+         )'
+    );
+    $statement->execute(
+        [
+            ':user_id'                 => $feedback['user_id'],
+            ':session_token_hash'      => $feedback['session_token_hash'],
+            ':insight_id'              => $feedback['insight_id'],
+            ':insight_type'            => $feedback['insight_type'],
+            ':feedback_type'           => $feedback['feedback_type'],
+            ':provider'                => $feedback['provider'],
+            ':model'                   => $feedback['model'],
+            ':prompt_version'          => $feedback['prompt_version'],
+            ':subject_hash'            => $feedback['subject_hash'],
+            ':route_path'              => $feedback['route_path'],
+            ':source_route'            => $feedback['source_route'],
+            ':source_surface'          => $feedback['source_surface'],
+            ':market_data_age_seconds' => $feedback['market_data_age_seconds'],
+            ':request_id'              => $feedback['request_id'],
+            ':metadata_json'           => tonbankcard_api_ai_metadata_json( $feedback['metadata'] ),
+            ':review_state'            => $feedback['review_state'],
+        ]
+    );
+}
+
+/**
+ * Resolves a trusted user id from the session hash when a database is available.
+ *
+ * @param PDO $pdo
+ * @param string|null $session_hash
+ * @return int|null
+ */
+function tonbankcard_api_ai_feedback_user_id( PDO $pdo, $session_hash ) {
+    if ( null === $session_hash ) {
+        return null;
+    }
+
+    $statement = $pdo->prepare(
+        'SELECT user_id
+         FROM user_sessions
+         WHERE session_token_hash = :session_token_hash
+            AND revoked_at IS NULL
+            AND expires_at > UTC_TIMESTAMP(6)
+         ORDER BY last_seen_at DESC
+         LIMIT 1'
+    );
+    $statement->execute( [ ':session_token_hash' => $session_hash ] );
+    $row = $statement->fetch();
+    if ( ! is_array( $row ) || empty( $row['user_id'] ) ) {
+        return null;
+    }
+
+    return (int) $row['user_id'];
+}
+
+/**
+ * Persists AI feedback to a local JSON file for local browser development.
+ *
+ * @param array $feedback
+ * @param array $settings
+ * @return array
+ */
+function tonbankcard_api_ai_store_local_feedback( array $feedback, array $settings ) {
+    $path = $settings['local_feedback_store_path'];
+    $dir = dirname( $path );
+    if ( ! is_dir( $dir ) && ! mkdir( $dir, 0700, TRUE ) ) {
+        return [
+            'ok'      => FALSE,
+            'storage' => 'local_file',
+        ];
+    }
+
+    $store = [ 'feedback' => [] ];
+    if ( is_readable( $path ) ) {
+        $decoded = json_decode( (string) file_get_contents( $path ), TRUE );
+        if ( is_array( $decoded ) ) {
+            $store = array_merge( $store, $decoded );
+        }
+    }
+    if ( empty( $store['feedback'] ) || ! is_array( $store['feedback'] ) ) {
+        $store['feedback'] = [];
+    }
+
+    $store['feedback'][] = $feedback;
+    $written = file_put_contents( $path, json_encode( $store, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE ), LOCK_EX );
+    if ( FALSE === $written ) {
+        return [
+            'ok'      => FALSE,
+            'storage' => 'local_file',
+        ];
+    }
+    @chmod( $path, 0600 );
+
+    return [
+        'ok'      => TRUE,
+        'storage' => 'local_file',
+    ];
 }
 
 /**
@@ -697,6 +1076,7 @@ function tonbankcard_api_ai_validate_provider_output( array $payload, array $con
     return [
         'ok'      => TRUE,
         'insight' => [
+            'id'          => tonbankcard_api_ai_insight_id( $context, $title, $summary, $sentiment, $confidence ),
             'type'        => $context['insight_type'],
             'title'       => $title,
             'summary'     => $summary,
@@ -724,6 +1104,94 @@ function tonbankcard_api_ai_validate_provider_output( array $payload, array $con
  */
 function tonbankcard_api_ai_contains_advice( string $text ) {
     return 1 === preg_match( '/\b(buy|sell|hold|short(?!-term)|long(?!-term)|leverage|take profit|stop loss|position size|all in)\b/i', $text );
+}
+
+/**
+ * Builds a stable public id for a validated AI insight.
+ *
+ * @param array $context
+ * @param string $title
+ * @param string $summary
+ * @param string $sentiment
+ * @param float $confidence
+ * @return string
+ */
+function tonbankcard_api_ai_insight_id( array $context, string $title, string $summary, string $sentiment, float $confidence ) {
+    return hash(
+        'sha256',
+        json_encode(
+            [
+                'type'       => isset( $context['insight_type'] ) ? $context['insight_type'] : '',
+                'subject'    => isset( $context['subject'] ) ? $context['subject'] : '',
+                'age'        => isset( $context['market_data_age_seconds'] ) ? (int) $context['market_data_age_seconds'] : 0,
+                'data_hash'  => hash( 'sha256', json_encode( isset( $context['market_data'] ) ? $context['market_data'] : [] ) ),
+                'title'      => $title,
+                'summary'    => $summary,
+                'sentiment'  => $sentiment,
+                'confidence' => $confidence,
+            ],
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
+        )
+    );
+}
+
+/**
+ * Hashes an optional AI feedback subject for review grouping.
+ *
+ * @param string $subject
+ * @return string|null
+ */
+function tonbankcard_api_ai_subject_hash( string $subject ) {
+    $subject = tonbankcard_api_ai_clean_text( $subject, 300 );
+    return '' === $subject ? null : hash( 'sha256', strtolower( $subject ) );
+}
+
+/**
+ * Sanitizes an identifier-like feedback field.
+ *
+ * @param string $value
+ * @param int $max_length
+ * @return string|null
+ */
+function tonbankcard_api_ai_clean_identifier( string $value, int $max_length ) {
+    $value = strtolower( trim( $value ) );
+    $value = preg_replace( '/[^a-z0-9_.:-]/', '_', $value );
+    $value = trim( $value, '._:-' );
+    if ( '' === $value ) {
+        return null;
+    }
+
+    return substr( $value, 0, $max_length );
+}
+
+/**
+ * Extracts a safe path from a referer header.
+ *
+ * @param string $referer
+ * @return string|null
+ */
+function tonbankcard_api_ai_referer_path( string $referer ) {
+    $path = parse_url( $referer, PHP_URL_PATH );
+    if ( ! is_string( $path ) || '' === $path ) {
+        return null;
+    }
+
+    return tonbankcard_api_ai_clean_text( $path, 191 );
+}
+
+/**
+ * Encodes sanitized feedback metadata for durable storage.
+ *
+ * @param mixed $metadata
+ * @return string|null
+ */
+function tonbankcard_api_ai_metadata_json( $metadata ) {
+    if ( empty( $metadata ) ) {
+        return null;
+    }
+
+    $json = json_encode( $metadata, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE );
+    return FALSE === $json ? null : $json;
 }
 
 /**
