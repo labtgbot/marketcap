@@ -238,13 +238,14 @@ function tonbankcard_api_cache_settings( array $config ) {
         'stale_ttl_seconds' => isset( $cache['stale_ttl_seconds'] ) ? max( 0, (int) $cache['stale_ttl_seconds'] ) : 3600,
         'ttls'              => array_merge(
             [
-                'live_prices'   => 60,
-                'global_stats'  => 300,
-                'coin_metadata' => 3600,
-                'charts'        => 900,
-                'search_index'  => 3600,
-                'ai_summaries'  => 21600,
-                'ton_metadata'  => 86400,
+                'live_prices'      => 60,
+                'global_stats'     => 300,
+                'coin_metadata'    => 3600,
+                'charts'           => 900,
+                'search_index'     => 3600,
+                'sentiment_inputs' => 300,
+                'ai_summaries'     => 21600,
+                'ton_metadata'     => 86400,
             ],
             $ttls
         ),
