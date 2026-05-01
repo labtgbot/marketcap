@@ -691,7 +691,14 @@
             'alert_deleted',
             'alert_tested',
             'share_started',
-            'referral_opened'
+            'referral_opened',
+            'achievement_opted_in',
+            'achievement_opted_out',
+            'achievement_streak_updated',
+            'achievement_prompted',
+            'achievement_unlocked',
+            'achievement_dismissed',
+            'achievement_shared'
         ],
         allowedProperties: [
             'trigger',
@@ -715,7 +722,15 @@
             'share_context',
             'campaign',
             'route',
-            'share_target'
+            'share_target',
+            'achievement_id',
+            'achievement_category',
+            'achievement_count',
+            'streak_count',
+            'streak_timezone',
+            'prompt_state',
+            'haptic_type',
+            'movement_bucket'
         ],
         newEventId: function () {
             return 'evt_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);

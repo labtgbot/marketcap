@@ -1222,6 +1222,9 @@ function validate_runtime_config() {
         'TONBANKCARD_ALERT_DEFAULT_FREQUENCY_CAP_SECONDS' => [ 300, 86400, "'3600'" ],
         'TONBANKCARD_ALERT_MAX_DELIVERIES_PER_DAY' => [ 1, 100, "'8'" ],
         'TONBANKCARD_ALERT_EVALUATION_INTERVAL_SECONDS' => [ 60, 3600, "'300'" ],
+        'TONBANKCARD_ACHIEVEMENT_WEEKLY_CHECK_DAYS' => [ 2, 30, "'7'" ],
+        'TONBANKCARD_ACHIEVEMENT_SHARE_MILESTONE_COUNT' => [ 1, 100, "'3'" ],
+        'TONBANKCARD_ACHIEVEMENT_MAX_PROMPTS_PER_SESSION' => [ 1, 6, "'1'" ],
     ] as $name => $bounds ) {
         if ( ! tonbankcard_env_int_is_valid( $name, $bounds[0], $bounds[1] ) ) {
             $invalid[] = tonbankcard_env_error(

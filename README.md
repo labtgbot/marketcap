@@ -32,6 +32,7 @@ Open these browser URLs while the server is running:
 - Crypto exchange: http://127.0.0.1:8888/crypto-exchange?from=ton&to=usdtton
 - Screener: http://127.0.0.1:8888/screener
 - Alerts: http://127.0.0.1:8888/alerts
+- Achievements: http://127.0.0.1:8888/achievements
 - Exchanges: http://127.0.0.1:8888/exchanges
 - Support: http://127.0.0.1:8888/support
 - API health: http://127.0.0.1:8888/api/health
@@ -76,6 +77,7 @@ npm run test:watchlist
 npm run test:screener
 npm run test:alerts
 npm run test:share-referrals
+npm run test:achievements
 npm run test:public-shell
 npm run test:ai-provider
 npm run test:ai-sentiment
@@ -147,6 +149,8 @@ See [docs/v2-advanced-screener.md](docs/v2-advanced-screener.md) for the advance
 See [docs/v2-smart-alerts.md](docs/v2-smart-alerts.md) for Telegram bot smart alerts, `/api/alerts` rule management, `/api/alerts/evaluate` worker delivery, quiet hours, frequency caps, and Mini App `startapp` deep links from issue #32.
 
 See [docs/v2-shareable-market-cards.md](docs/v2-shareable-market-cards.md) for shareable market cards, Telegram `startapp` payloads, share fallbacks, and referral attribution from issue #33.
+
+See [docs/v2-gamification-achievements.md](docs/v2-gamification-achievements.md) for opt-in achievement badges, streaks, haptics, dismissible prompts, shareable achievement cards, and admin controls from issue #34.
 
 See [docs/v2-charting-and-market-visualization.md](docs/v2-charting-and-market-visualization.md) for the chart rendering decision, advanced coin chart views, lazy ECharts loading, stale state, and accessibility coverage from issue #25.
 

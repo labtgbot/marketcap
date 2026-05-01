@@ -7,6 +7,7 @@
     const marketsOptions = GeckoClient.getOptions('markets');
     const tableHeaders = marketsOptions.tableHeaders.filter(header => header.show);
     const perPage = Math.min(250, marketsOptions.perPage) || 100;
+    const percentChange = currency => parseFloat(currency.price_change_percentage_24h_in_currency);
 
     const normalizeTag = value => {
         value = _.toString(value || '').toLowerCase().trim().replace(/[^a-z0-9._-]+/g, '_').replace(/^[._-]+|[._-]+$/g, '');
@@ -168,11 +169,25 @@
                     this.loadMoreLoading = false;
 
                     this.loading = true;
-                    return this.fetchCurrencies().finally(() => this.loading = false);
+                    return this.fetchCurrencies()
+                        .then(currencies => {
+                            this.trackMarketAchievements(currencies);
+                            return currencies;
+                        })
+                        .finally(() => this.loading = false);
                 },
                 fetchMoreCurrencies: function () {
                     this.loadMoreLoading = true;
                     return this.fetchCurrencies().finally(() => this.loadMoreLoading = false);
+                },
+                trackMarketAchievements: function (currencies) {
+                    if (!GeckoClient.achievements || !currencies || !currencies.length) return;
+
+                    GeckoClient.achievements.track('market_check', {source_route: 'markets'});
+                    const strongest = _.maxBy(currencies.filter(currency => _.isFinite(percentChange(currency))), currency => Math.abs(percentChange(currency)));
+                    if (strongest) {
+                        GeckoClient.achievements.trackMarketMovement(strongest, 'markets');
+                    }
                 },
                 tonAssetMatchesTag: function (asset, tag) {
                     tag = normalizeTag(tag);

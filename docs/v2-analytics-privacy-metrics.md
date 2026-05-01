@@ -86,6 +86,11 @@ Every event uses the common envelope below plus event-specific properties.
 | `share_opened` | Recipient opens a shared card or deep link. | `payload_type`, `campaign`, `route_type`, `inviter_present` | anonymous or telegram_user | 90 days anonymous, 180 days Telegram |
 | `referral_opened` | User opens a referral URL, Telegram `startapp` payload, or bot start payload. | `campaign`, `payload_type`, `landing_route`, `inviter_id_hash_present` | anonymous or telegram_user | 180 days |
 | `referral_attributed` | Backend attributes a trusted Telegram user to a campaign or inviter. | `campaign`, `landing_route`, `inviter_id_hash`, `attribution_model` | telegram_user | 180 days |
+| `achievement_opted_in` | User enables opt-in achievement tracking. | `prompt_state`, `source_route` | anonymous or telegram_user | 180 days |
+| `achievement_streak_updated` | A market check updates the local-day streak. | `streak_count`, `streak_timezone`, `source_route` | anonymous or telegram_user | 180 days |
+| `achievement_unlocked` | User unlocks an achievement badge. | `achievement_id`, `achievement_category`, `achievement_count`, `prompt_state`, `haptic_type` | anonymous or telegram_user | 180 days |
+| `achievement_dismissed` | User dismisses an achievement prompt. | `achievement_id`, `achievement_category`, `prompt_state` | anonymous or telegram_user | 180 days |
+| `achievement_shared` | User shares an achievement card. | `achievement_id`, `achievement_category`, `share_context`, `campaign` | anonymous or telegram_user | 180 days |
 | `swap_widget_opened` | User opens or expands the ChangeNOW widget area. | `coin_id`, `from_asset`, `to_asset`, `widget_supported`, `provider` | anonymous or telegram_user | 90 days anonymous, 180 days Telegram |
 | `ai_insight_viewed` | AI market pulse, coin insight, watchlist digest, or alert explanation becomes visible. | `insight_type`, `provider`, `model`, `prompt_version`, `freshness_age_seconds`, `safety_state` | anonymous or telegram_user | 90 days anonymous, 180 days Telegram |
 | `ai_feedback_submitted` | User marks an AI insight helpful, stale, wrong, unsafe, or not useful. | `insight_type`, `feedback_type`, `provider`, `prompt_version` | anonymous or telegram_user | 180 days |
@@ -125,6 +130,7 @@ Event property rules:
 | Anonymous raw analytics events | 90 days | Enough for funnel debugging and short-term cohort comparison. Rotate browser ids at least every 30 days. |
 | Trusted Telegram raw product events | 180 days | Supports D7 and D30 retention, alert usefulness, referrals, and support diagnostics. Subject to deletion workflows. |
 | Alert delivery records | 180 days after delivery or 90 days after alert deletion, whichever is earlier unless needed for abuse review. | Store `alert_id_hash`, status, and buckets in analytics; exact rules stay in application tables. |
+| Achievement and streak events | 180 days | Supports opt-in retention analysis. Achievement prompts must remain dismissible and should not contain raw user content. |
 | Premium entitlement audit events | 365 days or the minimum business/accounting period selected before launch. | Payment provider identifiers and receipts stay in payment records, not analytics events. |
 | Admin audit logs | 365 days minimum. | Required for security review, support accountability, provider changes, and feature flag changes. |
 | Operational request, performance, and frontend error logs | 30 days raw, 13 months aggregate. | Raw logs should be sampled where volume is high and should exclude sensitive fields. |
@@ -172,8 +178,8 @@ Privacy implementation notes:
 
 | KPI area | Definition | MVP acceptance | Launch target direction |
 | --- | --- | --- | --- |
-| Activation | A session reaches first meaningful market content and performs at least one discovery action: search result select, coin detail view, TON view, watchlist add, alert create, share start, or swap widget open. | Dashboard can report activation rate by `surface`, `source_route`, and data state. | Improve first-session discovery without increasing frontend error rate. |
-| Retention | Trusted Telegram user returns to the Mini App or bot after first activation. Track D1, D7, and D30 cohorts. Anonymous website retention may be reported only as rotated-session return. | D7 Telegram retention can be calculated from trusted sessions and product events. | Improve D7 return after watchlist and alert delivery launch. |
+| Activation | A session reaches first meaningful market content and performs at least one discovery action: search result select, coin detail view, TON view, watchlist add, alert create, share start, achievement opt-in, or swap widget open. | Dashboard can report activation rate by `surface`, `source_route`, and data state. | Improve first-session discovery without increasing frontend error rate. |
+| Retention | Trusted Telegram user returns to the Mini App or bot after first activation. Track D1, D7, D30, and achievement streak cohorts. Anonymous website retention may be reported only as rotated-session return. | D7 Telegram retention and achievement streak counts can be calculated from trusted sessions and product events. | Improve D7 return after watchlist, alert delivery, and achievement launch. |
 | Virality | Share or referral loop creates a recipient open: `share_started` or `share_completed` followed by `share_opened`, `referral_opened`, or `referral_attributed`. | Dashboard shows shares, opens, attribution rate, and campaign breakdown. | Increase useful share opens while monitoring spam, mute, and unsubscribe signals. |
 | Alert usefulness | Delivered alerts lead to an open, watchlist action, alert edit, or positive feedback without high mute, pause, delete, or unsubscribe rates. | Dashboard shows delivery success, open rate, useful feedback, noisy feedback, and opt-out rates. | Improve useful alert rate while reducing noisy and late feedback. |
 | Performance | Public web and Telegram Mini App routes meet route-specific first meaningful content, API latency, bot delivery, and error-rate budgets. | Dashboard shows p50, p75, p95 timing buckets for core routes and API endpoints. | Keep mobile market pulse fast under provider degradation and Telegram bursts. |
@@ -189,8 +195,8 @@ only in role-restricted support or security tools and must create audit events.
 
 | Dashboard | Required views | Required filters |
 | --- | --- | --- |
-| Product funnel | Market pulse viewed, search opened, result selected, coin detail viewed, TON viewed, watchlist added, alert created, share started, swap widget opened, AI insight viewed, premium conversion completed. | Date, surface, route, source route, data state, feature flags, anonymous vs Telegram. |
-| Retention cohorts | Telegram D1, D7, D30 returns; anonymous rotated-session returns; first action cohort. | Cohort date, surface, first action, campaign, alert-enabled users. |
+| Product funnel | Market pulse viewed, search opened, result selected, coin detail viewed, TON viewed, watchlist added, alert created, achievement unlocked, share started, swap widget opened, AI insight viewed, premium conversion completed. | Date, surface, route, source route, data state, feature flags, anonymous vs Telegram. |
+| Retention cohorts | Telegram D1, D7, D30 returns; anonymous rotated-session returns; first action cohort; achievement streak cohort. | Cohort date, surface, first action, campaign, alert-enabled users, achievement id. |
 | Virality and referrals | Share starts, share opens, referral opens, referral attribution, campaign conversion, invite loop rate. | Campaign, share channel, payload type, landing route, Telegram vs public web. |
 | Alert usefulness | Alert creates, deliveries, failures, opens, edits, pauses, deletes, feedback, unsubscribe or mute events. | Trigger type, coin id, delivery channel, latency bucket, quiet-hours enabled. |
 | Search and TON discovery | Search opens, result rank selection, zero-result rate, TON views, TON category engagement. | Surface, route, query length bucket, result type, TON category. |
