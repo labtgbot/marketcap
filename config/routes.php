@@ -90,6 +90,11 @@ $routes['watchlist'] = [
     'enabled' => TRUE,
 ];
 
+$routes['wallet-profile'] = [
+    'path' => '/wallet',
+    'enabled' => TRUE,
+];
+
 $routes['screener'] = [
     'path' => '/screener',
     'enabled' => TRUE,

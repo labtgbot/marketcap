@@ -254,6 +254,7 @@ function startServer() {
             TONBANKCARD_LOCAL_BASE_URL: `${baseURL}/`,
             TONBANKCARD_CDN: 'false',
             TONBANKCARD_FEATURE_CHANGENOW: 'true',
+            TONBANKCARD_FEATURE_TON_CONNECT: 'true',
             CHANGENOW_LINK_ID: '3cc0024a18fd9d',
         },
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -283,6 +284,53 @@ async function stopServer() {
 }
 
 async function installRoutes(context, requestLog) {
+    await context.route('https://unpkg.com/@tonconnect/ui@2.4.4/dist/tonconnect-ui.min.js', route => {
+        return route.fulfill({
+            status: 200,
+            contentType: 'application/javascript',
+            body: `
+                window.TON_CONNECT_UI = {
+                    TonConnectUI: function TonConnectUI(options) {
+                        this.options = options || {};
+                        this.wallet = null;
+                        this.__listeners = [];
+                        this.onStatusChange = callback => {
+                            this.__listeners.push(callback);
+                            return () => {
+                                this.__listeners = this.__listeners.filter(listener => listener !== callback);
+                            };
+                        };
+                        this.connectWallet = () => {
+                            this.wallet = {
+                                account: {
+                                    address: 'EQD1111111111111111111111111111111111111111111111111111111111111111',
+                                    chain: '-239',
+                                },
+                                device: {
+                                    appName: 'Tonkeeper',
+                                    appVersion: '5.0.0',
+                                    platform: 'ios',
+                                    features: ['SendTransaction', 'SignData'],
+                                },
+                                provider: 'tonconnect',
+                                walletInfo: {
+                                    name: 'Tonkeeper',
+                                },
+                            };
+                            this.__listeners.forEach(listener => listener(this.wallet));
+                            return Promise.resolve(this.wallet);
+                        };
+                        this.disconnect = () => {
+                            this.wallet = null;
+                            this.__listeners.forEach(listener => listener(null));
+                            return Promise.resolve();
+                        };
+                    },
+                };
+            `,
+        });
+    });
+
     await context.route('https://changenow.io/embeds/**', route => {
         if (route.request().url().endsWith('.js')) {
             return route.fulfill({
@@ -1033,6 +1081,63 @@ async function checkWatchlistPersistence(page, errors) {
     await assertNoErrors(errors, 'watchlist persistence');
 }
 
+async function checkTonConnectWalletProfile(page, errors) {
+    log('Checking TON Connect wallet profile');
+
+    await page.goto(`${baseURL}/wallet`, {waitUntil: 'domcontentloaded'});
+    await page.locator('#wallet-profile').waitFor({state: 'visible'});
+    await page.getByRole('heading', {name: /Wallet Profile/i}).first().waitFor({state: 'visible'});
+    await page.getByText('Private keys and seed phrases stay in your wallet', {exact: false}).waitFor({state: 'visible'});
+    await page.getByRole('button', {name: /Connect TON wallet/i}).waitFor({state: 'visible'});
+
+    const beforeConnect = await page.evaluate(() => ({
+        enabled: window.GeckoClient.tonConnect.enabled,
+        manifestUrl: window.GeckoClient.tonConnect.manifestUrl,
+        sdkUrl: window.GeckoClient.tonConnect.sdkUrl,
+        storage: window.localStorage.getItem('TONBANKCARD:ton-connect-wallet:v1'),
+    }));
+
+    if (!beforeConnect.enabled || !/tonconnect-manifest\.json$/.test(beforeConnect.manifestUrl) || !/@tonconnect\/ui@2\.4\.4/.test(beforeConnect.sdkUrl)) {
+        fail(`TON Connect runtime config was not exposed safely: ${JSON.stringify(beforeConnect)}`);
+    }
+    if (beforeConnect.storage) {
+        fail(`TON Connect wallet storage was not empty before connect: ${beforeConnect.storage}`);
+    }
+
+    await page.getByRole('button', {name: /Connect TON wallet/i}).click();
+    await page.getByText('Connected', {exact: true}).waitFor({state: 'visible'});
+    await page.getByText('Tonkeeper', {exact: false}).first().waitFor({state: 'visible'});
+    await page.getByText('Mainnet', {exact: false}).first().waitFor({state: 'visible'});
+    await page.getByText('Send Transaction', {exact: false}).first().waitFor({state: 'visible'});
+    await page.getByRole('button', {name: /Disconnect wallet/i}).waitFor({state: 'visible'});
+    await page.screenshot({path: path.join(logDir, 'ton-connect-wallet-profile.png'), fullPage: true});
+
+    const storedAfterConnect = await page.evaluate(() => {
+        const raw = window.localStorage.getItem('TONBANKCARD:ton-connect-wallet:v1');
+        return raw ? JSON.parse(raw) : null;
+    });
+
+    if (!storedAfterConnect || storedAfterConnect.network !== 'mainnet' || storedAfterConnect.app_name !== 'Tonkeeper') {
+        fail(`Connected wallet snapshot was not stored: ${JSON.stringify(storedAfterConnect)}`);
+    }
+
+    const serialized = JSON.stringify(storedAfterConnect);
+    if (/private|seed|mnemonic/i.test(serialized)) {
+        fail(`Connected wallet snapshot contained secret-shaped data: ${serialized}`);
+    }
+
+    await page.getByRole('button', {name: /Disconnect wallet/i}).click();
+    await page.getByRole('button', {name: /Connect TON wallet/i}).waitFor({state: 'visible'});
+    await page.getByText('Disconnected', {exact: true}).waitFor({state: 'visible'});
+
+    const storedAfterDisconnect = await page.evaluate(() => window.localStorage.getItem('TONBANKCARD:ton-connect-wallet:v1'));
+    if (storedAfterDisconnect) {
+        fail(`Connected wallet snapshot remained after disconnect: ${storedAfterDisconnect}`);
+    }
+
+    await assertNoErrors(errors, 'TON Connect wallet profile');
+}
+
 async function checkWatchlistUnavailableStorageFallback(browser) {
     log('Checking watchlist unavailable-storage fallback');
 
@@ -1439,6 +1544,26 @@ async function checkResponsiveDesignSystem(page, errors) {
         fail(`Telegram BackButton did not navigate back through the app: ${JSON.stringify(backResult)}`);
     }
 
+    await page.goto(`${baseURL}/wallet`, {waitUntil: 'domcontentloaded'});
+    await page.locator('#wallet-profile').waitFor({state: 'visible'});
+    await page.getByText('Telegram Mini App', {exact: true}).waitFor({state: 'visible'});
+    await page.getByText('Private keys and seed phrases stay in your wallet', {exact: false}).waitFor({state: 'visible'});
+
+    const walletProfileResult = await page.evaluate(() => {
+        const root = document.documentElement;
+        return {
+            viewportWidth: window.innerWidth,
+            scrollWidth: Math.max(root.scrollWidth, document.body.scrollWidth),
+            telegramActive: window.GeckoClient.telegram.active === true,
+            featureEnabled: window.GeckoClient.tonConnect.enabled === true,
+            surfaceText: document.querySelector('#wallet-profile') ? document.querySelector('#wallet-profile').textContent : '',
+        };
+    });
+
+    if (walletProfileResult.scrollWidth > walletProfileResult.viewportWidth || !walletProfileResult.telegramActive || !walletProfileResult.featureEnabled || !/Telegram Mini App/.test(walletProfileResult.surfaceText)) {
+        fail(`Telegram wallet profile did not preserve the Mini App surface: ${JSON.stringify(walletProfileResult)}`);
+    }
+
     await assertNoErrors(errors, 'responsive design system');
 }
 
@@ -1491,6 +1616,7 @@ async function run() {
         await checkSearchInteraction(page, errors, requestLog);
         await checkSearchMobileDialog(page, errors, requestLog);
         await checkWatchlistPersistence(page, errors);
+        await checkTonConnectWalletProfile(page, errors);
         await checkPwaMobileWeb(page, errors);
         await checkResponsiveDesignSystem(page, errors);
         await checkWatchlistUnavailableStorageFallback(browser);

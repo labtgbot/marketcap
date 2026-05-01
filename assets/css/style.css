@@ -768,6 +768,9 @@ v-app {
 #ton {
     max-width: 1200px;
 }
+#wallet-profile {
+    max-width: 1200px;
+}
 .ton-route-header,
 .ton-section-heading {
     display: flex;
@@ -890,6 +893,98 @@ v-app {
     border-color: var(--tbc-brand-gold) !important;
     background: linear-gradient(0deg, rgba(242, 184, 75, 0.08), rgba(242, 184, 75, 0.08)), var(--tbc-surface-panel) !important;
 }
+.wallet-profile-header,
+.wallet-profile-status,
+.wallet-profile-actions,
+.wallet-profile-card-title,
+.wallet-address-box,
+.wallet-feature-list {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+.wallet-profile-header {
+    justify-content: space-between;
+}
+.wallet-profile-header > div:first-child {
+    min-width: 0;
+}
+.wallet-profile-actions,
+.wallet-profile-status,
+.wallet-feature-list {
+    flex-wrap: wrap;
+}
+.wallet-profile-card {
+    display: flex !important;
+    flex-direction: column;
+}
+.wallet-profile-card .v-card__text {
+    flex: 1 1 auto;
+}
+.wallet-address-box {
+    align-items: center;
+    padding: 12px;
+    border: 1px solid var(--tbc-surface-border);
+    border-radius: var(--tbc-radius-control);
+    background: var(--tbc-surface-panel-muted);
+}
+.wallet-address-box > div:first-child {
+    flex: 0 0 100px;
+}
+.wallet-address-value {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow-wrap: anywhere;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-weight: 700;
+}
+.wallet-meta-grid,
+.wallet-portfolio-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+.wallet-meta-grid > div,
+.wallet-portfolio-grid > div,
+.wallet-placeholder-stat {
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--tbc-surface-border);
+    border-radius: var(--tbc-radius-control);
+    background: var(--tbc-surface-panel-muted);
+}
+.wallet-meta-grid strong,
+.wallet-portfolio-grid strong,
+.wallet-placeholder-stat strong {
+    display: block;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+}
+.wallet-placeholder-stat strong {
+    font-size: 1.5rem;
+}
+.wallet-portfolio-grid > div {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 2px;
+}
+.wallet-portfolio-grid span {
+    grid-column: 2;
+    color: var(--tbc-text-secondary);
+    font-size: 0.82rem;
+}
+.wallet-empty-state {
+    display: grid;
+    min-height: 220px;
+    align-content: center;
+    justify-items: center;
+    text-align: center;
+}
+.wallet-privacy-list {
+    background: transparent !important;
+}
 #crypto-exchange {
     max-width: 1280px;
 }
@@ -939,6 +1034,22 @@ v-app {
     }
     .ton-asset-market-grid {
         grid-template-columns: 1fr;
+    }
+    .wallet-profile-header {
+        display: block;
+    }
+    .wallet-profile-actions {
+        margin-top: 16px;
+    }
+    .wallet-meta-grid,
+    .wallet-portfolio-grid {
+        grid-template-columns: 1fr;
+    }
+    .wallet-address-box {
+        flex-wrap: wrap;
+    }
+    .wallet-address-box > div:first-child {
+        flex-basis: 100%;
     }
 }
 #support {

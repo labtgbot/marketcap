@@ -4,6 +4,7 @@
   "observability.js",
   "coingecko.js",
   "watchlist.js",
+  "ton-connect.js",
   "ai.js",
   "components/ai-insight-card.js",
   "components/cookies-dialog.js",
@@ -33,6 +34,7 @@
   "routes/screener.js",
   "routes/ton.js",
   "routes/terms.js",
+  "routes/wallet-profile.js",
   "routes/watchlist.js",
   "routes/not-found.js",
   "vm.js"

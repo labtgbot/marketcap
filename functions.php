@@ -634,6 +634,23 @@ function tonbankcard_public_robots_txt() {
 }
 
 /**
+ * Renders the TON Connect manifest with runtime-aware absolute URLs.
+ *
+ * @return string
+ */
+function tonbankcard_ton_connect_manifest() {
+    $manifest = [
+        'url'             => site_url(),
+        'name'            => ! empty( $GLOBALS['site']['name'] ) ? $GLOBALS['site']['name'] . ' Crypto Tracker' : 'TONBANKCARD Crypto Tracker',
+        'iconUrl'         => image_url( 'tonbankcard-icon-512x512.png' ),
+        'termsOfUseUrl'   => site_url( 'terms' ),
+        'privacyPolicyUrl' => site_url( 'privacy-policy' ),
+    ];
+
+    return json_encode( $manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) . "\n";
+}
+
+/**
  * Sends crawler assets that need runtime-aware canonical URLs.
  *
  * @return void
@@ -644,6 +661,13 @@ function tonbankcard_dispatch_public_seo_assets() {
     if ( '/robots.txt' === $path ) {
         header( 'Content-Type: text/plain; charset=UTF-8' );
         echo tonbankcard_public_robots_txt();
+        exit;
+    }
+
+    if ( '/tonconnect-manifest.json' === $path ) {
+        header( 'Content-Type: application/json; charset=UTF-8' );
+        header( 'Cache-Control: public, max-age=3600' );
+        echo tonbankcard_ton_connect_manifest();
         exit;
     }
 
