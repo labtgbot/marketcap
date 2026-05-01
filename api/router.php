@@ -237,6 +237,7 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
                             '/api/ai',
                             '/api/ai/insight',
                             '/api/ai/feedback',
+                            '/api/ai/sentiment-inputs',
                             '/api/search',
                             '/api/search/refresh',
                             '/api/market',

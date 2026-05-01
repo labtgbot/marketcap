@@ -73,6 +73,7 @@ npm run test:telegram-session
 npm run test:watchlist
 npm run test:public-shell
 npm run test:ai-provider
+npm run test:ai-sentiment
 npm run test:observability
 npm run test:design-system
 npm run test:pwa-telegram
@@ -137,6 +138,8 @@ See [docs/v2-charting-and-market-visualization.md](docs/v2-charting-and-market-v
 See [docs/v2-observability-operational-logging.md](docs/v2-observability-operational-logging.md) for request ID tracing, frontend/API/provider error logging, verbose tracing flags, and operational health queries from issue #18.
 
 See [docs/v2-ai-provider-foundation.md](docs/v2-ai-provider-foundation.md) for the configurable Groq-first AI provider layer, structured insight validation, safety rules, and fallback behavior from issue #17.
+
+See [docs/v2-ai-sentiment-ingestion.md](docs/v2-ai-sentiment-ingestion.md) for the deterministic sentiment ingestion and scoring pipeline from issue #27.
 
 See [docs/v2-ai-insight-cards.md](docs/v2-ai-insight-cards.md) for the AI insight card surfaces, safety controls, feedback storage, and regression coverage from issue #28.
 

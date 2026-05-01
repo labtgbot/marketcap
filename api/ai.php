@@ -9,6 +9,8 @@
 
 defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 
+require_once __DIR__ . '/ai-sentiment.php';
+
 /**
  * Returns TRUE when a normalized path belongs to the AI API surface.
  *
@@ -29,6 +31,7 @@ function tonbankcard_api_ai_routes() {
         '/api/ai',
         '/api/ai/insight',
         '/api/ai/feedback',
+        '/api/ai/sentiment-inputs',
     ];
 }
 
@@ -84,6 +87,10 @@ function tonbankcard_api_ai_handle( array $request, array $runtime, array $confi
         }
 
         return tonbankcard_api_ai_feedback_response( $request, $runtime, $config, $provider, $request_id, $headers );
+    }
+
+    if ( '/api/ai/sentiment-inputs' === $path && function_exists( 'tonbankcard_api_ai_sentiment_handle' ) ) {
+        return tonbankcard_api_ai_sentiment_handle( $request, $runtime, $config, $provider, $request_id, $headers );
     }
 
     if ( '/api/ai/insight' !== $path ) {

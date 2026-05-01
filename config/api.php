@@ -16,6 +16,7 @@ $api_upstash = isset( $api_runtime['providers']['upstash'] ) && is_array( $api_r
 $api_upstash_configured = ! empty( $api_upstash['rest_url'] ) && ! empty( $api_upstash['rest_token'] );
 $api_redis_timeout = max( 1, (int) tonbankcard_env( 'TONBANKCARD_REDIS_TIMEOUT_SECONDS', 2 ) );
 $api_redis_key_prefix = trim( (string) tonbankcard_env( 'TONBANKCARD_REDIS_KEY_PREFIX', 'tonbankcard:v2' ), ':' );
+$api_sentiment_cache_ttl = tonbankcard_env_int( 'TONBANKCARD_SENTIMENT_CACHE_TTL_SECONDS', 300, 60, 21600 );
 if ( '' === $api_redis_key_prefix ) {
     $api_redis_key_prefix = 'tonbankcard:v2';
 }
@@ -62,13 +63,14 @@ $api = [
         'enabled'           => tonbankcard_env_bool( 'TONBANKCARD_CACHE_ENABLED', $api_upstash_configured ),
         'stale_ttl_seconds' => 3600,
         'ttls'              => [
-            'live_prices'   => 60,
-            'global_stats'  => 300,
-            'coin_metadata' => 3600,
-            'charts'        => 900,
-            'search_index'  => 3600,
-            'ai_summaries'  => 21600,
-            'ton_metadata'  => 86400,
+            'live_prices'      => 60,
+            'global_stats'     => 300,
+            'coin_metadata'    => 3600,
+            'charts'           => 900,
+            'search_index'     => 3600,
+            'sentiment_inputs' => $api_sentiment_cache_ttl,
+            'ai_summaries'     => 21600,
+            'ton_metadata'     => 86400,
         ],
         'coalesce'          => [
             'enabled'          => TRUE,
@@ -127,6 +129,35 @@ $api = [
             'require_not_financial_advice' => TRUE,
             'require_uncertainty'          => TRUE,
             'require_market_data_age'      => TRUE,
+        ],
+        'sentiment'         => [
+            'pipeline_version'         => 'v1',
+            'cache_ttl_seconds'        => $api_sentiment_cache_ttl,
+            'max_coin_ids'             => 12,
+            'max_watchlist_coin_ids'   => 80,
+            'default_coin_ids'         => [ 'toncoin', 'bitcoin', 'ethereum', 'tether' ],
+            'source_refresh_intervals' => [
+                'market_movement'         => 60,
+                'volume_spike'            => 60,
+                'global_market'           => 300,
+                'trend_ranking'           => 900,
+                'watchlist_concentration' => 300,
+                'curated_ton_ecosystem'   => 86400,
+            ],
+            'curated_ton_assets'       => [
+                [
+                    'coin_id' => 'toncoin',
+                    'symbol'  => 'TON',
+                    'label'   => 'Native TON ecosystem asset',
+                    'tags'    => [ 'ton_ecosystem', 'native_ton' ],
+                ],
+                [
+                    'coin_id' => 'tether',
+                    'symbol'  => 'USDT',
+                    'label'   => 'USDT on TON curated asset',
+                    'tags'    => [ 'ton_ecosystem', 'stablecoin', 'jetton' ],
+                ],
+            ],
         ],
         'groq'              => [
             'api_key'            => $api_runtime['providers']['groq']['api_key'],
