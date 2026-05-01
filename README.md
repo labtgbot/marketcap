@@ -68,6 +68,7 @@ npm run test:database
 npm run test:api
 npm run test:market-gateway
 npm run test:search-api
+npm run test:ton-ecosystem
 npm run test:cache-rate-limit
 npm run test:telegram-session
 npm run test:watchlist
@@ -126,6 +127,8 @@ See [docs/v2-api-routing-layer.md](docs/v2-api-routing-layer.md) for the `/api/*
 See [docs/v2-market-data-gateway.md](docs/v2-market-data-gateway.md) for the `/api/market/*` CoinGecko gateway, Demo/Pro key handling, provider error normalization, and freshness metadata from issue #14.
 
 See [docs/v2-smart-search-api.md](docs/v2-smart-search-api.md) for the `/api/search` smart search API, Redis-backed index refresh workflow, deep links, and click analytics from issue #16.
+
+See [docs/v2-ton-ecosystem-curation.md](docs/v2-ton-ecosystem-curation.md) for the `/api/ton/assets` curation model, manual TON asset updates, tag filters, and verification-state UI behavior from issue #29.
 
 See [docs/v2-cache-rate-limit-coalescing.md](docs/v2-cache-rate-limit-coalescing.md) for the Upstash Redis cache TTLs, stale fallback behavior, request coalescing, rate-limit policies, and metrics from issue #15.
 

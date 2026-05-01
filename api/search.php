@@ -90,21 +90,23 @@ function tonbankcard_api_search_handle( array $request, array $runtime, array $c
     $query = tonbankcard_api_search_query( isset( $request['query']['q'] ) ? $request['query']['q'] : '' );
     $limit = tonbankcard_api_search_limit( isset( $request['query']['limit'] ) ? $request['query']['limit'] : null, $settings );
     $surface = tonbankcard_api_search_surface( isset( $request['query']['surface'] ) ? $request['query']['surface'] : '' );
+    $tag = tonbankcard_api_search_tag( isset( $request['query']['tag'] ) ? $request['query']['tag'] : '' );
     $state = tonbankcard_api_search_index( $runtime, $config );
-    $results = tonbankcard_api_search_results( isset( $state['index']['entries'] ) ? $state['index']['entries'] : [], $query, $limit, $surface );
+    $results = tonbankcard_api_search_results( isset( $state['index']['entries'] ) ? $state['index']['entries'] : [], $query, $limit, $surface, $tag );
 
     return tonbankcard_api_success_response(
         [
             'query'            => $query,
             'normalized_query' => tonbankcard_api_search_normalize_text( $query ),
             'surface'          => $surface,
+            'tag'              => $tag,
             'result_count'     => count( $results ),
             'results'          => $results,
         ],
         $request_id,
         $headers,
         200,
-        tonbankcard_api_search_meta( $state, $query, count( $results ) )
+        tonbankcard_api_search_meta( $state, $query, count( $results ), $tag )
     );
 }
 
@@ -212,12 +214,11 @@ function tonbankcard_api_search_default_curated_entries() {
             'aliases'       => [ 'ton assets', 'ton jettons', 'telegram crypto', 'the open network' ],
             'popular_score' => 970,
             'route'         => [
-                'name'  => 'currencies',
-                'query' => [ 'tag' => 'ton' ],
-                'path'  => '/?tag=ton',
+                'name' => 'ton',
+                'path' => '/ton',
             ],
             'links'         => [
-                'web'      => '/?tag=ton',
+                'web'      => '/ton',
                 'telegram' => '/app/ton',
             ],
         ],
@@ -314,6 +315,22 @@ function tonbankcard_api_search_surface( $surface ) {
 }
 
 /**
+ * Returns a safe tag token for curated filters and metadata.
+ *
+ * @param mixed $tag
+ * @return string
+ */
+function tonbankcard_api_search_tag( $tag ) {
+    $tag = strtolower( trim( (string) $tag ) );
+    $tag = preg_replace( '/[^a-z0-9._-]+/', '_', $tag );
+    $tag = trim( (string) $tag, '._-' );
+    if ( 'ton' === $tag ) {
+        return 'ton_ecosystem';
+    }
+    return substr( $tag, 0, 80 );
+}
+
+/**
  * Loads or builds the search index.
  *
  * @param array $runtime
@@ -387,6 +404,12 @@ function tonbankcard_api_search_build_index( array $runtime, array $config, arra
 
     foreach ( isset( $settings['curated_entries'] ) && is_array( $settings['curated_entries'] ) ? $settings['curated_entries'] : [] as $entry ) {
         tonbankcard_api_search_put_entry( $entries, tonbankcard_api_search_prepare_entry( $entry ) );
+    }
+
+    if ( function_exists( 'tonbankcard_api_ton_search_entries' ) ) {
+        foreach ( tonbankcard_api_ton_search_entries( $runtime, $config ) as $entry ) {
+            tonbankcard_api_search_put_entry( $entries, tonbankcard_api_search_prepare_entry( $entry ) );
+        }
     }
 
     $coins = tonbankcard_api_search_fetch_provider_json( 'coins/list', [ 'include_platform' => 'true' ], $provider, $config, $warnings );
@@ -496,7 +519,7 @@ function tonbankcard_api_search_put_entry( array &$entries, array $entry ) {
     }
 
     $existing = $entries[ $key ];
-    foreach ( [ 'aliases', 'tags', 'contract_addresses' ] as $field ) {
+    foreach ( [ 'aliases', 'tags', 'contract_addresses', 'list_ids' ] as $field ) {
         $existing[ $field ] = tonbankcard_api_search_unique_values(
             array_merge(
                 isset( $existing[ $field ] ) && is_array( $existing[ $field ] ) ? $existing[ $field ] : [],
@@ -505,9 +528,15 @@ function tonbankcard_api_search_put_entry( array &$entries, array $entry ) {
         );
     }
 
-    foreach ( [ 'image', 'market_cap_rank', 'coin_id', 'exchange_id', 'category_id', 'subtitle', 'symbol' ] as $field ) {
-        if ( empty( $existing[ $field ] ) && ! empty( $entry[ $field ] ) ) {
+    foreach ( [ 'image', 'market_cap_rank', 'coin_id', 'exchange_id', 'category_id', 'category', 'subtitle', 'symbol', 'verification_state' ] as $field ) {
+        if ( ( ! array_key_exists( $field, $existing ) || '' === $existing[ $field ] || null === $existing[ $field ] ) && ! empty( $entry[ $field ] ) ) {
             $existing[ $field ] = $entry[ $field ];
+        }
+    }
+
+    foreach ( [ 'verified', 'curated', 'featured' ] as $field ) {
+        if ( array_key_exists( $field, $entry ) ) {
+            $existing[ $field ] = (bool) $entry[ $field ];
         }
     }
 
@@ -533,9 +562,17 @@ function tonbankcard_api_search_prepare_entry( array $entry ) {
     $entry['aliases'] = tonbankcard_api_search_unique_values( isset( $entry['aliases'] ) && is_array( $entry['aliases'] ) ? $entry['aliases'] : [] );
     $entry['tags'] = tonbankcard_api_search_unique_values( isset( $entry['tags'] ) && is_array( $entry['tags'] ) ? $entry['tags'] : [] );
     $entry['contract_addresses'] = tonbankcard_api_search_unique_values( isset( $entry['contract_addresses'] ) && is_array( $entry['contract_addresses'] ) ? $entry['contract_addresses'] : [] );
+    $entry['list_ids'] = tonbankcard_api_search_unique_values( isset( $entry['list_ids'] ) && is_array( $entry['list_ids'] ) ? $entry['list_ids'] : [] );
     $entry['popular_score'] = isset( $entry['popular_score'] ) ? max( 0, (int) $entry['popular_score'] ) : 0;
     $entry['route'] = isset( $entry['route'] ) && is_array( $entry['route'] ) ? $entry['route'] : [ 'path' => '/' ];
     $entry['links'] = isset( $entry['links'] ) && is_array( $entry['links'] ) ? $entry['links'] : [ 'web' => '/', 'telegram' => '/app' ];
+    $entry['category'] = isset( $entry['category'] ) ? (string) $entry['category'] : '';
+    $entry['verification_state'] = isset( $entry['verification_state'] ) ? tonbankcard_api_search_tag( $entry['verification_state'] ) : '';
+    foreach ( [ 'verified', 'curated', 'featured' ] as $field ) {
+        if ( array_key_exists( $field, $entry ) ) {
+            $entry[ $field ] = (bool) $entry[ $field ];
+        }
+    }
 
     return $entry;
 }
@@ -701,15 +738,19 @@ function tonbankcard_api_search_trending_exchange_entry( array $exchange, int $r
  * @param string $query
  * @param int $limit
  * @param string $surface
+ * @param string $tag
  * @return array
  */
-function tonbankcard_api_search_results( array $entries, string $query, int $limit, string $surface ) {
+function tonbankcard_api_search_results( array $entries, string $query, int $limit, string $surface, string $tag = '' ) {
     $normalized_query = tonbankcard_api_search_normalize_text( $query );
     $tokens = tonbankcard_api_search_tokens( $query );
     $scored = [];
 
     foreach ( $entries as $entry ) {
         if ( ! is_array( $entry ) ) {
+            continue;
+        }
+        if ( '' !== $tag && ! tonbankcard_api_search_entry_matches_tag( $entry, $tag ) ) {
             continue;
         }
         $score = tonbankcard_api_search_score_entry( $entry, $normalized_query, $tokens );
@@ -743,6 +784,34 @@ function tonbankcard_api_search_results( array $entries, string $query, int $lim
     }
 
     return $results;
+}
+
+/**
+ * Returns TRUE when an index entry matches a curated tag filter.
+ *
+ * @param array $entry
+ * @param string $tag
+ * @return bool
+ */
+function tonbankcard_api_search_entry_matches_tag( array $entry, string $tag ) {
+    $tag = tonbankcard_api_search_tag( $tag );
+    if ( '' === $tag ) {
+        return TRUE;
+    }
+
+    $fields = [];
+    foreach ( [ 'tags', 'list_ids' ] as $field ) {
+        foreach ( isset( $entry[ $field ] ) && is_array( $entry[ $field ] ) ? $entry[ $field ] : [] as $value ) {
+            $fields[] = tonbankcard_api_search_tag( $value );
+        }
+    }
+    foreach ( [ 'category', 'category_id', 'verification_state', 'type' ] as $field ) {
+        if ( ! empty( $entry[ $field ] ) ) {
+            $fields[] = tonbankcard_api_search_tag( $entry[ $field ] );
+        }
+    }
+
+    return in_array( $tag, tonbankcard_api_search_unique_values( $fields ), TRUE );
 }
 
 /**
@@ -1007,9 +1076,11 @@ function tonbankcard_api_search_entry_fields( array $entry ) {
         isset( $entry['title'] ) ? $entry['title'] : '',
         isset( $entry['subtitle'] ) ? $entry['subtitle'] : '',
         isset( $entry['symbol'] ) ? $entry['symbol'] : '',
+        isset( $entry['category'] ) ? $entry['category'] : '',
+        isset( $entry['verification_state'] ) ? $entry['verification_state'] : '',
     ];
 
-    foreach ( [ 'aliases', 'tags', 'contract_addresses' ] as $field ) {
+    foreach ( [ 'aliases', 'tags', 'contract_addresses', 'list_ids' ] as $field ) {
         foreach ( isset( $entry[ $field ] ) && is_array( $entry[ $field ] ) ? $entry[ $field ] : [] as $value ) {
             $fields[] = (string) $value;
         }
@@ -1083,10 +1154,18 @@ function tonbankcard_api_search_public_result( array $entry, int $rank, string $
         'links'              => isset( $entry['links'] ) && is_array( $entry['links'] ) ? $entry['links'] : [ 'web' => '/', 'telegram' => '/app' ],
     ];
 
-    foreach ( [ 'coin_id', 'exchange_id', 'category_id', 'image', 'market_cap_rank' ] as $field ) {
+    foreach ( [ 'coin_id', 'exchange_id', 'category_id', 'category', 'image', 'market_cap_rank', 'verification_state' ] as $field ) {
         if ( isset( $entry[ $field ] ) && '' !== $entry[ $field ] ) {
             $result[ $field ] = $entry[ $field ];
         }
+    }
+    foreach ( [ 'verified', 'curated', 'featured' ] as $field ) {
+        if ( array_key_exists( $field, $entry ) ) {
+            $result[ $field ] = (bool) $entry[ $field ];
+        }
+    }
+    if ( ! empty( $entry['list_ids'] ) && is_array( $entry['list_ids'] ) ) {
+        $result['list_ids'] = array_values( $entry['list_ids'] );
     }
     if ( ! empty( $result['image'] ) ) {
         $result['large'] = $result['image'];
@@ -1111,9 +1190,10 @@ function tonbankcard_api_search_public_result( array $entry, int $rank, string $
  * @param array $state
  * @param string $query
  * @param int $result_count
+ * @param string $tag
  * @return array
  */
-function tonbankcard_api_search_meta( array $state, string $query, int $result_count ) {
+function tonbankcard_api_search_meta( array $state, string $query, int $result_count, string $tag = '' ) {
     $index = isset( $state['index'] ) && is_array( $state['index'] ) ? $state['index'] : [];
 
     return [
@@ -1122,6 +1202,7 @@ function tonbankcard_api_search_meta( array $state, string $query, int $result_c
             'index_built_at'      => isset( $index['built_at'] ) ? $index['built_at'] : null,
             'index_entry_count'   => isset( $index['entry_count'] ) ? (int) $index['entry_count'] : ( isset( $index['entries'] ) && is_array( $index['entries'] ) ? count( $index['entries'] ) : 0 ),
             'query_length_bucket' => tonbankcard_api_search_query_length_bucket( $query ),
+            'tag'                 => $tag,
             'result_count'        => $result_count,
             'warnings'            => isset( $state['warnings'] ) && is_array( $state['warnings'] ) ? $state['warnings'] : [],
         ],
