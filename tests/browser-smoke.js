@@ -1098,6 +1098,62 @@ async function checkWatchlistUnavailableStorageFallback(browser) {
     }
 }
 
+async function checkPwaMobileWeb(page, errors) {
+    log('Checking PWA mobile web shell and install prompt handling');
+
+    await page.setViewportSize({width: 390, height: 844});
+    await page.goto(`${baseURL}/`, {waitUntil: 'domcontentloaded'});
+    await page.locator('#market-pulse').waitFor({state: 'visible'});
+    await page.getByRole('heading', {name: /Market Pulse/i}).first().waitFor({state: 'visible'});
+
+    const pwaBeforePrompt = await page.evaluate(() => {
+        window.__tbcInstallPromptCalled = false;
+        const event = new Event('beforeinstallprompt', {cancelable: true});
+        Object.defineProperty(event, 'prompt', {
+            value: () => {
+                window.__tbcInstallPromptCalled = true;
+                return Promise.resolve();
+            },
+        });
+        Object.defineProperty(event, 'userChoice', {
+            value: Promise.resolve({outcome: 'accepted'}),
+        });
+        window.dispatchEvent(event);
+
+        return {
+            installAvailable: window.GeckoClient.pwa.installAvailable,
+            serviceWorkerUrl: window.GeckoClient.pwa.serviceWorkerUrl,
+            telegramClass: document.documentElement.classList.contains('tbc-telegram-webview'),
+        };
+    });
+
+    if (!pwaBeforePrompt.installAvailable || !/service-worker\.js$/.test(pwaBeforePrompt.serviceWorkerUrl)) {
+        fail(`PWA install prompt was not captured: ${JSON.stringify(pwaBeforePrompt)}`);
+    }
+
+    if (pwaBeforePrompt.telegramClass) {
+        fail(`Normal mobile web shell activated Telegram class: ${JSON.stringify(pwaBeforePrompt)}`);
+    }
+
+    await page.getByRole('button', {name: /Install app/i}).waitFor({state: 'visible'});
+    await page.screenshot({path: path.join(logDir, 'pwa-mobile-web.png'), fullPage: true});
+
+    const pwaAfterPrompt = await page.evaluate(async () => {
+        const accepted = await window.GeckoClient.pwa.promptInstall();
+        return {
+            accepted,
+            promptCalled: window.__tbcInstallPromptCalled,
+            installAvailable: window.GeckoClient.pwa.installAvailable,
+        };
+    });
+
+    if (!pwaAfterPrompt.accepted || !pwaAfterPrompt.promptCalled || pwaAfterPrompt.installAvailable) {
+        fail(`PWA install prompt did not complete cleanly: ${JSON.stringify(pwaAfterPrompt)}`);
+    }
+
+    await assertNoErrors(errors, 'PWA mobile web');
+}
+
 async function checkResponsiveDesignSystem(page, errors) {
     log('Checking responsive design system and Telegram theme adaptation');
 
@@ -1111,6 +1167,22 @@ async function checkResponsiveDesignSystem(page, errors) {
         window.Telegram = {
             WebApp: {
                 colorScheme: 'dark',
+                viewportHeight: 760,
+                viewportStableHeight: 720,
+                isExpanded: true,
+                isFullscreen: false,
+                safeAreaInset: {
+                    top: 12,
+                    right: 0,
+                    bottom: 20,
+                    left: 0,
+                },
+                contentSafeAreaInset: {
+                    top: 4,
+                    right: 0,
+                    bottom: 8,
+                    left: 0,
+                },
                 themeParams: {
                     bg_color: '#10131a',
                     secondary_bg_color: '#151a23',
@@ -1129,6 +1201,10 @@ async function checkResponsiveDesignSystem(page, errors) {
                 },
                 ready() {},
                 expand() {},
+                requestFullscreen() {
+                    this.__requestFullscreen = true;
+                    this.isFullscreen = true;
+                },
                 setHeaderColor(color) {
                     this.__headerColor = color;
                 },
@@ -1137,6 +1213,48 @@ async function checkResponsiveDesignSystem(page, errors) {
                 },
                 setBottomBarColor(color) {
                     this.__bottomBarColor = color;
+                },
+                BackButton: {
+                    __visible: false,
+                    show() {
+                        this.__visible = true;
+                    },
+                    hide() {
+                        this.__visible = false;
+                    },
+                    onClick(callback) {
+                        this.__callback = callback;
+                    },
+                },
+                MainButton: {
+                    setParams(params) {
+                        this.__params = params;
+                    },
+                    show() {
+                        this.__visible = true;
+                    },
+                },
+                SecondaryButton: {
+                    setParams(params) {
+                        this.__params = params;
+                    },
+                    show() {
+                        this.__visible = true;
+                    },
+                },
+                HapticFeedback: {
+                    impactOccurred(style) {
+                        this.__impact = style;
+                    },
+                    notificationOccurred(type) {
+                        this.__notification = type;
+                    },
+                    selectionChanged() {
+                        this.__selection = true;
+                    },
+                },
+                shareToStory(mediaUrl, params) {
+                    this.__story = {mediaUrl, params};
                 },
             },
         };
@@ -1154,19 +1272,37 @@ async function checkResponsiveDesignSystem(page, errors) {
         const rootStyles = getComputedStyle(root);
         const appBar = document.querySelector('.v-app-bar');
         const themeColor = document.querySelector('meta[name="theme-color"]');
+        window.GeckoClient.telegram.hapticImpact('medium');
+        window.GeckoClient.telegram.configureMainButton({text: 'Track'});
+        window.GeckoClient.telegram.configureSecondaryButton({text: 'Share'});
+        window.GeckoClient.telegram.shareToStory('https://example.com/story.png', {text: 'TONBANKCARD'});
 
         return {
             viewportWidth: window.innerWidth,
             scrollWidth: Math.max(root.scrollWidth, document.body.scrollWidth),
             telegramClass: root.classList.contains('tbc-telegram-webview'),
+            expandedClass: root.classList.contains('tbc-telegram-expanded'),
             darkClass: root.classList.contains('tbc-theme-dark') || (app && app.classList.contains('theme--dark')),
             telegramBg: rootStyles.getPropertyValue('--tbc-tg-bg').trim(),
             telegramButton: rootStyles.getPropertyValue('--tbc-tg-button').trim(),
+            viewportHeight: rootStyles.getPropertyValue('--tbc-viewport-height').trim(),
+            safeAreaTop: rootStyles.getPropertyValue('--tbc-safe-area-top').trim(),
+            safeAreaBottom: rootStyles.getPropertyValue('--tbc-safe-area-bottom').trim(),
+            contentSafeAreaBottom: rootStyles.getPropertyValue('--tbc-content-safe-area-bottom').trim(),
             appBarBg: appBar ? getComputedStyle(appBar).backgroundColor : '',
             themeColor: themeColor ? themeColor.content : '',
             nativeHeaderColor: window.Telegram.WebApp.__headerColor || '',
             nativeBackgroundColor: window.Telegram.WebApp.__backgroundColor || '',
             nativeBottomBarColor: window.Telegram.WebApp.__bottomBarColor || '',
+            requestFullscreen: window.Telegram.WebApp.__requestFullscreen === true,
+            hapticImpact: window.Telegram.WebApp.HapticFeedback.__impact || '',
+            mainButtonVisible: window.Telegram.WebApp.MainButton.__visible === true,
+            mainButtonText: window.Telegram.WebApp.MainButton.__params ? window.Telegram.WebApp.MainButton.__params.text : '',
+            secondaryButtonVisible: window.Telegram.WebApp.SecondaryButton.__visible === true,
+            secondaryButtonText: window.Telegram.WebApp.SecondaryButton.__params ? window.Telegram.WebApp.SecondaryButton.__params.text : '',
+            storyMediaUrl: window.Telegram.WebApp.__story ? window.Telegram.WebApp.__story.mediaUrl : '',
+            hasViewportEvent: typeof window.Telegram.WebApp.__events.viewportChanged === 'function',
+            hasSafeAreaEvent: typeof window.Telegram.WebApp.__events.safeAreaChanged === 'function',
         };
     });
 
@@ -1176,6 +1312,10 @@ async function checkResponsiveDesignSystem(page, errors) {
 
     if (!result.telegramClass || !result.darkClass) {
         fail(`Telegram webview dark theme did not activate: ${JSON.stringify(result)}`);
+    }
+
+    if (!result.expandedClass || result.viewportHeight !== '760px' || result.safeAreaTop !== '12px' || result.safeAreaBottom !== '20px' || result.contentSafeAreaBottom !== '8px') {
+        fail(`Telegram viewport or safe-area values were not applied: ${JSON.stringify(result)}`);
     }
 
     if (result.telegramBg !== '#10131A' || result.telegramButton !== '#1BB2DA') {
@@ -1189,6 +1329,16 @@ async function checkResponsiveDesignSystem(page, errors) {
     if (!['#10131A', '#1BB2DA'].includes(result.themeColor)) {
         fail(`Theme color meta did not follow Telegram or Vuetify theme: ${JSON.stringify(result)}`);
     }
+
+    if (!result.requestFullscreen || result.hapticImpact !== 'medium' || !result.mainButtonVisible || result.mainButtonText !== 'Track' || !result.secondaryButtonVisible || result.secondaryButtonText !== 'Share' || result.storyMediaUrl !== 'https://example.com/story.png') {
+        fail(`Telegram native controls were not wrapped correctly: ${JSON.stringify(result)}`);
+    }
+
+    if (!result.hasViewportEvent || !result.hasSafeAreaEvent) {
+        fail(`Telegram viewport/safe-area events were not registered: ${JSON.stringify(result)}`);
+    }
+
+    await page.screenshot({path: path.join(logDir, 'pwa-telegram-webview.png'), fullPage: true});
 
     await page.goto(`${baseURL}/currency/toncoin`, {waitUntil: 'domcontentloaded'});
     await page.locator('#currency').waitFor({state: 'visible'});
@@ -1204,6 +1354,7 @@ async function checkResponsiveDesignSystem(page, errors) {
             viewportWidth: window.innerWidth,
             scrollWidth: Math.max(root.scrollWidth, document.body.scrollWidth),
             widgetWidth: widgetBox ? widgetBox.width : 0,
+            backButtonVisible: window.Telegram.WebApp.BackButton.__visible === true,
         };
     });
 
@@ -1213,6 +1364,23 @@ async function checkResponsiveDesignSystem(page, errors) {
 
     if (coinDetailResult.widgetWidth <= 0 || coinDetailResult.widgetWidth > coinDetailResult.viewportWidth) {
         fail(`Mobile ChangeNOW widget was not sized inside the viewport: ${JSON.stringify(coinDetailResult)}`);
+    }
+
+    if (!coinDetailResult.backButtonVisible) {
+        fail(`Telegram BackButton was not shown on a nested route: ${JSON.stringify(coinDetailResult)}`);
+    }
+
+    await page.evaluate(() => {
+        window.Telegram.WebApp.BackButton.__callback();
+    });
+    await page.locator('#market-pulse').waitFor({state: 'visible'});
+    const backResult = await page.evaluate(() => ({
+        path: window.location.pathname,
+        selectionHaptic: window.Telegram.WebApp.HapticFeedback.__selection === true,
+    }));
+
+    if (backResult.path !== '/' || !backResult.selectionHaptic) {
+        fail(`Telegram BackButton did not navigate back through the app: ${JSON.stringify(backResult)}`);
     }
 
     await assertNoErrors(errors, 'responsive design system');
@@ -1267,6 +1435,7 @@ async function run() {
         await checkSearchInteraction(page, errors, requestLog);
         await checkSearchMobileDialog(page, errors, requestLog);
         await checkWatchlistPersistence(page, errors);
+        await checkPwaMobileWeb(page, errors);
         await checkResponsiveDesignSystem(page, errors);
         await checkWatchlistUnavailableStorageFallback(browser);
         await assertNoDirectProviderRequests(directProviderRequests);

@@ -9,7 +9,12 @@
         }
     });
 
-    router.afterEach(() => GeckoClient.setCanonicalUrl())
+    router.afterEach((to, from) => {
+        GeckoClient.setCanonicalUrl();
+        if (GeckoClient.telegram) {
+            GeckoClient.telegram.updateBackButton(to, from);
+        }
+    })
 
 
 })(window, VueRouter, GeckoClient);

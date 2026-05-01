@@ -117,5 +117,8 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
         <v-btn icon @click.stop="darkTheme=!darkTheme" class="d-none d-sm-inline-flex" :aria-label="darkTheme ? 'Switch to light theme' : 'Switch to dark theme'">
             <v-icon>{{ darkTheme ? 'mdi-white-balance-sunny' : 'mdi-brightness-2' }}</v-icon>
         </v-btn>
+        <v-btn icon v-if="pwaInstallAvailable" @click.stop="promptPwaInstall" aria-label="Install app" class="tbc-pwa-install-button">
+            <v-icon>mdi-cellphone-arrow-down</v-icon>
+        </v-btn>
 
 </v-app-bar>

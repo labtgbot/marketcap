@@ -75,6 +75,7 @@ npm run test:public-shell
 npm run test:ai-provider
 npm run test:observability
 npm run test:design-system
+npm run test:pwa-telegram
 npm run validate:bundle
 npm run test:smoke
 ```
@@ -138,3 +139,5 @@ See [docs/v2-observability-operational-logging.md](docs/v2-observability-operati
 See [docs/v2-ai-provider-foundation.md](docs/v2-ai-provider-foundation.md) for the configurable Groq-first AI provider layer, structured insight validation, safety rules, and fallback behavior from issue #17.
 
 See [docs/v2-responsive-design-system.md](docs/v2-responsive-design-system.md) for the responsive TONBANKCARD design tokens, Telegram theme behavior, safe-area rules, accessibility states, and dense desktop/mobile UI guidance from issue #19.
+
+See [docs/v2-pwa-telegram-webapp.md](docs/v2-pwa-telegram-webapp.md) for the PWA install shell, service worker strategy, offline fallback, and Telegram WebApp adapter behavior from issue #26.
