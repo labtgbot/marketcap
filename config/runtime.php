@@ -201,6 +201,109 @@ if ( ! function_exists( 'tonbankcard_normalize_url' ) ) {
     }
 }
 
+if ( ! function_exists( 'tonbankcard_runtime_admin_store_path' ) ) {
+    /**
+     * Returns the JSON admin configuration store path.
+     *
+     * @return string
+     */
+    function tonbankcard_runtime_admin_store_path() {
+        $path = trim( (string) tonbankcard_env( 'TONBANKCARD_ADMIN_STORE', '' ) );
+        if ( '' !== $path ) {
+            return $path;
+        }
+
+        return sys_get_temp_dir() . '/tonbankcard-marketcap-admin.json';
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_runtime_admin_store' ) ) {
+    /**
+     * Reads the admin configuration store without exposing raw secrets.
+     *
+     * @param string|null $path
+     * @return array
+     */
+    function tonbankcard_runtime_admin_store( $path = null ) {
+        $path = null === $path ? tonbankcard_runtime_admin_store_path() : (string) $path;
+        if ( '' === trim( $path ) || ! is_file( $path ) || ! is_readable( $path ) ) {
+            return [];
+        }
+
+        $raw = file_get_contents( $path );
+        if ( FALSE === $raw || '' === trim( $raw ) ) {
+            return [];
+        }
+
+        $decoded = json_decode( $raw, TRUE );
+        return is_array( $decoded ) ? $decoded : [];
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_runtime_admin_bool_overrides' ) ) {
+    /**
+     * Merges boolean feature overrides saved from the admin panel.
+     *
+     * @param array $feature_flags
+     * @param array $store
+     * @return array
+     */
+    function tonbankcard_runtime_admin_bool_overrides( array $feature_flags, array $store ) {
+        $overrides = isset( $store['feature_flags'] ) && is_array( $store['feature_flags'] ) ? $store['feature_flags'] : [];
+        foreach ( [ 'ai', 'alerts', 'widget', 'changenow', 'ton_connect', 'referrals', 'gamification', 'premium' ] as $flag ) {
+            if ( array_key_exists( $flag, $overrides ) ) {
+                $feature_flags[ $flag ] = (bool) $overrides[ $flag ];
+            }
+        }
+
+        if ( array_key_exists( 'widget', $overrides ) ) {
+            $feature_flags['changenow'] = (bool) $overrides['widget'];
+        } elseif ( array_key_exists( 'changenow', $overrides ) ) {
+            $feature_flags['widget'] = (bool) $overrides['changenow'];
+        } elseif ( isset( $feature_flags['changenow'] ) && ! isset( $feature_flags['widget'] ) ) {
+            $feature_flags['widget'] = (bool) $feature_flags['changenow'];
+        }
+
+        return $feature_flags;
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_runtime_admin_scalar' ) ) {
+    /**
+     * Reads a bounded scalar override from the admin store.
+     *
+     * @param array $store
+     * @param array $path
+     * @param string $default
+     * @param array $allowed
+     * @return string
+     */
+    function tonbankcard_runtime_admin_scalar( array $store, array $path, string $default, array $allowed = [] ) {
+        $value = $store;
+        foreach ( $path as $part ) {
+            if ( ! is_array( $value ) || ! array_key_exists( $part, $value ) ) {
+                return $default;
+            }
+            $value = $value[ $part ];
+        }
+
+        if ( ! is_scalar( $value ) ) {
+            return $default;
+        }
+
+        $value = trim( (string) $value );
+        if ( '' === $value ) {
+            return $default;
+        }
+
+        if ( ! empty( $allowed ) && ! in_array( $value, $allowed, TRUE ) ) {
+            return $default;
+        }
+
+        return $value;
+    }
+}
+
 if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
     /**
      * Builds runtime configuration from environment variables.
@@ -245,15 +348,20 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
             }
         }
 
+        $changenow_feature = tonbankcard_env_bool( 'TONBANKCARD_FEATURE_CHANGENOW', FALSE );
         $feature_flags = [
             'ai'           => tonbankcard_env_bool( 'TONBANKCARD_FEATURE_AI', FALSE ),
             'alerts'       => tonbankcard_env_bool( 'TONBANKCARD_FEATURE_ALERTS', FALSE ),
-            'changenow'    => tonbankcard_env_bool( 'TONBANKCARD_FEATURE_CHANGENOW', FALSE ),
+            'changenow'    => $changenow_feature,
+            'widget'       => tonbankcard_env_bool( 'TONBANKCARD_FEATURE_WIDGET', $changenow_feature ),
             'ton_connect'  => tonbankcard_env_bool( 'TONBANKCARD_FEATURE_TON_CONNECT', FALSE ),
             'referrals'    => tonbankcard_env_bool( 'TONBANKCARD_FEATURE_REFERRALS', FALSE ),
             'gamification' => tonbankcard_env_bool( 'TONBANKCARD_FEATURE_GAMIFICATION', FALSE ),
             'premium'      => tonbankcard_env_bool( 'TONBANKCARD_FEATURE_PREMIUM', FALSE ),
         ];
+        $admin_store_path = tonbankcard_runtime_admin_store_path();
+        $admin_store = tonbankcard_runtime_admin_store( $admin_store_path );
+        $feature_flags = tonbankcard_runtime_admin_bool_overrides( $feature_flags, $admin_store );
 
         $telegram_bot_token = (string) tonbankcard_env( 'TONBANKCARD_BOT_TOKEN', '' );
         $coingecko_api_key  = (string) tonbankcard_env( 'COINGECKO_API_KEY', '' );
@@ -261,6 +369,7 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
         if ( ! in_array( $coingecko_api_plan, [ 'demo', 'pro' ], TRUE ) ) {
             $coingecko_api_plan = 'demo';
         }
+        $coingecko_api_plan = tonbankcard_runtime_admin_scalar( $admin_store, [ 'providers', 'coingecko', 'api_plan' ], $coingecko_api_plan, [ 'demo', 'pro' ] );
         $ai_provider = strtolower( trim( (string) tonbankcard_env( 'TONBANKCARD_AI_PROVIDER', 'groq' ) ) );
         if ( ! in_array( $ai_provider, [ 'groq' ], TRUE ) ) {
             $ai_provider = 'groq';
@@ -284,9 +393,11 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
         if ( '' === $groq_model_id ) {
             $groq_model_id = 'llama-3.3-70b-versatile';
         }
+        $groq_model_id = tonbankcard_runtime_admin_scalar( $admin_store, [ 'providers', 'groq', 'model_id' ], $groq_model_id );
         $groq_base_url      = tonbankcard_normalize_url( (string) tonbankcard_env( 'GROQ_BASE_URL', 'https://api.groq.com/openai/v1/' ) );
         $upstash_token      = (string) tonbankcard_env( 'UPSTASH_REDIS_REST_TOKEN', '' );
         $mysql_password     = (string) tonbankcard_env( 'MYSQL_PASSWORD', '' );
+        $changenow_link_id  = tonbankcard_runtime_admin_scalar( $admin_store, [ 'providers', 'changenow', 'link_id' ], (string) tonbankcard_env( 'CHANGENOW_LINK_ID', '' ) );
         $observability_log_level = strtolower( trim( (string) tonbankcard_env( 'TONBANKCARD_OBSERVABILITY_LOG_LEVEL', 'warning' ) ) );
         if ( ! in_array( $observability_log_level, [ 'debug', 'info', 'warning', 'warn', 'error', 'critical', 'off' ], TRUE ) ) {
             $observability_log_level = 'warning';
@@ -351,8 +462,15 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
                     'password_configured' => '' !== trim( $mysql_password ),
                 ],
                 'changenow' => [
-                    'link_id' => (string) tonbankcard_env( 'CHANGENOW_LINK_ID', '' ),
+                    'link_id' => $changenow_link_id,
                 ],
+            ],
+            'admin'         => [
+                'store_path'                => $admin_store_path,
+                'store_configured'          => tonbankcard_env_has( 'TONBANKCARD_ADMIN_STORE' ),
+                'store_loaded'              => ! empty( $admin_store ),
+                'token_configured'          => '' !== trim( (string) tonbankcard_env( 'TONBANKCARD_ADMIN_TOKEN', '' ) ),
+                'support_token_configured'  => '' !== trim( (string) tonbankcard_env( 'TONBANKCARD_ADMIN_SUPPORT_TOKEN', '' ) ),
             ],
             'observability' => [
                 'log_level'              => $observability_log_level,

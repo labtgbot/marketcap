@@ -18,6 +18,7 @@ require_once __DIR__ . '/search.php';
 require_once __DIR__ . '/watchlist.php';
 require_once __DIR__ . '/alerts.php';
 require_once __DIR__ . '/screener.php';
+require_once __DIR__ . '/admin.php';
 
 /**
  * Returns TRUE when the current or supplied path belongs to the API surface.
@@ -259,6 +260,15 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
                             '/api/screener/markets',
                             '/api/screener/presets',
                             '/api/screener/presets/{id}',
+                            '/api/admin',
+                            '/api/admin/session',
+                            '/api/admin/config',
+                            '/api/admin/providers',
+                            '/api/admin/feature-flags',
+                            '/api/admin/content',
+                            '/api/admin/operations',
+                            '/api/admin/cache/purge',
+                            '/api/admin/audit-log',
                             '/api/observability/client-error',
                             '/api/telegram/session',
                         ],
@@ -489,6 +499,17 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
             );
         }
 
+        if ( tonbankcard_api_admin_is_request( $path ) ) {
+            return tonbankcard_api_finalize_response(
+                tonbankcard_api_admin_handle( $request, $runtime, $config, $request_id, $headers ),
+                $request,
+                $runtime,
+                $config,
+                $request_id,
+                $started_at
+            );
+        }
+
         if ( tonbankcard_api_market_is_request( $path ) ) {
             return tonbankcard_api_finalize_response(
                 tonbankcard_api_market_handle( $request, $runtime, $config, $request_id, $headers ),
@@ -657,6 +678,9 @@ function tonbankcard_api_route_group( string $path ) {
     }
     if ( tonbankcard_api_screener_is_request( $path ) ) {
         return 'screener';
+    }
+    if ( tonbankcard_api_admin_is_request( $path ) ) {
+        return 'admin';
     }
     if ( '/api/ai' === $path || 0 === strpos( $path, '/api/ai/' ) ) {
         return 'ai';

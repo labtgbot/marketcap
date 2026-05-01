@@ -34,6 +34,7 @@
   "routes/markets.js",
   "routes/privacy-policy.js",
   "routes/public-static.js",
+  "routes/admin.js",
   "routes/alerts.js",
   "routes/screener.js",
   "routes/ton.js",

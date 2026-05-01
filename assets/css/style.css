@@ -1344,3 +1344,82 @@ v-app {
 #cookies-policy {
     max-width: 1200px;
 }
+.admin-shell {
+    min-height: calc(100vh - 96px);
+}
+.admin-shell #admin {
+    max-width: 1440px;
+}
+.admin-header,
+.admin-header-actions,
+.admin-status-strip,
+.admin-sticky-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.admin-header {
+    justify-content: space-between;
+}
+.admin-header-actions {
+    justify-content: flex-end;
+}
+.admin-login-card {
+    max-width: 480px;
+}
+.admin-tabs .v-tab {
+    min-height: 48px;
+}
+.admin-flag-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 20px;
+}
+.admin-metric-card {
+    height: 100%;
+}
+.admin-meta-line {
+    color: rgba(0, 0, 0, 0.6);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+.theme--dark .admin-meta-line {
+    color: rgba(255, 255, 255, 0.68);
+}
+.admin-secret-input input {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+.admin-ton-card {
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 8px;
+    height: 100%;
+}
+.theme--dark .admin-ton-card {
+    border-color: rgba(255, 255, 255, 0.12);
+}
+.admin-ton-header {
+    min-height: 48px;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+}
+.admin-ton-body {
+    padding: 0 16px 16px;
+}
+.admin-audit-table code {
+    white-space: nowrap;
+}
+@media only screen and (max-width: 759px) {
+    .admin-header {
+        display: block;
+    }
+    .admin-header-actions {
+        justify-content: flex-start;
+        margin-top: 12px;
+    }
+    .admin-flag-grid {
+        grid-template-columns: 1fr;
+    }
+}

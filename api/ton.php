@@ -427,6 +427,12 @@ function tonbankcard_api_ton_load_state( array $runtime, array $config ) {
             tonbankcard_api_ton_put_asset( $assets, tonbankcard_api_ton_normalize_asset( is_array( $asset ) ? $asset : [] ) );
         }
     }
+    $admin_assets = tonbankcard_api_ton_admin_assets();
+    if ( ! empty( $admin_assets ) ) {
+        foreach ( $admin_assets as $asset ) {
+            tonbankcard_api_ton_put_asset( $assets, tonbankcard_api_ton_normalize_asset( is_array( $asset ) ? $asset : [] ) );
+        }
+    }
 
     uasort(
         $assets,
@@ -439,19 +445,47 @@ function tonbankcard_api_ton_load_state( array $runtime, array $config ) {
         }
     );
 
+    $source_type = 'default';
+    if ( ! empty( $store ) && ! empty( $admin_assets ) ) {
+        $source_type = 'default_plus_manual_admin';
+    } elseif ( ! empty( $store ) ) {
+        $source_type = 'default_plus_manual';
+    } elseif ( ! empty( $admin_assets ) ) {
+        $source_type = 'default_plus_admin';
+    }
+
     return [
-        'version'          => 1,
-        'source'           => 'tonbankcard-ton-curation',
-        'source_type'      => ! empty( $store ) ? 'default_plus_manual' : 'default',
-        'built_at'         => gmdate( 'c' ),
-        'updated_at'       => isset( $store['updated_at'] ) ? (string) $store['updated_at'] : null,
-        'store_configured' => '' !== trim( (string) $settings['curation_store_path'] ),
-        'store_loaded'     => ! empty( $store ),
-        'warnings'         => $warnings,
-        'categories'       => $categories,
-        'lists'            => $lists,
-        'assets'           => array_values( $assets ),
+        'version'            => 1,
+        'source'             => 'tonbankcard-ton-curation',
+        'source_type'        => $source_type,
+        'built_at'           => gmdate( 'c' ),
+        'updated_at'         => isset( $store['updated_at'] ) ? (string) $store['updated_at'] : null,
+        'store_configured'   => '' !== trim( (string) $settings['curation_store_path'] ),
+        'store_loaded'       => ! empty( $store ),
+        'admin_store_loaded' => ! empty( $admin_assets ),
+        'warnings'           => $warnings,
+        'categories'         => $categories,
+        'lists'              => $lists,
+        'assets'             => array_values( $assets ),
     ];
+}
+
+/**
+ * Returns admin-managed TON assets from the safe admin store.
+ *
+ * @return array
+ */
+function tonbankcard_api_ton_admin_assets() {
+    if ( ! function_exists( 'tonbankcard_runtime_admin_store' ) ) {
+        return [];
+    }
+
+    $store = tonbankcard_runtime_admin_store();
+    if ( empty( $store['content']['ton_assets'] ) || ! is_array( $store['content']['ton_assets'] ) ) {
+        return [];
+    }
+
+    return array_values( $store['content']['ton_assets'] );
 }
 
 /**
@@ -738,6 +772,7 @@ function tonbankcard_api_ton_meta( array $state, array $filters, int $result_cou
             'built_at'           => isset( $state['built_at'] ) ? $state['built_at'] : null,
             'store_configured'   => ! empty( $state['store_configured'] ),
             'store_loaded'       => ! empty( $state['store_loaded'] ),
+            'admin_store_loaded' => ! empty( $state['admin_store_loaded'] ),
             'manual_curation'    => TRUE,
             'result_count'       => $result_count,
             'filters'            => $filters,
