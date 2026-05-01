@@ -157,6 +157,29 @@ body {
     letter-spacing: 0;
 }
 
+.tbc-mobile-brand {
+    min-width: 0;
+    max-width: calc(100vw - 176px);
+    flex: 1 1 auto;
+    color: inherit !important;
+    text-decoration: none !important;
+}
+
+.tbc-mobile-brand span {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tbc-top-search {
+    margin-right: auto;
+    margin-left: auto;
+}
+
 .tbc-pwa-install-button {
     flex: 0 0 auto;
 }
@@ -495,10 +518,30 @@ v-app {
     }
 }
 @media only screen and (max-width: 599px) {
-    .gc-search-bar {
-        width: auto;
-        max-width: 48px;
+    .tbc-app-bar .v-toolbar__content {
+        gap: 4px;
+    }
+
+    .tbc-top-search {
         flex: 0 0 auto;
+        margin-right: 4px !important;
+        margin-left: auto !important;
+    }
+
+    .gc-search-bar {
+        width: 44px;
+        max-width: 44px;
+        flex: 0 0 44px;
+    }
+
+    .gc-search-trigger,
+    .tbc-pwa-install-button {
+        width: 40px !important;
+        height: 40px !important;
+    }
+
+    .tbc-pwa-install-button {
+        margin-left: 0 !important;
     }
 
     #currencies-table td {

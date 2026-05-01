@@ -1098,6 +1098,60 @@ async function checkWatchlistUnavailableStorageFallback(browser) {
     }
 }
 
+async function assertMobileChromeLayout(page, label, options = {}) {
+    const layout = await page.evaluate(() => {
+        const box = selector => {
+            const element = document.querySelector(selector);
+            if (!element) {
+                return {visible: false};
+            }
+
+            const style = window.getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            return {
+                visible: style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0,
+                top: Math.round(rect.top),
+                right: Math.round(rect.right),
+                bottom: Math.round(rect.bottom),
+                left: Math.round(rect.left),
+                width: Math.round(rect.width),
+                height: Math.round(rect.height),
+            };
+        };
+
+        return {
+            viewportWidth: window.innerWidth,
+            viewportHeight: window.innerHeight,
+            scrollWidth: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+            nav: box('.v-app-bar__nav-icon'),
+            brand: box('.tbc-mobile-brand'),
+            search: box('.gc-search-trigger'),
+            install: box('.tbc-pwa-install-button'),
+            bottomNavigation: box('.v-bottom-navigation'),
+        };
+    });
+
+    if (layout.scrollWidth > layout.viewportWidth) {
+        fail(`${label} mobile chrome overflowed horizontally: ${JSON.stringify(layout)}`);
+    }
+
+    if (!layout.nav.visible || !layout.brand.visible || !layout.search.visible || !layout.bottomNavigation.visible) {
+        fail(`${label} mobile chrome controls were not visible: ${JSON.stringify(layout)}`);
+    }
+
+    if (layout.brand.left < layout.nav.right - 2 || layout.search.left < layout.brand.right - 2) {
+        fail(`${label} mobile header controls overlapped or were out of order: ${JSON.stringify(layout)}`);
+    }
+
+    if (options.expectInstallButton && (!layout.install.visible || layout.install.left < layout.search.right - 2)) {
+        fail(`${label} install action was not aligned after search: ${JSON.stringify(layout)}`);
+    }
+
+    if (Math.abs(layout.bottomNavigation.bottom - layout.viewportHeight) > 2 || layout.bottomNavigation.top < layout.viewportHeight - 96) {
+        fail(`${label} bottom navigation was not pinned to the viewport bottom: ${JSON.stringify(layout)}`);
+    }
+}
+
 async function checkPwaMobileWeb(page, errors) {
     log('Checking PWA mobile web shell and install prompt handling');
 
@@ -1136,7 +1190,8 @@ async function checkPwaMobileWeb(page, errors) {
     }
 
     await page.getByRole('button', {name: /Install app/i}).waitFor({state: 'visible'});
-    await page.screenshot({path: path.join(logDir, 'pwa-mobile-web.png'), fullPage: true});
+    await assertMobileChromeLayout(page, 'PWA mobile web', {expectInstallButton: true});
+    await page.screenshot({path: path.join(logDir, 'pwa-mobile-web.png')});
 
     const pwaAfterPrompt = await page.evaluate(async () => {
         const accepted = await window.GeckoClient.pwa.promptInstall();
@@ -1338,7 +1393,8 @@ async function checkResponsiveDesignSystem(page, errors) {
         fail(`Telegram viewport/safe-area events were not registered: ${JSON.stringify(result)}`);
     }
 
-    await page.screenshot({path: path.join(logDir, 'pwa-telegram-webview.png'), fullPage: true});
+    await assertMobileChromeLayout(page, 'Telegram webview');
+    await page.screenshot({path: path.join(logDir, 'pwa-telegram-webview.png')});
 
     await page.goto(`${baseURL}/currency/toncoin`, {waitUntil: 'domcontentloaded'});
     await page.locator('#currency').waitFor({state: 'visible'});
