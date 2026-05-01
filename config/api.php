@@ -58,6 +58,7 @@ $api = [
             'X-TONBANKCARD-Admin',
             'X-TONBANKCARD-Session',
             'X-Telegram-Init-Data',
+            'X-Telegram-Bot-Api-Secret-Token',
         ],
         'exposed_headers'      => [
             'X-Request-ID',
@@ -135,6 +136,11 @@ $api = [
         'auth_date_future_skew_seconds' => 60,
         'session_ttl_seconds'           => 2592000,
         'local_session_store_path'      => (string) tonbankcard_env( 'TONBANKCARD_LOCAL_SESSION_STORE', sys_get_temp_dir() . '/tonbankcard-marketcap-sessions.json' ),
+    ],
+    'telegram_bot' => [
+        'webhook_secret'       => isset( $api_runtime['telegram']['webhook_secret'] ) ? (string) $api_runtime['telegram']['webhook_secret'] : '',
+        'inline_cache_seconds' => 300,
+        'inline_max_results'   => 8,
     ],
     'readiness'  => [
         'active_checks'   => tonbankcard_env_bool( 'TONBANKCARD_API_ACTIVE_READINESS', FALSE ),

@@ -74,6 +74,7 @@ npm run test:search-api
 npm run test:ton-ecosystem
 npm run test:cache-rate-limit
 npm run test:telegram-session
+npm run test:telegram-bot
 npm run test:watchlist
 npm run test:screener
 npm run test:alerts
@@ -143,6 +144,8 @@ See [docs/v2-ton-connect-wallet-profile.md](docs/v2-ton-connect-wallet-profile.m
 See [docs/v2-cache-rate-limit-coalescing.md](docs/v2-cache-rate-limit-coalescing.md) for the Upstash Redis cache TTLs, stale fallback behavior, request coalescing, rate-limit policies, and metrics from issue #15.
 
 See [docs/v2-telegram-session.md](docs/v2-telegram-session.md) for the `/api/telegram/session` initData validation, session storage, local browser fallback, and regression coverage from issue #13.
+
+See [docs/v2-telegram-bot-companion.md](docs/v2-telegram-bot-companion.md) for Telegram bot commands, inline mode, group launch context, webhook request-id logging, and regression coverage from issue #36.
 
 See [docs/v2-watchlist-ux-persistence.md](docs/v2-watchlist-ux-persistence.md) for the Watchlist UX, localStorage, Telegram CloudStorage, MySQL trusted-session sync, and conflict behavior from issue #23.
 

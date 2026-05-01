@@ -16,6 +16,7 @@ require_once __DIR__ . '/achievements.php';
 require_once __DIR__ . '/ton.php';
 require_once __DIR__ . '/ai.php';
 require_once __DIR__ . '/search.php';
+require_once __DIR__ . '/telegram-bot.php';
 require_once __DIR__ . '/watchlist.php';
 require_once __DIR__ . '/alerts.php';
 require_once __DIR__ . '/screener.php';
@@ -273,6 +274,8 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
                             '/api/admin/audit-log',
                             '/api/observability/client-error',
                             '/api/telegram/session',
+                            '/api/telegram/bot',
+                            '/api/telegram/bot/commands',
                         ],
                         'middleware' => $context['hooks'],
                     ],
@@ -327,6 +330,17 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
 
             return tonbankcard_api_finalize_response(
                 tonbankcard_api_client_error_response( $request, $runtime, $config, $request_id, $headers ),
+                $request,
+                $runtime,
+                $config,
+                $request_id,
+                $started_at
+            );
+        }
+
+        if ( tonbankcard_api_telegram_bot_is_request( $path ) ) {
+            return tonbankcard_api_finalize_response(
+                tonbankcard_api_telegram_bot_handle( $request, $runtime, $config, $request_id, $headers ),
                 $request,
                 $runtime,
                 $config,
@@ -1655,7 +1669,38 @@ function tonbankcard_api_session_response_payload( array $session ) {
             'start_param'           => $session['start_param'],
             'chat_type'             => $session['chat_type'],
             'chat_instance_present' => (bool) $session['chat_instance_present'],
+            'group_context'         => tonbankcard_api_telegram_group_context_payload( $session ),
         ],
+    ];
+}
+
+/**
+ * Returns safe Telegram group context metadata for Mini App launches.
+ *
+ * @param array $session
+ * @return array
+ */
+function tonbankcard_api_telegram_group_context_payload( array $session ) {
+    $chat_type = isset( $session['chat_type'] ) ? strtolower( (string) $session['chat_type'] ) : null;
+    $chat_instance_hash = isset( $session['chat_instance_hash'] ) ? strtolower( (string) $session['chat_instance_hash'] ) : '';
+    $is_group_context = in_array( $chat_type, [ 'group', 'supergroup', 'channel' ], TRUE );
+
+    if ( ! $is_group_context || ! preg_match( '/^[a-f0-9]{64}$/', $chat_instance_hash ) ) {
+        return [
+            'available'              => FALSE,
+            'scope'                  => 'personal',
+            'chat_type'              => $chat_type,
+            'context_id'             => null,
+            'personal_data_isolated' => TRUE,
+        ];
+    }
+
+    return [
+        'available'              => TRUE,
+        'scope'                  => 'telegram_group',
+        'chat_type'              => $chat_type,
+        'context_id'             => 'tggrp_' . substr( $chat_instance_hash, 0, 24 ),
+        'personal_data_isolated' => TRUE,
     ];
 }
 

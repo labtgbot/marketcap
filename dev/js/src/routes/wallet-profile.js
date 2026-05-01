@@ -1,15 +1,11 @@
 (function (window, _, GeckoClient) {
     'use strict';
 
-    const route = GeckoClient.routesConfig['wallet-profile'];
-    const options = GeckoClient.getOptions('wallet-profile');
-    if (!route) return;
+    function walletProfileComponent(routeName, templateId) {
+        const options = GeckoClient.getOptions(routeName);
 
-    GeckoClient.router.addRoute({
-        name: 'wallet-profile',
-        path: route.path,
-        component: {
-            template: '#route-wallet-profile',
+        return {
+            template: templateId,
             data: function () {
                 const snapshot = GeckoClient.tonConnect ? GeckoClient.tonConnect.snapshot() : {};
                 return {
@@ -153,7 +149,18 @@
                     return _.startCase(String(feature || '').replace(/[_-]+/g, ' '));
                 }
             }
-        }
+        };
+    }
+
+    ['wallet-profile', 'settings'].forEach(routeName => {
+        const route = GeckoClient.routesConfig[routeName];
+        if (!route) return;
+
+        GeckoClient.router.addRoute({
+            name: routeName,
+            path: route.path,
+            component: walletProfileComponent(routeName, '#route-' + routeName)
+        });
     });
 
 })(window, _, GeckoClient);

@@ -364,6 +364,7 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
         $feature_flags = tonbankcard_runtime_admin_bool_overrides( $feature_flags, $admin_store );
 
         $telegram_bot_token = (string) tonbankcard_env( 'TONBANKCARD_BOT_TOKEN', '' );
+        $telegram_bot_webhook_secret = (string) tonbankcard_env( 'TONBANKCARD_BOT_WEBHOOK_SECRET', '' );
         $coingecko_api_key  = (string) tonbankcard_env( 'COINGECKO_API_KEY', '' );
         $coingecko_api_plan = strtolower( trim( (string) tonbankcard_env( 'COINGECKO_API_PLAN', 'demo' ) ) );
         if ( ! in_array( $coingecko_api_plan, [ 'demo', 'pro' ], TRUE ) ) {
@@ -423,9 +424,11 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
                 'telegram' => $telegram_url,
             ],
             'telegram'      => [
-                'bot_username'          => (string) tonbankcard_env( 'TONBANKCARD_BOT_USERNAME', '' ),
-                'bot_token'             => $telegram_bot_token,
-                'bot_token_configured'  => '' !== trim( $telegram_bot_token ),
+                'bot_username'              => (string) tonbankcard_env( 'TONBANKCARD_BOT_USERNAME', '' ),
+                'bot_token'                 => $telegram_bot_token,
+                'bot_token_configured'      => '' !== trim( $telegram_bot_token ),
+                'webhook_secret'            => $telegram_bot_webhook_secret,
+                'webhook_secret_configured' => '' !== trim( $telegram_bot_webhook_secret ),
             ],
             'ai'            => [
                 'provider'          => $ai_provider,
