@@ -1831,6 +1831,130 @@
     });
 
 })(window, _, Vue, GeckoClient);
+(function (window, document, _, Vue, GeckoClient) {
+    'use strict';
+
+    const currencyOptions = GeckoClient.getOptions('currency', {});
+    const widgetOptions = currencyOptions.exchangeWidget || {};
+    const defaultWidgetUrl = 'https://changenow.io/embeds/exchange-widget/v2/widget.html';
+    const defaultConnectorScriptUrl = 'https://changenow.io/embeds/exchange-widget/v2/stepper-connector.js';
+
+    function normalizeKey(value) {
+        return _.toLower(_.trim(value || ''));
+    }
+
+    function normalizeColor(value, fallback) {
+        value = _.trim(value || fallback || '').replace(/^#/, '');
+        return /^[0-9a-f]{6}$/i.test(value) ? _.toLower(value) : fallback;
+    }
+
+    function getSupportedAsset(currency) {
+        const supportedAssets = widgetOptions.supportedAssets || {};
+        const ids = supportedAssets.ids || {};
+        const symbols = supportedAssets.symbols || {};
+        const id = normalizeKey(_.get(currency, 'id'));
+        const symbol = normalizeKey(_.get(currency, 'symbol'));
+        const asset = ids[id] || symbols[symbol] || null;
+
+        if (!asset) return null;
+        if (_.isString(asset)) return {from: asset};
+
+        return _.cloneDeep(asset);
+    }
+
+    function buildWidgetUrl(baseUrl, params) {
+        const url = new URL(baseUrl || defaultWidgetUrl, window.location.href);
+
+        _.forOwn(params, (value, key) => {
+            url.searchParams.set(key, value === null || value === undefined ? '' : String(value));
+        });
+
+        return url.toString();
+    }
+
+    Vue.component('gc-currency-exchange-widget', {
+        props: {
+            currency: {}
+        },
+        template: '#component-currency-exchange-widget',
+        computed: {
+            providerName: function () {
+                return widgetOptions.provider || 'ChangeNOW';
+            },
+            isEnabled: function () {
+                return widgetOptions.enabled === true && !!this.linkId;
+            },
+            linkId: function () {
+                return _.trim(widgetOptions.linkId || '');
+            },
+            supportedAsset: function () {
+                return getSupportedAsset(this.currency);
+            },
+            widgetStatus: function () {
+                if (!this.isEnabled) return 'disabled';
+                if (!this.currency) return 'loading';
+                return this.supportedAsset ? 'ready' : 'unsupported';
+            },
+            isReady: function () {
+                return this.widgetStatus === 'ready';
+            },
+            assetLabel: function () {
+                return this.supportedAsset && this.supportedAsset.label
+                    ? this.supportedAsset.label
+                    : _.get(this.currency, 'name', this.providerName);
+            },
+            targetLabel: function () {
+                return this.supportedAsset && this.supportedAsset.toLabel
+                    ? this.supportedAsset.toLabel
+                    : 'USDT on TON';
+            },
+            iframeTitle: function () {
+                return this.providerName + ' exchange widget for ' + this.assetLabel;
+            },
+            iframeSrc: function () {
+                if (!this.isReady) return null;
+
+                const defaults = widgetOptions.defaults || {};
+                const target = this.supportedAsset.to || defaults.to || 'usdtton';
+                const params = Object.assign({}, defaults, {
+                    from: this.supportedAsset.from,
+                    to: target,
+                    link_id: this.linkId,
+                    primaryColor: normalizeColor(defaults.primaryColor, '1bb2da'),
+                    backgroundColor: normalizeColor(defaults.backgroundColor, 'f6fafd')
+                });
+
+                return buildWidgetUrl(widgetOptions.widgetUrl, params);
+            }
+        },
+        mounted: function () {
+            if (this.isReady) {
+                this.ensureConnectorScript();
+            }
+        },
+        updated: function () {
+            if (this.isReady) {
+                this.ensureConnectorScript();
+            }
+        },
+        methods: {
+            ensureConnectorScript: function () {
+                const scriptUrl = widgetOptions.connectorScriptUrl || defaultConnectorScriptUrl;
+                if (!scriptUrl || document.querySelector('script[data-tbc-changenow-connector="true"]')) {
+                    return;
+                }
+
+                const script = document.createElement('script');
+                script.src = scriptUrl;
+                script.defer = true;
+                script.setAttribute('data-tbc-changenow-connector', 'true');
+                document.body.appendChild(script);
+            }
+        }
+    });
+
+})(window, document, _, Vue, GeckoClient);
+
 (function (window, Vue) {
     'use strict';
 
@@ -2780,6 +2904,8 @@
                     tab: null,
                     tabs: mainOptions.tabs,
                     loading: false,
+                    actionNotice: '',
+                    actionNoticeModel: false,
 
                     marketLoading: false,
                     marketTableHeaders: marketOptions.tableHeaders,
@@ -2828,6 +2954,20 @@
                     this.tabChanged(index)
                 }
             },
+            computed: {
+                isInWatchlist: function () {
+                    return this.isWatched(this.currency);
+                },
+                watchlistButtonLabel: function () {
+                    return this.watchlistLabel(this.currency);
+                },
+                alertButtonLabel: function () {
+                    return this.currency ? 'Create alert for ' + this.currency.name : 'Create alert';
+                },
+                shareButtonLabel: function () {
+                    return this.currency ? 'Share ' + this.currency.name : 'Share coin';
+                }
+            },
             methods: {
                 initWatchlist: function () {
                     const watchlist = GeckoClient.watchlist;
@@ -2852,6 +2992,7 @@
                 toggleWatchlist: function (currency) {
                     if (!currency || !GeckoClient.watchlist) return;
 
+                    const wasWatched = this.isWatched(currency);
                     GeckoClient.watchlist.toggle(
                         {
                             id: currency.id,
@@ -2860,7 +3001,10 @@
                             image: _.get(currency, 'image.large') || _.get(currency, 'image.small') || _.get(currency, 'image.thumb')
                         },
                         {sourceRoute: 'coin_detail'}
-                    ).then(() => this.syncWatchlistIds());
+                    ).then(() => {
+                        this.syncWatchlistIds();
+                        this.showActionNotice(currency.name + (wasWatched ? ' removed from watchlist.' : ' added to watchlist.'));
+                    });
                 },
                 resetData: function () {
                     this.marketTickers = [];
@@ -2911,6 +3055,7 @@
                     currency.totalVolume = this.vsConverted(md.total_volume);
                     currency.circulatingSupply = md.circulating_supply || null;
                     currency.totalSupply = md.total_supply || null;
+                    currency.isTonAsset = this.isTonAsset(currency);
 
                     const marketCap = parseFloat(currency.marketCap);
                     const totalVolume = parseFloat(currency.totalVolume);
@@ -2921,6 +3066,53 @@
                 },
                 vsConverted: function (priceObj) {
                     return _.get(priceObj, this.$root.vsCurrencyId, null);
+                },
+                prepareAlertDraft: function () {
+                    if (!this.currency) return;
+
+                    const draft = {
+                        coin_id: this.currency.id,
+                        symbol: this.currency.symbol,
+                        name: this.currency.name,
+                        vs_currency: this.$root.vsCurrencyId,
+                        created_at: (new Date()).toISOString()
+                    };
+
+                    window.localStorage.setItem('TONBANKCARD:alertDraft', JSON.stringify(draft));
+                    this.showActionNotice('Alert draft saved for ' + this.currency.name + '.');
+                },
+                shareCurrency: function () {
+                    if (!this.currency) return;
+
+                    const payload = {
+                        title: this.currency.name + ' price on TONBANKCARD',
+                        text: this.currency.name + ' market data on TONBANKCARD Crypto Tracker',
+                        url: window.location.href
+                    };
+
+                    if (navigator.share) {
+                        navigator.share(payload).catch(() => {});
+                        return;
+                    }
+
+                    this.$root.copyToClipboard(payload.url);
+                    this.showActionNotice('Share link copied for ' + this.currency.name + '.');
+                },
+                showActionNotice: function (message) {
+                    this.actionNotice = message;
+                    this.actionNoticeModel = true;
+                },
+                isTonAsset: function (currency) {
+                    const id = _.toLower(_.get(currency, 'id', ''));
+                    const symbol = _.toLower(_.get(currency, 'symbol', ''));
+                    const platforms = _.keys(_.get(currency, 'platforms', {})).map(key => _.toLower(key));
+                    const categories = (_.get(currency, 'categories', []) || []).map(category => _.toLower(category));
+
+                    return id === 'toncoin'
+                        || symbol === 'ton'
+                        || platforms.indexOf('the-open-network') >= 0
+                        || platforms.indexOf('ton') >= 0
+                        || categories.some(category => category.indexOf('ton ecosystem') >= 0 || category.indexOf('the open network') >= 0);
                 },
                 tabChanged: function (index) {
                     this.tab = this.tabs[index];

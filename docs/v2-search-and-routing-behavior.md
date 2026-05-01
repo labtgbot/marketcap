@@ -79,7 +79,9 @@ product requirements explicitly replace it.
 - the currencies list renders with the configured `per_page` request,
 - the coin detail route renders `/currency/bitcoin`,
 - the default chart tab loads chart data,
-- the converter area is visible,
+- the ChangeNOW widget replaces the legacy converter, uses TON defaults for
+  Toncoin, prefills supported assets such as Bitcoin, and shows a safe fallback
+  for unsupported assets,
 - the exchanges list renders with the configured `per_page` request,
 - selecting `Toncoin` from global search navigates to `/currency/toncoin`.
 - `Ctrl+K` focuses desktop search, result groups render for every smart-search

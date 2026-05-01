@@ -7,6 +7,7 @@
   "components/cookies-dialog.js",
   "components/currency-chart.js",
   "components/currency-converter.js",
+  "components/currency-exchange-widget.js",
   "components/disclaimer-message.js",
   "components/exchange-chart.js",
   "components/page-loader.js",

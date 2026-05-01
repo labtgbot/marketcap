@@ -28,6 +28,8 @@
                     tab: null,
                     tabs: mainOptions.tabs,
                     loading: false,
+                    actionNotice: '',
+                    actionNoticeModel: false,
 
                     marketLoading: false,
                     marketTableHeaders: marketOptions.tableHeaders,
@@ -76,6 +78,20 @@
                     this.tabChanged(index)
                 }
             },
+            computed: {
+                isInWatchlist: function () {
+                    return this.isWatched(this.currency);
+                },
+                watchlistButtonLabel: function () {
+                    return this.watchlistLabel(this.currency);
+                },
+                alertButtonLabel: function () {
+                    return this.currency ? 'Create alert for ' + this.currency.name : 'Create alert';
+                },
+                shareButtonLabel: function () {
+                    return this.currency ? 'Share ' + this.currency.name : 'Share coin';
+                }
+            },
             methods: {
                 initWatchlist: function () {
                     const watchlist = GeckoClient.watchlist;
@@ -100,6 +116,7 @@
                 toggleWatchlist: function (currency) {
                     if (!currency || !GeckoClient.watchlist) return;
 
+                    const wasWatched = this.isWatched(currency);
                     GeckoClient.watchlist.toggle(
                         {
                             id: currency.id,
@@ -108,7 +125,10 @@
                             image: _.get(currency, 'image.large') || _.get(currency, 'image.small') || _.get(currency, 'image.thumb')
                         },
                         {sourceRoute: 'coin_detail'}
-                    ).then(() => this.syncWatchlistIds());
+                    ).then(() => {
+                        this.syncWatchlistIds();
+                        this.showActionNotice(currency.name + (wasWatched ? ' removed from watchlist.' : ' added to watchlist.'));
+                    });
                 },
                 resetData: function () {
                     this.marketTickers = [];
@@ -159,6 +179,7 @@
                     currency.totalVolume = this.vsConverted(md.total_volume);
                     currency.circulatingSupply = md.circulating_supply || null;
                     currency.totalSupply = md.total_supply || null;
+                    currency.isTonAsset = this.isTonAsset(currency);
 
                     const marketCap = parseFloat(currency.marketCap);
                     const totalVolume = parseFloat(currency.totalVolume);
@@ -169,6 +190,53 @@
                 },
                 vsConverted: function (priceObj) {
                     return _.get(priceObj, this.$root.vsCurrencyId, null);
+                },
+                prepareAlertDraft: function () {
+                    if (!this.currency) return;
+
+                    const draft = {
+                        coin_id: this.currency.id,
+                        symbol: this.currency.symbol,
+                        name: this.currency.name,
+                        vs_currency: this.$root.vsCurrencyId,
+                        created_at: (new Date()).toISOString()
+                    };
+
+                    window.localStorage.setItem('TONBANKCARD:alertDraft', JSON.stringify(draft));
+                    this.showActionNotice('Alert draft saved for ' + this.currency.name + '.');
+                },
+                shareCurrency: function () {
+                    if (!this.currency) return;
+
+                    const payload = {
+                        title: this.currency.name + ' price on TONBANKCARD',
+                        text: this.currency.name + ' market data on TONBANKCARD Crypto Tracker',
+                        url: window.location.href
+                    };
+
+                    if (navigator.share) {
+                        navigator.share(payload).catch(() => {});
+                        return;
+                    }
+
+                    this.$root.copyToClipboard(payload.url);
+                    this.showActionNotice('Share link copied for ' + this.currency.name + '.');
+                },
+                showActionNotice: function (message) {
+                    this.actionNotice = message;
+                    this.actionNoticeModel = true;
+                },
+                isTonAsset: function (currency) {
+                    const id = _.toLower(_.get(currency, 'id', ''));
+                    const symbol = _.toLower(_.get(currency, 'symbol', ''));
+                    const platforms = _.keys(_.get(currency, 'platforms', {})).map(key => _.toLower(key));
+                    const categories = (_.get(currency, 'categories', []) || []).map(category => _.toLower(category));
+
+                    return id === 'toncoin'
+                        || symbol === 'ton'
+                        || platforms.indexOf('the-open-network') >= 0
+                        || platforms.indexOf('ton') >= 0
+                        || categories.some(category => category.indexOf('ton ecosystem') >= 0 || category.indexOf('the open network') >= 0);
                 },
                 tabChanged: function (index) {
                     this.tab = this.tabs[index];

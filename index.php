@@ -140,6 +140,7 @@ $components = [
     'cookies-dialog',
     'currency-chart',
     'currency-converter',
+    'currency-exchange-widget',
     'disclaimer-message',
     'exchange-chart',
     'page-loader',
