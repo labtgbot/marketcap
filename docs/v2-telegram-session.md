@@ -43,7 +43,14 @@ frontend needs for UI state:
     "launch": {
       "start_param": "portfolio",
       "chat_type": "private",
-      "chat_instance_present": true
+      "chat_instance_present": true,
+      "group_context": {
+        "available": false,
+        "scope": "personal",
+        "chat_type": "private",
+        "context_id": null,
+        "personal_data_isolated": true
+      }
     }
   }
 }
@@ -51,6 +58,12 @@ frontend needs for UI state:
 
 Raw `initData`, hashes, query ids, chat instances, Telegram names, usernames,
 and profile photos are not returned to the browser.
+
+When Telegram provides a group-like `chat_type` and `chat_instance`, the
+response derives a non-reversible `group_context.context_id` with a `tggrp_`
+prefix from `chat_instance_hash`. This lets group-opened sessions show
+group-specific context while keeping personal user data and raw group
+identifiers isolated.
 
 ## Validation
 

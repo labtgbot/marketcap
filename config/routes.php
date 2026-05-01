@@ -117,6 +117,12 @@ $routes['wallet-profile'] = [
     'enabled' => TRUE,
 ];
 
+$routes['settings'] = [
+    'path' => '/settings',
+    'enabled' => TRUE,
+    'template' => 'wallet-profile',
+];
+
 $routes['screener'] = [
     'path' => '/screener',
     'enabled' => TRUE,

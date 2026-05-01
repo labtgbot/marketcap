@@ -67,6 +67,15 @@ $routes_v2['public'] = [
         'sitemap_changefreq' => 'weekly',
         'sitemap_priority'   => '0.7',
     ],
+    'settings' => [
+        'path'        => '/settings',
+        'title'       => 'Settings',
+        'description' => 'Manage TONBANKCARD Mini App wallet context, local preferences, and account-adjacent settings without sharing private keys.',
+        'og_type'     => 'website',
+        'schema_type' => 'WebApplication',
+        'sitemap_changefreq' => 'weekly',
+        'sitemap_priority'   => '0.5',
+    ],
     'exchanges' => [
         'path'        => '/exchanges',
         'title'       => 'Crypto Exchanges',
