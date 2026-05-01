@@ -270,7 +270,52 @@ v-app {
     visibility: hidden;
 }
 .gc-search-bar {
+    width: min(600px, 100%);
     max-width: 600px;
+}
+.gc-search-bar-inline,
+.gc-search-autocomplete {
+    width: 100%;
+}
+.gc-search-trigger {
+    background: rgba(255, 255, 255, 0.08);
+}
+.gc-search-menu .v-list {
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+.gc-search-group-header {
+    height: 32px;
+    color: var(--tbc-text-secondary) !important;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 32px;
+    pointer-events: none;
+    text-transform: uppercase;
+}
+.gc-search-result-meta {
+    margin-left: 8px;
+}
+.gc-search-result-meta .v-chip {
+    background: var(--tbc-surface-panel-muted) !important;
+    color: var(--tbc-text-secondary) !important;
+}
+.gc-search-dialog-card {
+    min-height: 100vh;
+    padding-top: var(--tbc-safe-area-top);
+    padding-bottom: var(--tbc-safe-area-bottom);
+    background: var(--tbc-surface-canvas) !important;
+}
+.gc-search-dialog-toolbar {
+    background: var(--tbc-surface-panel) !important;
+    border-bottom: 1px solid var(--tbc-surface-border);
+}
+.gc-search-dialog-field {
+    margin-left: 8px;
+}
+.gc-search-dialog-menu {
+    max-width: calc(100vw - 16px);
 }
 .public-web-navigation-links {
     gap: 4px;
@@ -434,6 +479,12 @@ v-app {
     }
 }
 @media only screen and (max-width: 599px) {
+    .gc-search-bar {
+        width: auto;
+        max-width: 48px;
+        flex: 0 0 auto;
+    }
+
     #currencies-table td {
         padding: 0 8px;
     }
@@ -455,10 +506,6 @@ v-app {
     .v-toolbar__content {
         padding-right: 6px;
         padding-left: 6px;
-    }
-
-    .gc-search-bar {
-        max-width: calc(100vw - 108px);
     }
 
     .gc-stats-bar > span {
@@ -573,6 +620,41 @@ v-app {
 }
 #ton {
     max-width: 1200px;
+}
+#crypto-exchange {
+    max-width: 1280px;
+}
+.gc-crypto-exchange-lede {
+    max-width: 680px;
+}
+.gc-crypto-exchange-controls {
+    max-width: 980px;
+}
+.gc-crypto-exchange-swap-col {
+    text-align: center;
+}
+.gc-crypto-exchange-swap {
+    min-width: 40px;
+}
+.gc-crypto-exchange-widget-card {
+    overflow: hidden;
+    border-radius: 6px;
+}
+.gc-crypto-exchange-widget {
+    display: block;
+    width: 100%;
+    min-height: 450px;
+    border: 0;
+}
+.gc-crypto-exchange-summary {
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 6px;
+}
+.theme--dark .gc-crypto-exchange-summary {
+    border-color: rgba(255, 255, 255, 0.12);
+}
+.gc-crypto-exchange-summary .v-list-item__subtitle {
+    overflow-wrap: anywhere;
 }
 #screener {
     max-width: 1200px;

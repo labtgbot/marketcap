@@ -46,6 +46,11 @@ TON-specific results receive a boost when the query includes TON terms or a TON
 contract address. Contract address matching supports full, prefix, and contains
 matches so copied jetton addresses can resolve directly to the relevant asset.
 
+For non-empty coin and TON asset queries, ranked results also include a
+TONBANKCARD `Exchange ...` action after the matched asset. The action links to
+`/crypto-exchange` with sanitized ChangeNOW pair parameters, using USDT on TON
+as the default destination asset.
+
 ## Redis Cache
 
 The search index cache uses Upstash Redis REST when
@@ -65,9 +70,10 @@ Every result includes:
 - `links.web` for canonical website deep links
 - `links.telegram` for Telegram Mini App deep links
 
-Coins route to `/currency/:id`, exchanges route to `/exchange/:id`, categories
-route to filtered market lists, and action results route to the relevant public
-or Mini App view.
+Coins route to `/currency/:id`, exchange venues route to `/exchange/:id`,
+categories route to filtered market lists, and action results route to the
+relevant public or Mini App view. Partner exchange actions route to
+`/crypto-exchange?from=...&to=...&asset=...`.
 
 ## Analytics
 
@@ -90,6 +96,6 @@ npm run test:search-api
 ```
 
 The check covers route registration, documentation, frontend endpoint wiring,
-BTC and TON result ranking, contract address matching, fuzzy typo matching,
-empty queries, high-cardinality limits, Redis cache reads/writes, and Redis
-token redaction.
+BTC and TON result ranking, first-party exchange actions, contract address
+matching, fuzzy typo matching, empty queries, high-cardinality limits, Redis
+cache reads/writes, and Redis token redaction.

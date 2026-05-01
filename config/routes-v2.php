@@ -67,6 +67,15 @@ $routes_v2['public'] = [
         'sitemap_changefreq' => 'daily',
         'sitemap_priority'   => '0.8',
     ],
+    'crypto-exchange' => [
+        'path'        => '/crypto-exchange',
+        'title'       => 'Crypto Exchange',
+        'description' => 'Open the TONBANKCARD partner exchange page with TON and supported crypto pairs preselected from search.',
+        'og_type'     => 'website',
+        'schema_type' => 'WebPage',
+        'sitemap_changefreq' => 'weekly',
+        'sitemap_priority'   => '0.7',
+    ],
     'exchange' => [
         'path'                 => '/exchange/:id',
         'title_template'       => '%s Exchange Markets',
