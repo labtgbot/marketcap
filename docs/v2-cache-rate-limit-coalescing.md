@@ -40,6 +40,7 @@ during short provider outages.
 | `coin_metadata` | 3600 seconds | Coin detail, exchange detail, finance platforms. |
 | `charts` | 900 seconds | Coin market charts, chart ranges, exchange volume charts. |
 | `search_index` | 3600 seconds | Coin lists, exchange lists, search, trending search. |
+| `sentiment_inputs` | 300 seconds | Deterministic AI sentiment input snapshots. |
 | `ai_summaries` | 21600 seconds | Reserved for AI summary cache entries. |
 | `ton_metadata` | 86400 seconds | Reserved for curated TON metadata. |
 
