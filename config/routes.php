@@ -90,6 +90,23 @@ $routes['watchlist'] = [
     'enabled' => TRUE,
 ];
 
+$routes['alerts'] = [
+    'path' => '/alerts',
+    'enabled' => TRUE,
+];
+
+$routes['app-alerts'] = [
+    'path' => '/app/alerts',
+    'enabled' => TRUE,
+    'template' => 'alerts',
+];
+
+$routes['app-alert-detail'] = [
+    'path' => '/app/alert/:id',
+    'enabled' => TRUE,
+    'template' => 'alerts',
+];
+
 $routes['wallet-profile'] = [
     'path' => '/wallet',
     'enabled' => TRUE,

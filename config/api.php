@@ -18,6 +18,11 @@ $api_redis_timeout = max( 1, (int) tonbankcard_env( 'TONBANKCARD_REDIS_TIMEOUT_S
 $api_redis_key_prefix = trim( (string) tonbankcard_env( 'TONBANKCARD_REDIS_KEY_PREFIX', 'tonbankcard:v2' ), ':' );
 $api_sentiment_cache_ttl = tonbankcard_env_int( 'TONBANKCARD_SENTIMENT_CACHE_TTL_SECONDS', 300, 60, 21600 );
 $api_ton_curation_file = trim( (string) tonbankcard_env( 'TONBANKCARD_TON_CURATION_FILE', '' ) );
+$api_alert_worker_token = trim( (string) tonbankcard_env( 'TONBANKCARD_ALERT_WORKER_TOKEN', '' ) );
+$api_alert_max_rules = tonbankcard_env_int( 'TONBANKCARD_ALERT_MAX_RULES_PER_USER', 20, 1, 200 );
+$api_alert_default_frequency_cap = tonbankcard_env_int( 'TONBANKCARD_ALERT_DEFAULT_FREQUENCY_CAP_SECONDS', 3600, 300, 86400 );
+$api_alert_max_deliveries = tonbankcard_env_int( 'TONBANKCARD_ALERT_MAX_DELIVERIES_PER_DAY', 8, 1, 100 );
+$api_alert_evaluation_interval = tonbankcard_env_int( 'TONBANKCARD_ALERT_EVALUATION_INTERVAL_SECONDS', 300, 60, 3600 );
 if ( '' === $api_redis_key_prefix ) {
     $api_redis_key_prefix = 'tonbankcard:v2';
 }
@@ -42,6 +47,7 @@ $api = [
             'X-Request-ID',
             'X-TONBANKCARD-Search-Refresh-Token',
             'X-TONBANKCARD-TON-Curation-Token',
+            'X-TONBANKCARD-Alert-Worker-Token',
             'X-TONBANKCARD-Admin',
             'X-TONBANKCARD-Session',
             'X-Telegram-Init-Data',
@@ -200,5 +206,14 @@ $api = [
     'ton_ecosystem' => [
         'curation_store_path' => $api_ton_curation_file,
         'curation_token'      => (string) tonbankcard_env( 'TONBANKCARD_TON_CURATION_TOKEN', '' ),
+    ],
+    'alerts' => [
+        'worker_token'                    => $api_alert_worker_token,
+        'max_alerts_per_user'             => $api_alert_max_rules,
+        'default_frequency_cap_seconds'   => $api_alert_default_frequency_cap,
+        'min_frequency_cap_seconds'       => 300,
+        'max_frequency_cap_seconds'       => 86400,
+        'default_max_deliveries_per_day'  => $api_alert_max_deliveries,
+        'evaluation_interval_seconds'     => $api_alert_evaluation_interval,
     ],
 ];

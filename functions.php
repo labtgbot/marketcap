@@ -1218,6 +1218,10 @@ function validate_runtime_config() {
         'GROQ_TIMEOUT_SECONDS'           => [ 1, 120, "'10'" ],
         'GROQ_RATE_LIMIT_WINDOW_SECONDS' => [ 1, 3600, "'60'" ],
         'GROQ_RATE_LIMIT_MAX_REQUESTS'   => [ 1, 10000, "'20'" ],
+        'TONBANKCARD_ALERT_MAX_RULES_PER_USER' => [ 1, 200, "'20'" ],
+        'TONBANKCARD_ALERT_DEFAULT_FREQUENCY_CAP_SECONDS' => [ 300, 86400, "'3600'" ],
+        'TONBANKCARD_ALERT_MAX_DELIVERIES_PER_DAY' => [ 1, 100, "'8'" ],
+        'TONBANKCARD_ALERT_EVALUATION_INTERVAL_SECONDS' => [ 60, 3600, "'300'" ],
     ] as $name => $bounds ) {
         if ( ! tonbankcard_env_int_is_valid( $name, $bounds[0], $bounds[1] ) ) {
             $invalid[] = tonbankcard_env_error(
@@ -1226,6 +1230,17 @@ function validate_runtime_config() {
                 $bounds[2]
             );
         }
+    }
+
+    if ( tonbankcard_env_has( 'TONBANKCARD_ALERT_WORKER_TOKEN' )
+        && '' !== trim( (string) tonbankcard_env( 'TONBANKCARD_ALERT_WORKER_TOKEN', '' ) )
+        && ! preg_match( '/^[A-Za-z0-9._:-]{12,160}$/', (string) tonbankcard_env( 'TONBANKCARD_ALERT_WORKER_TOKEN', '' ) )
+    ) {
+        $invalid[] = tonbankcard_env_error(
+            'TONBANKCARD_ALERT_WORKER_TOKEN',
+            'Enter a safe alert worker token with at least 12 characters.',
+            "'alerts-worker-token-rotate-me'"
+        );
     }
 
     if ( 'local' !== $profile ) {

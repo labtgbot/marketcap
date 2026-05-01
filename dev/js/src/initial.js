@@ -680,7 +680,17 @@
 
     GeckoClient.analytics = {
         events: [],
-        allowedEvents: ['search_opened', 'search_result_selected', 'watchlist_added', 'watchlist_removed'],
+        allowedEvents: [
+            'search_opened',
+            'search_result_selected',
+            'watchlist_added',
+            'watchlist_removed',
+            'alert_created',
+            'alert_updated',
+            'alert_paused',
+            'alert_deleted',
+            'alert_tested'
+        ],
         allowedProperties: [
             'trigger',
             'query_present',
@@ -693,7 +703,13 @@
             'rank',
             'query_length_bucket',
             'source_route',
-            'storage_mode'
+            'storage_mode',
+            'trigger_type',
+            'delivery_channel',
+            'threshold_bucket',
+            'quiet_hours_enabled',
+            'alert_id',
+            'status'
         ],
         newEventId: function () {
             return 'evt_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);

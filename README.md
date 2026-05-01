@@ -31,6 +31,7 @@ Open these browser URLs while the server is running:
 - TON ecosystem: http://127.0.0.1:8888/ton
 - Crypto exchange: http://127.0.0.1:8888/crypto-exchange?from=ton&to=usdtton
 - Screener: http://127.0.0.1:8888/screener
+- Alerts: http://127.0.0.1:8888/alerts
 - Exchanges: http://127.0.0.1:8888/exchanges
 - Support: http://127.0.0.1:8888/support
 - API health: http://127.0.0.1:8888/api/health
@@ -73,6 +74,7 @@ npm run test:cache-rate-limit
 npm run test:telegram-session
 npm run test:watchlist
 npm run test:screener
+npm run test:alerts
 npm run test:public-shell
 npm run test:ai-provider
 npm run test:ai-sentiment
@@ -140,6 +142,8 @@ See [docs/v2-telegram-session.md](docs/v2-telegram-session.md) for the `/api/tel
 See [docs/v2-watchlist-ux-persistence.md](docs/v2-watchlist-ux-persistence.md) for the Watchlist UX, localStorage, Telegram CloudStorage, MySQL trusted-session sync, and conflict behavior from issue #23.
 
 See [docs/v2-advanced-screener.md](docs/v2-advanced-screener.md) for the advanced screener filters, backend `/api/screener/*` endpoints, trusted-session saved presets, mobile filter drawer, and CSV export decision from issue #31.
+
+See [docs/v2-smart-alerts.md](docs/v2-smart-alerts.md) for Telegram bot smart alerts, `/api/alerts` rule management, `/api/alerts/evaluate` worker delivery, quiet hours, frequency caps, and Mini App `startapp` deep links from issue #32.
 
 See [docs/v2-charting-and-market-visualization.md](docs/v2-charting-and-market-visualization.md) for the chart rendering decision, advanced coin chart views, lazy ECharts loading, stale state, and accessibility coverage from issue #25.
 

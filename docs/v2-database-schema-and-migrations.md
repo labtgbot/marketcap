@@ -24,6 +24,11 @@ AI insight card feedback added for issue #28 lives in:
 - `database/migrations/0004_ai_feedback.up.sql`
 - `database/migrations/0004_ai_feedback.down.sql`
 
+Smart alert rule extensions added for issue #32 live in:
+
+- `database/migrations/0007_smart_alerts.up.sql`
+- `database/migrations/0007_smart_alerts.down.sql`
+
 ## Data Minimization
 
 - Store raw Telegram identity only where the application needs it for trusted
@@ -58,8 +63,8 @@ AI insight card feedback added for issue #28 lives in:
 | `user_sessions` | Anonymous, Telegram, bot, and admin session records. | Uses hashes for session tokens, Telegram `initData`, start params, chat instances, IP, and user agent. Stores signed Telegram chat type when present. |
 | `watchlists` | Named user watchlists, starting with one default personal list. | Tied to internal user id; anonymous web lists remain browser-local for MVP. |
 | `watchlist_entries` | Coin entries in user watchlists. | Stores CoinGecko-style public coin ids and optional symbols only. |
-| `alert_rules` | User alert rules for price crosses, percent moves, volume spikes, and market cap thresholds. | Exact thresholds stay server-side and are excluded from analytics payloads. |
-| `alert_deliveries` | Telegram bot alert delivery attempts and outcomes. | Stores delivery status and optional Telegram message id, not message bodies. |
+| `alert_rules` | User alert rules for price crosses, percent moves, volume spikes, rank changes, sentiment changes, market cap thresholds, and TON ecosystem movement. | Exact thresholds stay server-side and are excluded from analytics payloads. |
+| `alert_deliveries` | Telegram bot alert delivery attempts, retry state, and Mini App deep links. | Stores delivery status, optional Telegram message id, and deep-link metadata, not message bodies. |
 | `referral_campaigns` | Campaign definitions for referral and share attribution. | Campaign metadata only. |
 | `referral_attributions` | First-touch referral attribution for trusted Telegram users. | Uses internal ids and payload hashes so raw invite payloads are not retained. |
 | `ai_insight_cache` | AI insight cache metadata and expiry. | Stores hashes and references, not raw prompts or full model responses. |
@@ -86,7 +91,7 @@ and the issue #10 analytics/privacy baseline:
 | List a user's alert rules by status. | `idx_alert_rules_user_status` |
 | Evaluate active alerts by coin and next evaluation time. | `idx_alert_rules_active_coin` |
 | Pull queued alert work by next evaluation. | `idx_alert_rules_next_evaluation` |
-| Inspect alert delivery history by rule or user. | `idx_alert_deliveries_rule_time`, `idx_alert_deliveries_user_time` |
+| Inspect alert delivery history by rule, user, or retry fingerprint. | `idx_alert_deliveries_rule_time`, `idx_alert_deliveries_user_time`, `idx_alert_deliveries_fingerprint` |
 | Report referrals by campaign. | `idx_referral_attributions_campaign` |
 | Report inviter attribution. | `idx_referral_attributions_inviter` |
 | Resolve AI cache entries by hashed cache key. | `uniq_ai_insight_cache_key` |

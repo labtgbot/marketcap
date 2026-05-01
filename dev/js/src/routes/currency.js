@@ -268,8 +268,16 @@
                         created_at: (new Date()).toISOString()
                     };
 
-                    window.localStorage.setItem('TONBANKCARD:alertDraft', JSON.stringify(draft));
-                    this.showActionNotice('Alert draft saved for ' + this.currency.name + '.');
+                    const alertDraftKey = _.get(GeckoClient, 'alertsConfig.draftStorageKey', 'TONBANKCARD:alertDraft');
+                    window.localStorage.setItem(alertDraftKey, JSON.stringify(draft));
+                    this.showActionNotice('Opening alert draft for ' + this.currency.name + '.');
+                    this.$router.push({
+                        name: 'alerts',
+                        query: {
+                            coin: this.currency.id,
+                            symbol: this.currency.symbol
+                        }
+                    }).catch(() => {});
                 },
                 shareCurrency: function () {
                     if (!this.currency) return;

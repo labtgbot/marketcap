@@ -31,6 +31,10 @@ $v2['public_navigation'] = [
         'route' => 'screener',
     ],
     [
+        'text'  => 'Alerts',
+        'route' => 'alerts',
+    ],
+    [
         'text'  => 'About',
         'route' => 'about',
     ],
@@ -55,6 +59,11 @@ $v2['mobile_navigation'] = [
         'text'  => 'TON',
         'icon'  => 'mdi-diamond-stone',
         'route' => 'ton',
+    ],
+    [
+        'text'  => 'Alerts',
+        'icon'  => 'mdi-bell-outline',
+        'route' => 'alerts',
     ],
     [
         'text'  => 'Wallet',

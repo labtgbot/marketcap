@@ -131,6 +131,12 @@ $gecko_client['search'] = [
 $gecko_client['watchlistConfig'] = [
     'apiBaseUrl' => site_url( 'api/watchlist' ),
 ];
+// Smart alerts use local persistence first and upgrade to trusted Telegram
+// sessions when Mini App initData is available.
+$gecko_client['alertsConfig'] = [
+    'apiBaseUrl'      => site_url( 'api/alerts' ),
+    'draftStorageKey' => 'TONBANKCARD:alertDraft',
+];
 // TON Connect wallet profile. The SDK is loaded lazily on user action; private
 // keys and wallet secrets never enter this browser payload.
 $gecko_client['tonConnect'] = [
