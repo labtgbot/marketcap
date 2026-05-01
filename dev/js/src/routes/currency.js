@@ -11,7 +11,6 @@
     const marketOptions = GeckoClient.getOptions('currency-market');
 
     const historicalOptions = GeckoClient.getOptions('currency-historical');
-    const watchlistStorageKeys = ['TONBANKCARD:watchlist', 'GeckoClient:watchlist'];
     // CoinGecko has auto granularity, min 120 day period to force 1-day interval
     const historicalPeriodDays  = Math.max(120, historicalOptions.periodDays) || 120;
     const historicalPeriodSecs  = historicalPeriodDays * 3600 * 24;
@@ -29,7 +28,6 @@
                     tab: null,
                     tabs: mainOptions.tabs,
                     loading: false,
-                    watchlistIds: [],
                     actionNotice: '',
                     actionNoticeModel: false,
 
@@ -49,12 +47,18 @@
                     historicalPeriodDays: historicalPeriodDays,
                     historicalPeriodSecs: historicalPeriodSecs,
                     historicalLoadMore: true,
-                    historicalLoadMoreLoading: false
+                    historicalLoadMoreLoading: false,
+
+                    watchlistIds: [],
+                    watchlistUnsubscribe: null
                 };
             },
             created: function () {
-                this.loadWatchlist();
+                this.initWatchlist();
                 this.fetchCurrency()
+            },
+            beforeDestroy: function () {
+                if (this.watchlistUnsubscribe) this.watchlistUnsubscribe();
             },
             beforeRouteUpdate: function (to, from, next) {
                 // reset and fetch new currency in currency to currency route transition
@@ -76,15 +80,10 @@
             },
             computed: {
                 isInWatchlist: function () {
-                    if (!this.currency) return false;
-
-                    const id = _.toLower(this.currency.id);
-                    const symbol = _.toLower(this.currency.symbol);
-                    return this.watchlistIds.indexOf(id) >= 0 || this.watchlistIds.indexOf(symbol) >= 0;
+                    return this.isWatched(this.currency);
                 },
                 watchlistButtonLabel: function () {
-                    if (!this.currency) return 'Add to watchlist';
-                    return (this.isInWatchlist ? 'Remove from watchlist for ' : 'Add to watchlist for ') + this.currency.name;
+                    return this.watchlistLabel(this.currency);
                 },
                 alertButtonLabel: function () {
                     return this.currency ? 'Create alert for ' + this.currency.name : 'Create alert';
@@ -94,6 +93,43 @@
                 }
             },
             methods: {
+                initWatchlist: function () {
+                    const watchlist = GeckoClient.watchlist;
+                    if (!watchlist) return;
+
+                    this.watchlistUnsubscribe = watchlist.onChange(() => this.syncWatchlistIds());
+                    watchlist.init().then(() => this.syncWatchlistIds());
+                },
+                syncWatchlistIds: function () {
+                    this.watchlistIds = GeckoClient.watchlist ? GeckoClient.watchlist.ids() : [];
+                },
+                isWatched: function (currency) {
+                    return currency && this.watchlistIds.indexOf(currency.id) >= 0;
+                },
+                watchlistIcon: function (currency) {
+                    return this.isWatched(currency) ? 'mdi-star' : 'mdi-star-outline';
+                },
+                watchlistLabel: function (currency) {
+                    if (!currency) return 'Watchlist';
+                    return (this.isWatched(currency) ? 'Remove ' : 'Add ') + currency.name + ' ' + (this.isWatched(currency) ? 'from' : 'to') + ' Watchlist';
+                },
+                toggleWatchlist: function (currency) {
+                    if (!currency || !GeckoClient.watchlist) return;
+
+                    const wasWatched = this.isWatched(currency);
+                    GeckoClient.watchlist.toggle(
+                        {
+                            id: currency.id,
+                            symbol: currency.symbol,
+                            name: currency.name,
+                            image: _.get(currency, 'image.large') || _.get(currency, 'image.small') || _.get(currency, 'image.thumb')
+                        },
+                        {sourceRoute: 'coin_detail'}
+                    ).then(() => {
+                        this.syncWatchlistIds();
+                        this.showActionNotice(currency.name + (wasWatched ? ' removed from watchlist.' : ' added to watchlist.'));
+                    });
+                },
                 resetData: function () {
                     this.marketTickers = [];
                     this.marketLoading = false;
@@ -154,54 +190,6 @@
                 },
                 vsConverted: function (priceObj) {
                     return _.get(priceObj, this.$root.vsCurrencyId, null);
-                },
-                readWatchlistIds: function () {
-                    for (let i = 0; i < watchlistStorageKeys.length; i++) {
-                        const raw = window.localStorage.getItem(watchlistStorageKeys[i]);
-                        if (!raw) continue;
-
-                        try {
-                            const parsed = JSON.parse(raw);
-                            if (_.isArray(parsed)) {
-                                return parsed.map(item => {
-                                    const id = _.isString(item) ? item : _.get(item, 'id') || _.get(item, 'coin_id');
-                                    return _.toLower(id);
-                                }).filter(Boolean);
-                            }
-                            if (_.isObject(parsed)) {
-                                return _.keys(parsed).map(id => _.toLower(id));
-                            }
-                        } catch (err) {
-                            return [];
-                        }
-                    }
-
-                    return [];
-                },
-                writeWatchlistIds: function (ids) {
-                    const normalized = _.uniq(ids.map(id => _.toLower(id)).filter(Boolean));
-                    window.localStorage.setItem(watchlistStorageKeys[0], JSON.stringify(normalized));
-                    this.watchlistIds = normalized;
-                },
-                loadWatchlist: function () {
-                    this.watchlistIds = this.readWatchlistIds();
-                },
-                toggleWatchlist: function () {
-                    if (!this.currency) return;
-
-                    const id = _.toLower(this.currency.id);
-                    const ids = this.watchlistIds.slice();
-                    const index = ids.indexOf(id);
-
-                    if (index >= 0) {
-                        ids.splice(index, 1);
-                        this.showActionNotice(this.currency.name + ' removed from watchlist.');
-                    } else {
-                        ids.push(id);
-                        this.showActionNotice(this.currency.name + ' added to watchlist.');
-                    }
-
-                    this.writeWatchlistIds(ids);
                 },
                 prepareAlertDraft: function () {
                     if (!this.currency) return;

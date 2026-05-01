@@ -57,5 +57,18 @@ $component_search_bar['placeholder'] = __( 'Search...' );
             <v-list-item-title v-text="item.name"></v-list-item-title>
             <v-list-item-subtitle v-if="item.symbol" class="text-uppercase" v-text="item.symbol"></v-list-item-subtitle>
         </v-list-item-content>
+        <v-list-item-action v-if="isWatchlistResult(item)">
+            <v-btn
+                icon
+                small
+                class="watchlist-icon-button"
+                :color="isWatched(item) ? 'primary' : undefined"
+                :aria-label="watchlistLabel(item)"
+                :title="watchlistLabel(item)"
+                @click.stop.prevent="toggleWatchlist(item)"
+            >
+                <v-icon v-text="watchlistIcon(item)"></v-icon>
+            </v-btn>
+        </v-list-item-action>
     </template>
 </v-autocomplete>

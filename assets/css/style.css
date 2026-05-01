@@ -342,6 +342,15 @@ v-app {
     min-width: 72px;
     text-align: right;
 }
+.market-pulse-row-actions {
+    align-items: flex-end;
+    gap: 2px;
+}
+.watchlist-icon-button {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+}
 #markets {
     max-width: 1800px;
 }
@@ -374,11 +383,51 @@ v-app {
 #ton {
     max-width: 1200px;
 }
+.watchlist-header,
+.watchlist-toolbar,
+.watchlist-route-actions {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+.watchlist-route-actions {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    min-width: 260px;
+}
+.watchlist-toolbar {
+    align-items: center;
+    justify-content: flex-start;
+}
+.watchlist-sort-control {
+    max-width: 220px;
+}
+.watchlist-coin-card {
+    height: 100%;
+}
+.watchlist-coin-title {
+    min-width: 0;
+    max-width: calc(100% - 96px);
+}
+.watchlist-market-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+}
 @media only screen and (max-width: 959px) {
     .market-pulse-hero {
         display: block;
     }
     .market-pulse-actions {
+        justify-content: flex-start;
+        min-width: 0;
+        margin-top: 16px;
+    }
+    .watchlist-header {
+        display: block;
+    }
+    .watchlist-route-actions {
         justify-content: flex-start;
         min-width: 0;
         margin-top: 16px;
@@ -390,6 +439,16 @@ v-app {
     }
     .market-pulse-actions .v-btn {
         flex: 1 1 calc(50% - 8px);
+    }
+    .watchlist-route-actions .v-btn {
+        flex: 1 1 calc(50% - 8px);
+    }
+    .watchlist-toolbar {
+        align-items: stretch;
+    }
+    .watchlist-sort-control {
+        max-width: none;
+        flex: 1 1 auto;
     }
 }
 @media only screen and (max-width: 360px) {

@@ -226,9 +226,9 @@ foreach ( $route_currency['tabs'] as $tab ) {
                 </v-chip-group>
 
                 <div class="currency-actions mb-4">
-                    <v-btn small outlined color="primary" :aria-label="watchlistButtonLabel" @click="toggleWatchlist">
-                        <v-icon left small v-text="isInWatchlist ? 'mdi-star' : 'mdi-star-outline'"></v-icon>
-                        {{ isInWatchlist ? 'Watching' : 'Watchlist' }}
+                    <v-btn small outlined color="primary" :aria-label="watchlistButtonLabel" @click="toggleWatchlist(currency)">
+                        <v-icon left small v-text="watchlistIcon(currency)"></v-icon>
+                        {{ isWatched(currency) ? 'Watching' : 'Watchlist' }}
                     </v-btn>
                     <v-btn small outlined color="primary" :aria-label="alertButtonLabel" @click="prepareAlertDraft">
                         <v-icon left small>mdi-bell-outline</v-icon>

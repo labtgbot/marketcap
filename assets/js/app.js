@@ -332,19 +332,29 @@
     GeckoClient.preferences = {
         prefix: 'GeckoClient:',
         set: function (key, value)  {
-            localStorage.setItem(this.prefix + key, JSON.stringify(value));
+            try {
+                localStorage.setItem(this.prefix + key, JSON.stringify(value));
+            } catch (err) {}
         },
         get: function (key) {
-            let value = localStorage.getItem(this.prefix + key);
-            return value === null ? null : JSON.parse(value);
+            try {
+                let value = localStorage.getItem(this.prefix + key);
+                return value === null ? null : JSON.parse(value);
+            } catch (err) {
+                return null;
+            }
         },
         remove: function (key) {
-            localStorage.removeItem(this.prefix + key);
+            try {
+                localStorage.removeItem(this.prefix + key);
+            } catch (err) {}
         },
         removeAll: function () {
-            Object.keys(localStorage).forEach(function (key) {
-                if (_.startsWith(key, this.prefix)) localStorage.removeItem(key);
-            })
+            try {
+                Object.keys(localStorage).forEach(function (key) {
+                    if (_.startsWith(key, this.prefix)) localStorage.removeItem(key);
+                }, this);
+            } catch (err) {}
         },
         vsCurrency: function (id) {
             if (id === undefined) return this.get('vs_currency') || GeckoClient.defaultVsCurrencyId;
@@ -480,17 +490,20 @@
 
     GeckoClient.analytics = {
         events: [],
-        allowedEvents: ['search_opened', 'search_result_selected'],
+        allowedEvents: ['search_opened', 'search_result_selected', 'watchlist_added', 'watchlist_removed'],
         allowedProperties: [
             'trigger',
             'query_present',
             'surface',
             'result_type',
             'coin_id',
+            'symbol',
             'exchange_id',
             'category_id',
             'rank',
-            'query_length_bucket'
+            'query_length_bucket',
+            'source_route',
+            'storage_mode'
         ],
         newEventId: function () {
             return 'evt_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
@@ -1054,6 +1067,506 @@
 
 })(window, _, axios, GeckoClient);
 
+(function (window, _, axios, GeckoClient) {
+    'use strict';
+
+    const storageKey = 'TONBANKCARD:watchlist:v1';
+    const storageTestKey = storageKey + ':test';
+    const legacyStorageKeys = ['TONBANKCARD:watchlist', 'GeckoClient:watchlist'];
+    const maxEntries = 200;
+    const changedEventName = 'tonbankcard:watchlist-changed';
+
+    let state = emptyState();
+    let initialized = false;
+    let initializing = null;
+    let localStorageAvailable = null;
+    let listeners = [];
+    let serverSyncEnabled = false;
+    let serverSyncAttempted = false;
+
+    const service = GeckoClient.watchlist = {
+        storageKey: storageKey,
+        storageMode: 'local',
+        init: init,
+        ids: ids,
+        snapshot: snapshot,
+        has: has,
+        add: add,
+        remove: remove,
+        toggle: toggle,
+        onChange: onChange,
+        normalizeEntry: normalizeEntry
+    };
+
+    function nowIso() {
+        return new Date().toISOString();
+    }
+
+    function emptyState() {
+        return {
+            version: 1,
+            updated_at: null,
+            entries: [],
+            removed: {}
+        };
+    }
+
+    function clone(value) {
+        return _.cloneDeep(value);
+    }
+
+    function parseDate(value) {
+        const date = new Date(value || 0);
+        return GeckoClient.utils.isValidDate(date) ? date.getTime() : 0;
+    }
+
+    function normalizeCoinId(value) {
+        value = _.toLower(_.trim(value || ''));
+        return /^[a-z0-9._-]{1,96}$/.test(value) ? value : null;
+    }
+
+    function normalizeSymbol(value) {
+        value = _.toLower(_.trim(value || ''));
+        return /^[a-z0-9._-]{1,32}$/.test(value) ? value : null;
+    }
+
+    function normalizeImage(value) {
+        if (_.isString(value)) return value;
+        if (_.isObject(value)) return value.large || value.small || value.thumb || null;
+        return null;
+    }
+
+    function normalizeEntry(item) {
+        if (_.isString(item)) {
+            const id = normalizeCoinId(item);
+            return id ? {
+                coin_id: id,
+                id: id,
+                symbol: null,
+                name: _.startCase(id),
+                image: null,
+                source: 'coingecko',
+                added_at: nowIso(),
+                updated_at: nowIso()
+            } : null;
+        }
+
+        if (!_.isObject(item)) return null;
+
+        const id = normalizeCoinId(item.coin_id || item.id);
+        if (!id) return null;
+
+        const symbol = normalizeSymbol(item.symbol);
+        const addedAt = item.added_at || item.addedAt || nowIso();
+        const updatedAt = item.updated_at || item.updatedAt || addedAt;
+
+        return {
+            coin_id: id,
+            id: id,
+            symbol: symbol,
+            name: _.trim(item.name || item.title || '') || _.startCase(id),
+            image: normalizeImage(item.image || item.large || item.small || item.thumb),
+            source: _.trim(item.source || 'coingecko') || 'coingecko',
+            added_at: addedAt,
+            updated_at: updatedAt
+        };
+    }
+
+    function normalizePayload(payload) {
+        if (_.isString(payload)) {
+            try {
+                payload = JSON.parse(payload);
+            } catch (err) {
+                return emptyState();
+            }
+        }
+
+        let entries = [];
+        let removed = {};
+
+        if (_.isArray(payload)) {
+            entries = payload;
+        } else if (_.isObject(payload)) {
+            if (_.isArray(payload.entries)) {
+                entries = payload.entries;
+            } else {
+                entries = _.keys(payload).map(key => {
+                    const value = payload[key];
+                    return _.isObject(value) ? Object.assign({}, value, {coin_id: key}) : key;
+                });
+            }
+
+            if (_.isObject(payload.removed)) {
+                removed = _.mapValues(payload.removed, value => _.isString(value) ? value : nowIso());
+            }
+        }
+
+        const seen = {};
+        const normalizedEntries = [];
+        entries.forEach(item => {
+            const entry = normalizeEntry(item);
+            if (!entry || seen[entry.coin_id]) return;
+            seen[entry.coin_id] = true;
+            normalizedEntries.push(entry);
+        });
+
+        const normalizedRemoved = {};
+        _.forOwn(removed, (removedAt, coinId) => {
+            const id = normalizeCoinId(coinId);
+            if (id) normalizedRemoved[id] = removedAt || nowIso();
+        });
+
+        return {
+            version: 1,
+            updated_at: _.get(payload, 'updated_at') || null,
+            entries: normalizedEntries.slice(0, maxEntries),
+            removed: normalizedRemoved
+        };
+    }
+
+    function mergeState(base, incoming) {
+        base = normalizePayload(base);
+        incoming = normalizePayload(incoming);
+
+        const entriesById = {};
+        const removed = Object.assign({}, base.removed || {}, incoming.removed || {});
+
+        function mergeEntry(entry) {
+            const removedAt = parseDate(removed[entry.coin_id]);
+            const entryUpdatedAt = parseDate(entry.updated_at || entry.added_at);
+            if (removedAt > entryUpdatedAt) return;
+
+            const existing = entriesById[entry.coin_id];
+            if (!existing || parseDate(existing.updated_at || existing.added_at) <= entryUpdatedAt) {
+                entriesById[entry.coin_id] = entry;
+            }
+        }
+
+        base.entries.forEach(mergeEntry);
+        incoming.entries.forEach(mergeEntry);
+
+        const entries = _.values(entriesById)
+            .filter(entry => parseDate(removed[entry.coin_id]) <= parseDate(entry.updated_at || entry.added_at))
+            .sort((a, b) => parseDate(a.added_at) - parseDate(b.added_at))
+            .slice(0, maxEntries);
+
+        return {
+            version: 1,
+            updated_at: base.updated_at || incoming.updated_at || nowIso(),
+            entries: entries,
+            removed: removed
+        };
+    }
+
+    function canUseLocalStorage() {
+        if (localStorageAvailable !== null) return localStorageAvailable;
+
+        try {
+            window.localStorage.setItem(storageTestKey, '1');
+            window.localStorage.removeItem(storageTestKey);
+            localStorageAvailable = true;
+        } catch (err) {
+            localStorageAvailable = false;
+        }
+
+        return localStorageAvailable;
+    }
+
+    function readLocalStorage(key) {
+        if (!canUseLocalStorage()) return null;
+
+        try {
+            return window.localStorage.getItem(key);
+        } catch (err) {
+            localStorageAvailable = false;
+            return null;
+        }
+    }
+
+    function writeLocalStorage(key, value) {
+        if (!canUseLocalStorage()) return false;
+
+        try {
+            window.localStorage.setItem(key, value);
+            return true;
+        } catch (err) {
+            localStorageAvailable = false;
+            return false;
+        }
+    }
+
+    function readLocalPayload() {
+        const raw = readLocalStorage(storageKey);
+        if (raw) return normalizePayload(raw);
+
+        for (let i = 0; i < legacyStorageKeys.length; i++) {
+            const legacyRaw = readLocalStorage(legacyStorageKeys[i]);
+            if (legacyRaw) return normalizePayload(legacyRaw);
+        }
+
+        return emptyState();
+    }
+
+    function writeLocalPayload(payload) {
+        return writeLocalStorage(storageKey, JSON.stringify(payload));
+    }
+
+    function getCloudStorage() {
+        const cloudStorage = _.get(GeckoClient, 'telegram.webApp.CloudStorage') || _.get(window, 'Telegram.WebApp.CloudStorage');
+        if (!cloudStorage || !_.isFunction(cloudStorage.getItem) || !_.isFunction(cloudStorage.setItem)) {
+            return null;
+        }
+
+        return cloudStorage;
+    }
+
+    function cloudGet(cloudStorage) {
+        return new Promise(resolve => {
+            try {
+                cloudStorage.getItem(storageKey, function (error, value) {
+                    resolve(error ? null : value);
+                });
+            } catch (err) {
+                resolve(null);
+            }
+        });
+    }
+
+    function cloudSet(cloudStorage, payload) {
+        return new Promise(resolve => {
+            try {
+                cloudStorage.setItem(storageKey, JSON.stringify(payload), function (error) {
+                    resolve(!error);
+                });
+            } catch (err) {
+                resolve(false);
+            }
+        });
+    }
+
+    function loadStoredState() {
+        const cloudStorage = getCloudStorage();
+        if (cloudStorage) {
+            service.storageMode = 'telegram_cloud';
+            return cloudGet(cloudStorage).then(raw => {
+                if (raw) return normalizePayload(raw);
+                return readLocalPayload();
+            });
+        }
+
+        if (!canUseLocalStorage()) {
+            service.storageMode = 'memory';
+            return Promise.resolve(state);
+        }
+
+        service.storageMode = 'local';
+        return Promise.resolve(readLocalPayload());
+    }
+
+    function persistDeviceSnapshot(payload) {
+        let stored;
+        if (service.storageMode === 'telegram_cloud') {
+            const cloudStorage = getCloudStorage();
+            stored = cloudStorage ? cloudSet(cloudStorage, payload) : Promise.resolve(false);
+        } else if (service.storageMode === 'memory') {
+            stored = Promise.resolve(true);
+        } else {
+            stored = Promise.resolve(writeLocalPayload(payload));
+        }
+
+        return stored.then(ok => {
+            if (!ok && service.storageMode !== 'memory') {
+                service.storageMode = writeLocalPayload(payload) ? 'local' : 'memory';
+            }
+
+            return payload;
+        });
+    }
+
+    function persistState() {
+        state.version = 1;
+        state.updated_at = nowIso();
+        const payload = snapshot();
+
+        return persistDeviceSnapshot(payload)
+            .then(() => pushServerSnapshot())
+            .then(() => payload);
+    }
+
+    function emitAnalytics(eventName, entry, options) {
+        if (!GeckoClient.analytics) return;
+
+        GeckoClient.analytics.emit(eventName, {
+            coin_id: entry.coin_id,
+            symbol: entry.symbol,
+            source_route: _.get(options, 'sourceRoute') || _.get(options, 'source_route') || null,
+            storage_mode: service.storageMode
+        });
+    }
+
+    function notify() {
+        const detail = snapshot();
+        listeners.slice().forEach(callback => callback(detail));
+
+        if (typeof window.CustomEvent === 'function') {
+            window.dispatchEvent(new CustomEvent(changedEventName, {detail: detail}));
+        }
+    }
+
+    function endpoint() {
+        return _.get(GeckoClient, 'watchlistConfig.apiBaseUrl', '/api/watchlist');
+    }
+
+    function telegramInitData() {
+        return _.get(GeckoClient, 'telegram.webApp.initData') || _.get(window, 'Telegram.WebApp.initData') || '';
+    }
+
+    function bootstrapServerSync() {
+        if (serverSyncAttempted) return Promise.resolve();
+        serverSyncAttempted = true;
+
+        const initData = telegramInitData();
+        if (!initData || !axios) return Promise.resolve();
+
+        return axios.post('/api/telegram/session', {initData: initData}, {withCredentials: true})
+            .then(response => {
+                const payload = response.data || {};
+                const trustState = _.get(payload, 'data.session.state');
+                serverSyncEnabled = payload.ok === true && trustState === 'telegram_validated';
+                if (!serverSyncEnabled) return;
+
+                return pullServerSnapshot();
+            })
+            .catch(() => {
+                serverSyncEnabled = false;
+            });
+    }
+
+    function pullServerSnapshot() {
+        if (!serverSyncEnabled || !axios) return Promise.resolve();
+
+        return axios.get(endpoint(), {withCredentials: true})
+            .then(response => {
+                const payload = response.data || {};
+                if (payload.ok !== true) return;
+
+                state = mergeState(state, _.get(payload, 'data', {}));
+                notify();
+                return persistState();
+            })
+            .catch(() => {});
+    }
+
+    function pushServerSnapshot() {
+        if (!serverSyncEnabled || !axios) return Promise.resolve();
+
+        return axios.post(
+            endpoint(),
+            {
+                entries: state.entries.map(entry => _.pick(entry, ['coin_id', 'symbol', 'source', 'added_at', 'updated_at'])),
+                removed: state.removed,
+                updated_at: state.updated_at
+            },
+            {withCredentials: true}
+        ).then(response => {
+            const payload = response.data || {};
+            if (payload.ok === true && _.get(payload, 'data.entries')) {
+                state = mergeState(state, payload.data);
+                notify();
+                return persistDeviceSnapshot(snapshot());
+            }
+        }).catch(() => {});
+    }
+
+    function init() {
+        if (initialized) return Promise.resolve(service);
+        if (initializing) return initializing;
+
+        initializing = loadStoredState()
+            .then(storedState => {
+                state = mergeState(state, storedState);
+                initialized = true;
+                notify();
+                return bootstrapServerSync();
+            })
+            .then(() => service);
+
+        return initializing;
+    }
+
+    function ids() {
+        return state.entries.map(entry => entry.coin_id);
+    }
+
+    function snapshot() {
+        return clone({
+            version: 1,
+            updated_at: state.updated_at,
+            entries: state.entries,
+            removed: state.removed
+        });
+    }
+
+    function has(item) {
+        const id = normalizeCoinId(_.isString(item) ? item : _.get(item, 'coin_id') || _.get(item, 'id'));
+        return !!id && ids().indexOf(id) >= 0;
+    }
+
+    function add(item, options) {
+        const entry = normalizeEntry(item);
+        if (!entry) return Promise.resolve(false);
+
+        return init().then(() => {
+            const existing = _.find(state.entries, ['coin_id', entry.coin_id]);
+            const timestamp = nowIso();
+            entry.added_at = existing ? existing.added_at : timestamp;
+            entry.updated_at = timestamp;
+
+            state.entries = state.entries.filter(current => current.coin_id !== entry.coin_id);
+            state.entries.push(entry);
+            state.entries = state.entries.slice(-maxEntries);
+            delete state.removed[entry.coin_id];
+
+            notify();
+            emitAnalytics('watchlist_added', entry, options);
+            return persistState().then(() => true);
+        });
+    }
+
+    function remove(item, options) {
+        const id = normalizeCoinId(_.isString(item) ? item : _.get(item, 'coin_id') || _.get(item, 'id'));
+        if (!id) return Promise.resolve(false);
+
+        return init().then(() => {
+            const entry = _.find(state.entries, ['coin_id', id]) || normalizeEntry(id);
+            const beforeCount = state.entries.length;
+            state.entries = state.entries.filter(current => current.coin_id !== id);
+            state.removed[id] = nowIso();
+
+            notify();
+            if (beforeCount !== state.entries.length) {
+                emitAnalytics('watchlist_removed', entry, options);
+            }
+
+            return persistState().then(() => true);
+        });
+    }
+
+    function toggle(item, options) {
+        return init().then(() => has(item) ? remove(item, options) : add(item, options));
+    }
+
+    function onChange(callback) {
+        if (!_.isFunction(callback)) return function () {};
+
+        listeners.push(callback);
+        return function unsubscribe() {
+            listeners = listeners.filter(listener => listener !== callback);
+        };
+    }
+
+})(window, _, axios, GeckoClient);
+
 (function (window, _, Vue, GeckoClient) {
     'use strict';
 
@@ -1562,8 +2075,16 @@
                 loading: false,
                 items: [],
                 requestCounter: 0,
-                searchOpened: false
+                searchOpened: false,
+                watchlistIds: [],
+                watchlistUnsubscribe: null
             };
+        },
+        created: function () {
+            this.initWatchlist();
+        },
+        beforeDestroy: function () {
+            if (this.watchlistUnsubscribe) this.watchlistUnsubscribe();
         },
         watch: {
             model: function (selected) {
@@ -1601,6 +2122,42 @@
             },
             searchSurface: function () {
                 return _.get(GeckoClient, 'analytics.surface', () => 'public_web')();
+            },
+            initWatchlist: function () {
+                const watchlist = GeckoClient.watchlist;
+                if (!watchlist) return;
+
+                this.watchlistUnsubscribe = watchlist.onChange(() => this.syncWatchlistIds());
+                watchlist.init().then(() => this.syncWatchlistIds());
+            },
+            syncWatchlistIds: function () {
+                this.watchlistIds = GeckoClient.watchlist ? GeckoClient.watchlist.ids() : [];
+            },
+            isWatchlistResult: function (item) {
+                return item && (item.type === 'coin' || item.coin_id);
+            },
+            isWatched: function (item) {
+                const id = item.coin_id || item.id;
+                return this.watchlistIds.indexOf(id) >= 0;
+            },
+            watchlistIcon: function (item) {
+                return this.isWatched(item) ? 'mdi-star' : 'mdi-star-outline';
+            },
+            watchlistLabel: function (item) {
+                return (this.isWatched(item) ? 'Remove ' : 'Add ') + item.name + ' ' + (this.isWatched(item) ? 'from' : 'to') + ' Watchlist';
+            },
+            toggleWatchlist: function (item) {
+                if (!GeckoClient.watchlist) return;
+
+                const entry = {
+                    id: item.coin_id || item.id,
+                    symbol: item.symbol,
+                    name: item.name,
+                    image: item.large || item.small || item.thumb
+                };
+
+                GeckoClient.watchlist.toggle(entry, {sourceRoute: 'search'})
+                    .then(() => this.syncWatchlistIds());
             },
             setItems: function (results) {
                 const items = [];
@@ -1833,7 +2390,6 @@
     const options = GeckoClient.getOptions('currencies');
     const route = GeckoClient.routesConfig.currencies;
     const perPage = Math.min(100, options.perPage) || 50;
-    const watchlistStorageKeys = ['TONBANKCARD:watchlist', 'GeckoClient:watchlist'];
 
     function percentChange(currency) {
         return parseFloat(currency.price_change_percentage_24h_in_currency);
@@ -1862,13 +2418,17 @@
                     trendingError: false,
                     globalMeta: null,
                     marketMeta: null,
-                    marketConfig: null
+                    marketConfig: null,
+                    watchlistUnsubscribe: null
                 };
             },
             created: function () {
-                this.loadWatchlist();
+                this.initWatchlist();
                 this.fetchPulse();
                 setTitle(options.title);
+            },
+            beforeDestroy: function () {
+                if (this.watchlistUnsubscribe) this.watchlistUnsubscribe();
             },
             watch: {
                 '$root.vsCurrencyId': function () {
@@ -1966,6 +2526,16 @@
                     this.fetchMarketCurrencies();
                     this.fetchTrendingCoins();
                 },
+                initWatchlist: function () {
+                    const watchlist = GeckoClient.watchlist;
+                    if (!watchlist) return;
+
+                    this.watchlistUnsubscribe = watchlist.onChange(() => this.syncWatchlistIds());
+                    watchlist.init().then(() => this.syncWatchlistIds());
+                },
+                syncWatchlistIds: function () {
+                    this.watchlistIds = GeckoClient.watchlist ? GeckoClient.watchlist.ids() : [];
+                },
                 fetchGlobal: function () {
                     this.loadingGlobal = true;
                     this.globalError = false;
@@ -2020,31 +2590,20 @@
                     currency.route = {name: 'currency', params: {id: currency.id}};
                     return currency;
                 },
-                readWatchlistIds: function () {
-                    for (let i = 0; i < watchlistStorageKeys.length; i++) {
-                        const raw = window.localStorage.getItem(watchlistStorageKeys[i]);
-                        if (!raw) continue;
-
-                        try {
-                            const parsed = JSON.parse(raw);
-                            if (_.isArray(parsed)) {
-                                return parsed.map(item => {
-                                    const id = _.isString(item) ? item : _.get(item, 'id') || _.get(item, 'coin_id');
-                                    return _.toLower(id);
-                                }).filter(Boolean);
-                            }
-                            if (_.isObject(parsed)) {
-                                return _.keys(parsed).map(id => _.toLower(id));
-                            }
-                        } catch (err) {
-                            return [];
-                        }
-                    }
-
-                    return [];
+                isWatched: function (currency) {
+                    return currency && this.watchlistIds.indexOf(currency.id) >= 0;
                 },
-                loadWatchlist: function () {
-                    this.watchlistIds = this.readWatchlistIds();
+                watchlistIcon: function (currency) {
+                    return this.isWatched(currency) ? 'mdi-star' : 'mdi-star-outline';
+                },
+                watchlistLabel: function (currency) {
+                    return (this.isWatched(currency) ? 'Remove ' : 'Add ') + currency.name + ' ' + (this.isWatched(currency) ? 'from' : 'to') + ' Watchlist';
+                },
+                toggleWatchlist: function (currency) {
+                    if (!currency || !GeckoClient.watchlist) return;
+
+                    GeckoClient.watchlist.toggle(currency, {sourceRoute: 'market_pulse'})
+                        .then(() => this.syncWatchlistIds());
                 },
                 relativeTime: function (timestamp) {
                     const date = new Date(timestamp);
@@ -2082,7 +2641,6 @@
     const marketOptions = GeckoClient.getOptions('currency-market');
 
     const historicalOptions = GeckoClient.getOptions('currency-historical');
-    const watchlistStorageKeys = ['TONBANKCARD:watchlist', 'GeckoClient:watchlist'];
     // CoinGecko has auto granularity, min 120 day period to force 1-day interval
     const historicalPeriodDays  = Math.max(120, historicalOptions.periodDays) || 120;
     const historicalPeriodSecs  = historicalPeriodDays * 3600 * 24;
@@ -2100,7 +2658,6 @@
                     tab: null,
                     tabs: mainOptions.tabs,
                     loading: false,
-                    watchlistIds: [],
                     actionNotice: '',
                     actionNoticeModel: false,
 
@@ -2120,12 +2677,18 @@
                     historicalPeriodDays: historicalPeriodDays,
                     historicalPeriodSecs: historicalPeriodSecs,
                     historicalLoadMore: true,
-                    historicalLoadMoreLoading: false
+                    historicalLoadMoreLoading: false,
+
+                    watchlistIds: [],
+                    watchlistUnsubscribe: null
                 };
             },
             created: function () {
-                this.loadWatchlist();
+                this.initWatchlist();
                 this.fetchCurrency()
+            },
+            beforeDestroy: function () {
+                if (this.watchlistUnsubscribe) this.watchlistUnsubscribe();
             },
             beforeRouteUpdate: function (to, from, next) {
                 // reset and fetch new currency in currency to currency route transition
@@ -2147,15 +2710,10 @@
             },
             computed: {
                 isInWatchlist: function () {
-                    if (!this.currency) return false;
-
-                    const id = _.toLower(this.currency.id);
-                    const symbol = _.toLower(this.currency.symbol);
-                    return this.watchlistIds.indexOf(id) >= 0 || this.watchlistIds.indexOf(symbol) >= 0;
+                    return this.isWatched(this.currency);
                 },
                 watchlistButtonLabel: function () {
-                    if (!this.currency) return 'Add to watchlist';
-                    return (this.isInWatchlist ? 'Remove from watchlist for ' : 'Add to watchlist for ') + this.currency.name;
+                    return this.watchlistLabel(this.currency);
                 },
                 alertButtonLabel: function () {
                     return this.currency ? 'Create alert for ' + this.currency.name : 'Create alert';
@@ -2165,6 +2723,43 @@
                 }
             },
             methods: {
+                initWatchlist: function () {
+                    const watchlist = GeckoClient.watchlist;
+                    if (!watchlist) return;
+
+                    this.watchlistUnsubscribe = watchlist.onChange(() => this.syncWatchlistIds());
+                    watchlist.init().then(() => this.syncWatchlistIds());
+                },
+                syncWatchlistIds: function () {
+                    this.watchlistIds = GeckoClient.watchlist ? GeckoClient.watchlist.ids() : [];
+                },
+                isWatched: function (currency) {
+                    return currency && this.watchlistIds.indexOf(currency.id) >= 0;
+                },
+                watchlistIcon: function (currency) {
+                    return this.isWatched(currency) ? 'mdi-star' : 'mdi-star-outline';
+                },
+                watchlistLabel: function (currency) {
+                    if (!currency) return 'Watchlist';
+                    return (this.isWatched(currency) ? 'Remove ' : 'Add ') + currency.name + ' ' + (this.isWatched(currency) ? 'from' : 'to') + ' Watchlist';
+                },
+                toggleWatchlist: function (currency) {
+                    if (!currency || !GeckoClient.watchlist) return;
+
+                    const wasWatched = this.isWatched(currency);
+                    GeckoClient.watchlist.toggle(
+                        {
+                            id: currency.id,
+                            symbol: currency.symbol,
+                            name: currency.name,
+                            image: _.get(currency, 'image.large') || _.get(currency, 'image.small') || _.get(currency, 'image.thumb')
+                        },
+                        {sourceRoute: 'coin_detail'}
+                    ).then(() => {
+                        this.syncWatchlistIds();
+                        this.showActionNotice(currency.name + (wasWatched ? ' removed from watchlist.' : ' added to watchlist.'));
+                    });
+                },
                 resetData: function () {
                     this.marketTickers = [];
                     this.marketLoading = false;
@@ -2225,54 +2820,6 @@
                 },
                 vsConverted: function (priceObj) {
                     return _.get(priceObj, this.$root.vsCurrencyId, null);
-                },
-                readWatchlistIds: function () {
-                    for (let i = 0; i < watchlistStorageKeys.length; i++) {
-                        const raw = window.localStorage.getItem(watchlistStorageKeys[i]);
-                        if (!raw) continue;
-
-                        try {
-                            const parsed = JSON.parse(raw);
-                            if (_.isArray(parsed)) {
-                                return parsed.map(item => {
-                                    const id = _.isString(item) ? item : _.get(item, 'id') || _.get(item, 'coin_id');
-                                    return _.toLower(id);
-                                }).filter(Boolean);
-                            }
-                            if (_.isObject(parsed)) {
-                                return _.keys(parsed).map(id => _.toLower(id));
-                            }
-                        } catch (err) {
-                            return [];
-                        }
-                    }
-
-                    return [];
-                },
-                writeWatchlistIds: function (ids) {
-                    const normalized = _.uniq(ids.map(id => _.toLower(id)).filter(Boolean));
-                    window.localStorage.setItem(watchlistStorageKeys[0], JSON.stringify(normalized));
-                    this.watchlistIds = normalized;
-                },
-                loadWatchlist: function () {
-                    this.watchlistIds = this.readWatchlistIds();
-                },
-                toggleWatchlist: function () {
-                    if (!this.currency) return;
-
-                    const id = _.toLower(this.currency.id);
-                    const ids = this.watchlistIds.slice();
-                    const index = ids.indexOf(id);
-
-                    if (index >= 0) {
-                        ids.splice(index, 1);
-                        this.showActionNotice(this.currency.name + ' removed from watchlist.');
-                    } else {
-                        ids.push(id);
-                        this.showActionNotice(this.currency.name + ' added to watchlist.');
-                    }
-
-                    this.writeWatchlistIds(ids);
                 },
                 prepareAlertDraft: function () {
                     if (!this.currency) return;
@@ -2863,12 +3410,18 @@
                     loading: false,
                     loadMore: true,
                     loadMoreLoading: false,
+                    watchlistIds: [],
+                    watchlistUnsubscribe: null
                 };
             },
             created: function () {
+                this.initWatchlist();
                 this.fetchFirstCurrencies();
                 // update title meta tags
                 setTitle(marketsOptions.title);
+            },
+            beforeDestroy: function () {
+                if (this.watchlistUnsubscribe) this.watchlistUnsubscribe();
             },
             watch: {
                 '$root.vsCurrencyId': function () {
@@ -2886,6 +3439,16 @@
                 }
             },
             methods: {
+                initWatchlist: function () {
+                    const watchlist = GeckoClient.watchlist;
+                    if (!watchlist) return;
+
+                    this.watchlistUnsubscribe = watchlist.onChange(() => this.syncWatchlistIds());
+                    watchlist.init().then(() => this.syncWatchlistIds());
+                },
+                syncWatchlistIds: function () {
+                    this.watchlistIds = GeckoClient.watchlist ? GeckoClient.watchlist.ids() : [];
+                },
                 fetchCurrencies: function () {
                     const params = {
                         per_page: this.perPage,
@@ -2919,6 +3482,21 @@
                 fetchMoreCurrencies: function () {
                     this.loadMoreLoading = true;
                     return this.fetchCurrencies().finally(() => this.loadMoreLoading = false);
+                },
+                isWatched: function (currency) {
+                    return this.watchlistIds.indexOf(currency.id) >= 0;
+                },
+                watchlistIcon: function (currency) {
+                    return this.isWatched(currency) ? 'mdi-star' : 'mdi-star-outline';
+                },
+                watchlistLabel: function (currency) {
+                    return (this.isWatched(currency) ? 'Remove ' : 'Add ') + currency.name + ' ' + (this.isWatched(currency) ? 'from' : 'to') + ' Watchlist';
+                },
+                toggleWatchlist: function (currency) {
+                    if (!GeckoClient.watchlist) return;
+
+                    GeckoClient.watchlist.toggle(currency, {sourceRoute: 'markets'})
+                        .then(() => this.syncWatchlistIds());
                 },
                 toCurrency: function (currency) {
                     this.$router.push(currency.route);
@@ -3021,24 +3599,220 @@
 
 })(window, GeckoClient);
 
-(function (window, GeckoClient) {
+(function (window, _, CoinGecko, GeckoClient) {
     'use strict';
 
     const route = GeckoClient.routesConfig.watchlist;
+    const options = GeckoClient.getOptions('watchlist');
     if (!route) return;
+
+    function dateValue(value) {
+        const date = new Date(value || 0);
+        return GeckoClient.utils.isValidDate(date) ? date.getTime() : 0;
+    }
 
     GeckoClient.router.addRoute({
         name: 'watchlist',
         path: route.path,
         component: {
             template: '#route-watchlist',
+            data: function () {
+                return {
+                    entries: [],
+                    marketCurrencies: [],
+                    loading: false,
+                    marketError: false,
+                    marketMeta: null,
+                    marketConfig: null,
+                    sortKey: 'added_at',
+                    sortDirection: 'desc',
+                    watchlistUnsubscribe: null
+                };
+            },
             created: function () {
-                GeckoClient.setTitle(GeckoClient.getOptions('watchlist').title);
+                GeckoClient.setTitle(options.title);
+                this.initWatchlist();
+            },
+            beforeDestroy: function () {
+                if (this.watchlistUnsubscribe) this.watchlistUnsubscribe();
+            },
+            watch: {
+                '$root.vsCurrencyId': function () {
+                    this.fetchWatchlistMarketData();
+                }
+            },
+            computed: {
+                sortOptions: function () {
+                    return [
+                        {text: 'Added', value: 'added_at'},
+                        {text: 'Name', value: 'name'},
+                        {text: 'Rank', value: 'market_cap_rank'},
+                        {text: 'Price', value: 'current_price'},
+                        {text: '24h change', value: 'price_change_percentage_24h_in_currency'},
+                        {text: 'Market cap', value: 'market_cap'}
+                    ];
+                },
+                entryIds: function () {
+                    return this.entries.map(entry => entry.coin_id);
+                },
+                isEmpty: function () {
+                    return this.entries.length === 0;
+                },
+                freshnessStatus: function () {
+                    return _.get(this.marketMeta, 'freshness.cache_status', null);
+                },
+                isStale: function () {
+                    return ['stale', 'expired', 'fallback'].indexOf(this.freshnessStatus) >= 0;
+                },
+                freshnessLabel: function () {
+                    const status = this.freshnessStatus || 'fresh';
+                    const label = ['pass', 'hit', 'fresh'].indexOf(status) >= 0 ? 'Fresh' : _.startCase(status);
+                    const timestamp = _.get(this.marketMeta, 'freshness.last_updated_at')
+                        || _.get(this.marketMeta, 'freshness.fetched_at');
+
+                    return timestamp ? label + ' ' + this.relativeTime(timestamp) : label;
+                },
+                storageModeLabel: function () {
+                    const mode = GeckoClient.watchlist ? GeckoClient.watchlist.storageMode : 'local';
+                    if (mode === 'telegram_cloud') return 'Telegram CloudStorage';
+                    if (mode === 'memory') return 'Memory fallback';
+                    return 'Local';
+                },
+                sortedCurrencies: function () {
+                    const direction = this.sortDirection === 'asc' ? 1 : -1;
+                    const sortKey = this.sortKey;
+
+                    return this.marketCurrencies.slice().sort((a, b) => {
+                        const aValue = this.sortValue(a, sortKey);
+                        const bValue = this.sortValue(b, sortKey);
+
+                        if (_.isString(aValue) || _.isString(bValue)) {
+                            return direction * String(aValue || '').localeCompare(String(bValue || ''));
+                        }
+
+                        return direction * ((parseFloat(aValue) || 0) - (parseFloat(bValue) || 0));
+                    });
+                }
+            },
+            methods: {
+                initWatchlist: function () {
+                    const watchlist = GeckoClient.watchlist;
+                    if (!watchlist) return;
+
+                    this.watchlistUnsubscribe = watchlist.onChange(() => {
+                        this.syncEntries();
+                        this.fetchWatchlistMarketData();
+                    });
+
+                    watchlist.init().then(() => {
+                        this.syncEntries();
+                        this.fetchWatchlistMarketData();
+                    });
+                },
+                syncEntries: function () {
+                    const snapshot = GeckoClient.watchlist ? GeckoClient.watchlist.snapshot() : {entries: []};
+                    this.entries = snapshot.entries || [];
+                },
+                fetchWatchlistMarketData: function () {
+                    if (!this.entries.length) {
+                        this.marketCurrencies = [];
+                        this.marketMeta = null;
+                        this.marketError = false;
+                        return Promise.resolve([]);
+                    }
+
+                    const params = {
+                        ids: this.entryIds.join(','),
+                        per_page: Math.min(250, this.entryIds.length),
+                        page: 1,
+                        order: 'market_cap_desc',
+                        vs_currency: this.$root.vsCurrencyId,
+                        price_change_percentage: '24h,7d,30d',
+                        sparkline: true
+                    };
+
+                    this.marketConfig = {params: params};
+                    this.loading = true;
+                    this.marketError = false;
+
+                    return CoinGecko.coinsMarkets(params)
+                        .then(currencies => {
+                            const byId = _.keyBy(currencies || [], 'id');
+                            this.marketCurrencies = this.entries.map(entry => {
+                                return this.extendCurrency(byId[entry.coin_id] || this.fallbackCurrency(entry), entry);
+                            });
+                            this.marketMeta = CoinGecko.metaGet('coins/markets', this.marketConfig) || null;
+                        })
+                        .catch(() => {
+                            this.marketError = true;
+                            this.marketCurrencies = this.entries.map(entry => this.extendCurrency(this.fallbackCurrency(entry), entry));
+                        })
+                        .finally(() => this.loading = false);
+                },
+                extendCurrency: function (currency, entry) {
+                    currency.route = {name: 'currency', params: {id: currency.id}};
+                    currency.added_at = entry.added_at;
+                    currency.watchlist_symbol = entry.symbol || currency.symbol;
+                    return currency;
+                },
+                fallbackCurrency: function (entry) {
+                    return {
+                        id: entry.coin_id,
+                        symbol: entry.symbol,
+                        name: entry.name || _.startCase(entry.coin_id),
+                        image: entry.image,
+                        market_cap_rank: null,
+                        current_price: null,
+                        price_change_percentage_24h_in_currency: null,
+                        market_cap: null,
+                        total_volume: null,
+                        sparkline_in_7d: {price: []}
+                    };
+                },
+                removeFromWatchlist: function (currency) {
+                    if (!GeckoClient.watchlist) return;
+
+                    GeckoClient.watchlist.remove(currency, {sourceRoute: 'watchlist'})
+                        .then(() => {
+                            this.syncEntries();
+                            this.fetchWatchlistMarketData();
+                        });
+                },
+                toggleSortDirection: function () {
+                    this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+                },
+                sortIcon: function () {
+                    return this.sortDirection === 'asc' ? 'mdi-sort-ascending' : 'mdi-sort-descending';
+                },
+                sortValue: function (currency, key) {
+                    if (key === 'added_at') return dateValue(currency.added_at);
+                    if (key === 'name') return _.toLower(currency.name || currency.id);
+                    return _.get(currency, key, 0);
+                },
+                priceLabel: function (value) {
+                    return _.isFinite(parseFloat(value)) ? this.$root.priceFormat(value) : 'N/A';
+                },
+                marketCapLabel: function (value) {
+                    return _.isFinite(parseFloat(value)) ? this.$root.marketCapFormat(value) : 'N/A';
+                },
+                changeLabel: function (value) {
+                    return _.isFinite(parseFloat(value)) ? this.$root.changeFormat(value) : 'N/A';
+                },
+                relativeTime: function (timestamp) {
+                    const date = new Date(timestamp);
+                    if (!GeckoClient.utils.isValidDate(date)) return '';
+
+                    const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+                    if (seconds < 60) return 'now';
+                    if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+                    if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+                    return Math.floor(seconds / 86400) + 'd ago';
+                }
             }
         }
     });
 
-})(window, GeckoClient);
+})(window, _, CoinGecko, GeckoClient);
 
 (function (window, GeckoClient) {
     'use strict';

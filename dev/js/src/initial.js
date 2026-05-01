@@ -104,19 +104,29 @@
     GeckoClient.preferences = {
         prefix: 'GeckoClient:',
         set: function (key, value)  {
-            localStorage.setItem(this.prefix + key, JSON.stringify(value));
+            try {
+                localStorage.setItem(this.prefix + key, JSON.stringify(value));
+            } catch (err) {}
         },
         get: function (key) {
-            let value = localStorage.getItem(this.prefix + key);
-            return value === null ? null : JSON.parse(value);
+            try {
+                let value = localStorage.getItem(this.prefix + key);
+                return value === null ? null : JSON.parse(value);
+            } catch (err) {
+                return null;
+            }
         },
         remove: function (key) {
-            localStorage.removeItem(this.prefix + key);
+            try {
+                localStorage.removeItem(this.prefix + key);
+            } catch (err) {}
         },
         removeAll: function () {
-            Object.keys(localStorage).forEach(function (key) {
-                if (_.startsWith(key, this.prefix)) localStorage.removeItem(key);
-            })
+            try {
+                Object.keys(localStorage).forEach(function (key) {
+                    if (_.startsWith(key, this.prefix)) localStorage.removeItem(key);
+                }, this);
+            } catch (err) {}
         },
         vsCurrency: function (id) {
             if (id === undefined) return this.get('vs_currency') || GeckoClient.defaultVsCurrencyId;
@@ -252,17 +262,20 @@
 
     GeckoClient.analytics = {
         events: [],
-        allowedEvents: ['search_opened', 'search_result_selected'],
+        allowedEvents: ['search_opened', 'search_result_selected', 'watchlist_added', 'watchlist_removed'],
         allowedProperties: [
             'trigger',
             'query_present',
             'surface',
             'result_type',
             'coin_id',
+            'symbol',
             'exchange_id',
             'category_id',
             'rank',
-            'query_length_bucket'
+            'query_length_bucket',
+            'source_route',
+            'storage_mode'
         ],
         newEventId: function () {
             return 'evt_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
