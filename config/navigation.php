@@ -55,6 +55,11 @@ $navigation['items'] = [
         'route' => 'watchlist',
     ],
     [
+        'text' => 'Alerts',
+        'icon' => 'mdi-bell-outline',
+        'route' => 'alerts',
+    ],
+    [
         'text' => 'Wallet Profile',
         'icon' => 'mdi-wallet-outline',
         'route' => 'wallet-profile',

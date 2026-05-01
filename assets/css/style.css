@@ -471,28 +471,67 @@ v-app {
     padding: 0 6px;
 }
 #watchlist,
+#alerts,
 #ton {
     max-width: 1200px;
 }
 .watchlist-header,
 .watchlist-toolbar,
-.watchlist-route-actions {
+.watchlist-route-actions,
+.alerts-header,
+.alerts-route-actions,
+.alerts-form-actions {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
 }
-.watchlist-route-actions {
+.watchlist-route-actions,
+.alerts-route-actions {
     justify-content: flex-end;
     flex-wrap: wrap;
     min-width: 260px;
 }
+.alerts-form-actions,
 .watchlist-toolbar {
     align-items: center;
     justify-content: flex-start;
 }
 .watchlist-sort-control {
     max-width: 220px;
+}
+.alert-rule-form {
+    position: sticky;
+    top: 88px;
+}
+.alerts-rule-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+.alert-rule-card {
+    height: 100%;
+}
+.alert-rule-card--paused {
+    opacity: 0.74;
+}
+.alert-rule-card-title {
+    align-items: flex-start;
+    gap: 12px;
+}
+.alert-rule-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+}
+.alert-rule-meta span,
+.alert-rule-meta strong {
+    display: block;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.alert-rule-actions {
+    flex-wrap: wrap;
 }
 .watchlist-coin-card {
     height: 100%;
@@ -565,13 +604,21 @@ v-app {
         min-width: 0;
         margin-top: 16px;
     }
-    .watchlist-header {
+    .watchlist-header,
+    .alerts-header {
         display: block;
     }
-    .watchlist-route-actions {
+    .watchlist-route-actions,
+    .alerts-route-actions {
         justify-content: flex-start;
         min-width: 0;
         margin-top: 16px;
+    }
+    .alert-rule-form {
+        position: static;
+    }
+    .alerts-rule-grid {
+        grid-template-columns: 1fr;
     }
     .ai-insight-list-grid {
         grid-template-columns: 1fr;
@@ -614,7 +661,8 @@ v-app {
     .market-pulse-actions .v-btn {
         flex: 1 1 calc(50% - 8px);
     }
-    .watchlist-route-actions .v-btn {
+    .watchlist-route-actions .v-btn,
+    .alerts-route-actions .v-btn {
         flex: 1 1 calc(50% - 8px);
     }
     .watchlist-toolbar {

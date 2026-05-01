@@ -129,6 +129,15 @@ $routes_v2['public'] = [
         'sitemap_changefreq' => 'daily',
         'sitemap_priority'   => '0.7',
     ],
+    'alerts' => [
+        'path'        => '/alerts',
+        'title'       => 'Smart Alerts',
+        'description' => 'Create Telegram bot alerts for price crosses, market movement, volume, rank, sentiment, and TON ecosystem context.',
+        'og_type'     => 'website',
+        'schema_type' => 'WebApplication',
+        'sitemap_changefreq' => 'daily',
+        'sitemap_priority'   => '0.7',
+    ],
     'about' => [
         'path'        => '/about',
         'title'       => 'About TONBANKCARD',

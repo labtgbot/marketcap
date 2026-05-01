@@ -101,6 +101,7 @@ markets_html="$log_dir/public-shell-markets.html"
 coin_html="$log_dir/public-shell-coin.html"
 ton_html="$log_dir/public-shell-ton.html"
 screener_html="$log_dir/public-shell-screener.html"
+alerts_html="$log_dir/public-shell-alerts.html"
 support_html="$log_dir/public-shell-support.html"
 robots_txt="$log_dir/public-shell-robots.txt"
 sitemap_xml="$log_dir/public-shell-sitemap.xml"
@@ -110,6 +111,7 @@ fetch_path "/markets" "$markets_html"
 fetch_path "/coins/bitcoin" "$coin_html"
 fetch_path "/ton" "$ton_html"
 fetch_path "/screener" "$screener_html"
+fetch_path "/alerts" "$alerts_html"
 fetch_path "/support" "$support_html"
 fetch_path "/robots.txt" "$robots_txt"
 fetch_path "/sitemap.xml" "$sitemap_xml"
@@ -119,6 +121,7 @@ assert_status_ok "/markets"
 assert_status_ok "/coins/bitcoin"
 assert_status_ok "/ton"
 assert_status_ok "/screener"
+assert_status_ok "/alerts"
 assert_status_ok "/support"
 assert_status_ok "/robots.txt"
 assert_status_ok "/sitemap.xml"
@@ -158,6 +161,10 @@ assert_contains "$screener_html" '<title>Crypto Screener - TONBANKCARD Crypto Tr
 assert_contains "$screener_html" '<link rel="canonical" href="http://127\.0\.0\.1:8891/screener"' 'screener route canonical URL'
 assert_contains "$screener_html" 'route-screener' 'screener route template'
 
+assert_contains "$alerts_html" '<title>Smart Alerts - TONBANKCARD Crypto Tracker' 'alerts route title'
+assert_contains "$alerts_html" '<link rel="canonical" href="http://127\.0\.0\.1:8891/alerts"' 'alerts route canonical URL'
+assert_contains "$alerts_html" 'route-alerts' 'alerts route template'
+
 assert_contains "$support_html" '<title>Support - TONBANKCARD Crypto Tracker' 'support route title'
 assert_contains "$support_html" '<link rel="canonical" href="http://127\.0\.0\.1:8891/support"' 'support route canonical URL'
 assert_contains "$support_html" 'route-support' 'support route template'
@@ -169,6 +176,7 @@ assert_contains "$robots_txt" '^Sitemap: http://127\.0\.0\.1:8891/sitemap\.xml$'
 assert_contains "$sitemap_xml" '<urlset xmlns="http://www\.sitemaps\.org/schemas/sitemap/0\.9">' 'sitemap urlset'
 assert_contains "$sitemap_xml" '<loc>http://127\.0\.0\.1:8891/markets</loc>' 'markets sitemap URL'
 assert_contains "$sitemap_xml" '<loc>http://127\.0\.0\.1:8891/ton</loc>' 'TON sitemap URL'
+assert_contains "$sitemap_xml" '<loc>http://127\.0\.0\.1:8891/alerts</loc>' 'alerts sitemap URL'
 assert_contains "$sitemap_xml" '<changefreq>hourly</changefreq>' 'sitemap change frequency'
 assert_not_contains "$sitemap_xml" ':id' 'dynamic route placeholders in sitemap'
 
