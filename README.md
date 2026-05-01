@@ -72,6 +72,7 @@ npm run test:ton-ecosystem
 npm run test:cache-rate-limit
 npm run test:telegram-session
 npm run test:watchlist
+npm run test:screener
 npm run test:public-shell
 npm run test:ai-provider
 npm run test:ai-sentiment
@@ -137,6 +138,8 @@ See [docs/v2-cache-rate-limit-coalescing.md](docs/v2-cache-rate-limit-coalescing
 See [docs/v2-telegram-session.md](docs/v2-telegram-session.md) for the `/api/telegram/session` initData validation, session storage, local browser fallback, and regression coverage from issue #13.
 
 See [docs/v2-watchlist-ux-persistence.md](docs/v2-watchlist-ux-persistence.md) for the Watchlist UX, localStorage, Telegram CloudStorage, MySQL trusted-session sync, and conflict behavior from issue #23.
+
+See [docs/v2-advanced-screener.md](docs/v2-advanced-screener.md) for the advanced screener filters, backend `/api/screener/*` endpoints, trusted-session saved presets, mobile filter drawer, and CSV export decision from issue #31.
 
 See [docs/v2-charting-and-market-visualization.md](docs/v2-charting-and-market-visualization.md) for the chart rendering decision, advanced coin chart views, lazy ECharts loading, stale state, and accessibility coverage from issue #25.
 
