@@ -129,10 +129,6 @@ body {
     padding-left: var(--tbc-safe-area-left);
 }
 
-.tbc-has-bottom-bar .v-main {
-    padding-bottom: calc(var(--tbc-bottom-bar-height) + var(--tbc-safe-area-bottom)) !important;
-}
-
 .tbc-bottom-bar,
 .v-bottom-navigation {
     min-height: calc(var(--tbc-bottom-bar-height) + var(--tbc-safe-area-bottom));
@@ -364,6 +360,17 @@ v-app {
 }
 .public-web-bottom-navigation .v-btn {
     min-width: 0;
+    padding-right: 2px;
+    padding-left: 2px;
+}
+.public-web-bottom-navigation .v-btn__content {
+    min-width: 0;
+}
+.public-web-bottom-navigation .v-btn__content > span {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
 }
 .gc-page-loader {
     height: 80vh;
@@ -571,6 +578,10 @@ v-app {
     }
 }
 @media only screen and (max-width: 599px) {
+    .tbc-has-bottom-bar .v-main {
+        padding-bottom: calc(var(--tbc-bottom-bar-height) + var(--tbc-safe-area-bottom)) !important;
+    }
+
     .tbc-app-bar .v-toolbar__content {
         gap: 4px;
     }
@@ -612,6 +623,20 @@ v-app {
     .watchlist-sort-control {
         max-width: none;
         flex: 1 1 auto;
+    }
+    #wallet-profile {
+        margin-top: 8px !important;
+        padding-top: 8px !important;
+    }
+    .wallet-profile-header,
+    .wallet-profile-status {
+        margin-bottom: 16px !important;
+    }
+    .wallet-profile-status {
+        gap: 8px;
+    }
+    .wallet-profile-actions {
+        margin-top: 12px !important;
     }
 }
 @media only screen and (max-width: 360px) {

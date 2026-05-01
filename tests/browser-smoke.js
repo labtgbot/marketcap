@@ -1084,6 +1084,7 @@ async function checkWatchlistPersistence(page, errors) {
 async function checkTonConnectWalletProfile(page, errors) {
     log('Checking TON Connect wallet profile');
 
+    await page.setViewportSize({width: 390, height: 844});
     await page.goto(`${baseURL}/wallet`, {waitUntil: 'domcontentloaded'});
     await page.locator('#wallet-profile').waitFor({state: 'visible'});
     await page.getByRole('heading', {name: /Wallet Profile/i}).first().waitFor({state: 'visible'});
@@ -1110,7 +1111,11 @@ async function checkTonConnectWalletProfile(page, errors) {
     await page.getByText('Mainnet', {exact: false}).first().waitFor({state: 'visible'});
     await page.getByText('Send Transaction', {exact: false}).first().waitFor({state: 'visible'});
     await page.getByRole('button', {name: /Disconnect wallet/i}).waitFor({state: 'visible'});
-    await page.screenshot({path: path.join(logDir, 'ton-connect-wallet-profile.png'), fullPage: true});
+    await assertMobileChromeLayout(page, 'TON Connect wallet profile');
+    await page.screenshot({
+        path: path.join(logDir, 'ton-connect-wallet-profile.png'),
+        animations: 'disabled',
+    });
 
     const storedAfterConnect = await page.evaluate(() => {
         const raw = window.localStorage.getItem('TONBANKCARD:ton-connect-wallet:v1');
