@@ -19,8 +19,16 @@
                 loading: false,
                 items: [],
                 requestCounter: 0,
-                searchOpened: false
+                searchOpened: false,
+                watchlistIds: [],
+                watchlistUnsubscribe: null
             };
+        },
+        created: function () {
+            this.initWatchlist();
+        },
+        beforeDestroy: function () {
+            if (this.watchlistUnsubscribe) this.watchlistUnsubscribe();
         },
         watch: {
             model: function (selected) {
@@ -58,6 +66,42 @@
             },
             searchSurface: function () {
                 return _.get(GeckoClient, 'analytics.surface', () => 'public_web')();
+            },
+            initWatchlist: function () {
+                const watchlist = GeckoClient.watchlist;
+                if (!watchlist) return;
+
+                this.watchlistUnsubscribe = watchlist.onChange(() => this.syncWatchlistIds());
+                watchlist.init().then(() => this.syncWatchlistIds());
+            },
+            syncWatchlistIds: function () {
+                this.watchlistIds = GeckoClient.watchlist ? GeckoClient.watchlist.ids() : [];
+            },
+            isWatchlistResult: function (item) {
+                return item && (item.type === 'coin' || item.coin_id);
+            },
+            isWatched: function (item) {
+                const id = item.coin_id || item.id;
+                return this.watchlistIds.indexOf(id) >= 0;
+            },
+            watchlistIcon: function (item) {
+                return this.isWatched(item) ? 'mdi-star' : 'mdi-star-outline';
+            },
+            watchlistLabel: function (item) {
+                return (this.isWatched(item) ? 'Remove ' : 'Add ') + item.name + ' ' + (this.isWatched(item) ? 'from' : 'to') + ' Watchlist';
+            },
+            toggleWatchlist: function (item) {
+                if (!GeckoClient.watchlist) return;
+
+                const entry = {
+                    id: item.coin_id || item.id,
+                    symbol: item.symbol,
+                    name: item.name,
+                    image: item.large || item.small || item.thumb
+                };
+
+                GeckoClient.watchlist.toggle(entry, {sourceRoute: 'search'})
+                    .then(() => this.syncWatchlistIds());
             },
             setItems: function (results) {
                 const items = [];

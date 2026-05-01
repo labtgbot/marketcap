@@ -45,11 +45,18 @@
                     historicalPeriodDays: historicalPeriodDays,
                     historicalPeriodSecs: historicalPeriodSecs,
                     historicalLoadMore: true,
-                    historicalLoadMoreLoading: false
+                    historicalLoadMoreLoading: false,
+
+                    watchlistIds: [],
+                    watchlistUnsubscribe: null
                 };
             },
             created: function () {
+                this.initWatchlist();
                 this.fetchCurrency()
+            },
+            beforeDestroy: function () {
+                if (this.watchlistUnsubscribe) this.watchlistUnsubscribe();
             },
             beforeRouteUpdate: function (to, from, next) {
                 // reset and fetch new currency in currency to currency route transition
@@ -70,6 +77,39 @@
                 }
             },
             methods: {
+                initWatchlist: function () {
+                    const watchlist = GeckoClient.watchlist;
+                    if (!watchlist) return;
+
+                    this.watchlistUnsubscribe = watchlist.onChange(() => this.syncWatchlistIds());
+                    watchlist.init().then(() => this.syncWatchlistIds());
+                },
+                syncWatchlistIds: function () {
+                    this.watchlistIds = GeckoClient.watchlist ? GeckoClient.watchlist.ids() : [];
+                },
+                isWatched: function (currency) {
+                    return currency && this.watchlistIds.indexOf(currency.id) >= 0;
+                },
+                watchlistIcon: function (currency) {
+                    return this.isWatched(currency) ? 'mdi-star' : 'mdi-star-outline';
+                },
+                watchlistLabel: function (currency) {
+                    if (!currency) return 'Watchlist';
+                    return (this.isWatched(currency) ? 'Remove ' : 'Add ') + currency.name + ' ' + (this.isWatched(currency) ? 'from' : 'to') + ' Watchlist';
+                },
+                toggleWatchlist: function (currency) {
+                    if (!currency || !GeckoClient.watchlist) return;
+
+                    GeckoClient.watchlist.toggle(
+                        {
+                            id: currency.id,
+                            symbol: currency.symbol,
+                            name: currency.name,
+                            image: _.get(currency, 'image.large') || _.get(currency, 'image.small') || _.get(currency, 'image.thumb')
+                        },
+                        {sourceRoute: 'coin_detail'}
+                    ).then(() => this.syncWatchlistIds());
+                },
                 resetData: function () {
                     this.marketTickers = [];
                     this.marketLoading = false;

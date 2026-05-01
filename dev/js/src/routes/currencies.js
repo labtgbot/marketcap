@@ -5,7 +5,6 @@
     const options = GeckoClient.getOptions('currencies');
     const route = GeckoClient.routesConfig.currencies;
     const perPage = Math.min(100, options.perPage) || 50;
-    const watchlistStorageKeys = ['TONBANKCARD:watchlist', 'GeckoClient:watchlist'];
 
     function percentChange(currency) {
         return parseFloat(currency.price_change_percentage_24h_in_currency);
@@ -34,13 +33,17 @@
                     trendingError: false,
                     globalMeta: null,
                     marketMeta: null,
-                    marketConfig: null
+                    marketConfig: null,
+                    watchlistUnsubscribe: null
                 };
             },
             created: function () {
-                this.loadWatchlist();
+                this.initWatchlist();
                 this.fetchPulse();
                 setTitle(options.title);
+            },
+            beforeDestroy: function () {
+                if (this.watchlistUnsubscribe) this.watchlistUnsubscribe();
             },
             watch: {
                 '$root.vsCurrencyId': function () {
@@ -138,6 +141,16 @@
                     this.fetchMarketCurrencies();
                     this.fetchTrendingCoins();
                 },
+                initWatchlist: function () {
+                    const watchlist = GeckoClient.watchlist;
+                    if (!watchlist) return;
+
+                    this.watchlistUnsubscribe = watchlist.onChange(() => this.syncWatchlistIds());
+                    watchlist.init().then(() => this.syncWatchlistIds());
+                },
+                syncWatchlistIds: function () {
+                    this.watchlistIds = GeckoClient.watchlist ? GeckoClient.watchlist.ids() : [];
+                },
                 fetchGlobal: function () {
                     this.loadingGlobal = true;
                     this.globalError = false;
@@ -192,31 +205,20 @@
                     currency.route = {name: 'currency', params: {id: currency.id}};
                     return currency;
                 },
-                readWatchlistIds: function () {
-                    for (let i = 0; i < watchlistStorageKeys.length; i++) {
-                        const raw = window.localStorage.getItem(watchlistStorageKeys[i]);
-                        if (!raw) continue;
-
-                        try {
-                            const parsed = JSON.parse(raw);
-                            if (_.isArray(parsed)) {
-                                return parsed.map(item => {
-                                    const id = _.isString(item) ? item : _.get(item, 'id') || _.get(item, 'coin_id');
-                                    return _.toLower(id);
-                                }).filter(Boolean);
-                            }
-                            if (_.isObject(parsed)) {
-                                return _.keys(parsed).map(id => _.toLower(id));
-                            }
-                        } catch (err) {
-                            return [];
-                        }
-                    }
-
-                    return [];
+                isWatched: function (currency) {
+                    return currency && this.watchlistIds.indexOf(currency.id) >= 0;
                 },
-                loadWatchlist: function () {
-                    this.watchlistIds = this.readWatchlistIds();
+                watchlistIcon: function (currency) {
+                    return this.isWatched(currency) ? 'mdi-star' : 'mdi-star-outline';
+                },
+                watchlistLabel: function (currency) {
+                    return (this.isWatched(currency) ? 'Remove ' : 'Add ') + currency.name + ' ' + (this.isWatched(currency) ? 'from' : 'to') + ' Watchlist';
+                },
+                toggleWatchlist: function (currency) {
+                    if (!currency || !GeckoClient.watchlist) return;
+
+                    GeckoClient.watchlist.toggle(currency, {sourceRoute: 'market_pulse'})
+                        .then(() => this.syncWatchlistIds());
                 },
                 relativeTime: function (timestamp) {
                     const date = new Date(timestamp);
