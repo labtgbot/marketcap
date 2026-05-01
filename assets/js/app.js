@@ -392,18 +392,231 @@
         }
     };
 
+    const pwaConfig = GeckoClient.pwa || {};
+
+    GeckoClient.pwa = {
+        serviceWorkerUrl: pwaConfig.serviceWorkerUrl || '/service-worker.js',
+        offlineUrl: pwaConfig.offlineUrl || '/offline.html',
+        serviceWorkerRegistration: null,
+        serviceWorkerError: null,
+        installPromptEvent: null,
+        installAvailable: false,
+        callbacks: [],
+        installPromptListening: false,
+        registerServiceWorker: function () {
+            if (!('serviceWorker' in navigator) || !/^https?:$/.test(window.location.protocol)) {
+                return Promise.resolve(null);
+            }
+
+            return navigator.serviceWorker.register(this.serviceWorkerUrl)
+                .then(registration => {
+                    this.serviceWorkerRegistration = registration;
+                    return registration;
+                })
+                .catch(err => {
+                    this.serviceWorkerError = err.message || 'service_worker_registration_failed';
+                    return null;
+                });
+        },
+        initInstallPrompt: function () {
+            if (this.installPromptListening) return;
+            this.installPromptListening = true;
+
+            window.addEventListener('beforeinstallprompt', event => {
+                if (_.isFunction(event.preventDefault)) {
+                    event.preventDefault();
+                }
+                this.installPromptEvent = event;
+                this.installAvailable = true;
+                this.notifyInstallChange();
+            });
+
+            window.addEventListener('appinstalled', () => {
+                this.installPromptEvent = null;
+                this.installAvailable = false;
+                this.notifyInstallChange();
+            });
+        },
+        notifyInstallChange: function () {
+            const available = this.installAvailable;
+            this.callbacks.forEach(callback => callback(available));
+            if (typeof window.CustomEvent === 'function') {
+                window.dispatchEvent(new CustomEvent('tonbankcard:pwa-install-available', {
+                    detail: {available: available}
+                }));
+            }
+        },
+        onInstallChange: function (callback) {
+            if (_.isFunction(callback)) {
+                this.callbacks.push(callback);
+                callback(this.installAvailable);
+            }
+        },
+        promptInstall: function () {
+            const event = this.installPromptEvent;
+            if (!event || !_.isFunction(event.prompt)) {
+                return Promise.resolve(false);
+            }
+
+            this.installPromptEvent = null;
+            this.installAvailable = false;
+            this.notifyInstallChange();
+
+            let promptResult;
+            try {
+                promptResult = event.prompt();
+            } catch (err) {
+                return Promise.resolve(false);
+            }
+
+            return Promise.resolve(promptResult)
+                .then(() => {
+                    if (event.userChoice && _.isFunction(event.userChoice.then)) {
+                        return event.userChoice.then(choice => _.get(choice, 'outcome') === 'accepted');
+                    }
+                    return true;
+                })
+                .catch(() => false);
+        },
+        init: function () {
+            this.initInstallPrompt();
+            this.registerServiceWorker();
+            return this;
+        }
+    };
+
+    GeckoClient.pwa.init();
+
+    function callTelegramMethod(target, method, args) {
+        if (!target || !_.isFunction(target[method])) return undefined;
+
+        try {
+            return target[method].apply(target, args || []);
+        } catch (err) {
+            return undefined;
+        }
+    }
+
+    function createTelegramButtonController(buttonName) {
+        return {
+            name: buttonName,
+            get: function () {
+                return _.get(GeckoClient, 'telegram.webApp.' + buttonName) || null;
+            },
+            show: function () {
+                callTelegramMethod(this.get(), 'show');
+                return this;
+            },
+            hide: function () {
+                callTelegramMethod(this.get(), 'hide');
+                return this;
+            },
+            enable: function () {
+                callTelegramMethod(this.get(), 'enable');
+                return this;
+            },
+            disable: function () {
+                callTelegramMethod(this.get(), 'disable');
+                return this;
+            },
+            showProgress: function (leaveActive) {
+                callTelegramMethod(this.get(), 'showProgress', [!!leaveActive]);
+                return this;
+            },
+            hideProgress: function () {
+                callTelegramMethod(this.get(), 'hideProgress');
+                return this;
+            },
+            setText: function (text) {
+                if (_.isString(text) && text.length) {
+                    callTelegramMethod(this.get(), 'setText', [text]);
+                }
+                return this;
+            },
+            setParams: function (params) {
+                callTelegramMethod(this.get(), 'setParams', [params || {}]);
+                return this;
+            },
+            onClick: function (callback) {
+                const button = this.get();
+                if (!button || !_.isFunction(callback)) return false;
+
+                if (_.isFunction(button.onClick)) {
+                    button.onClick(callback);
+                    return true;
+                }
+
+                return false;
+            },
+            offClick: function (callback) {
+                const button = this.get();
+                if (button && _.isFunction(button.offClick) && _.isFunction(callback)) {
+                    button.offClick(callback);
+                }
+                return this;
+            }
+        };
+    }
+
     GeckoClient.telegram = {
         active: false,
         webApp: null,
         colorScheme: null,
         themeParams: {},
         callbacks: [],
+        routeStack: [],
+        handlingBackNavigation: false,
+        backButtonBound: false,
         isTelegramSurface: function () {
             return _.get(GeckoClient, 'runtime.profile') === 'telegram' || !!utils.getTelegramWebApp();
+        },
+        callWebApp: function (method, args) {
+            return callTelegramMethod(this.webApp, method, args);
         },
         setColorScheme: function (colorScheme) {
             this.colorScheme = colorScheme === 'dark' ? 'dark' : 'light';
             GeckoClient.setDocumentThemeClass(this.colorScheme);
+        },
+        cssPixel: function (value) {
+            const number = parseFloat(value);
+            return _.isFinite(number) ? Math.max(0, number) + 'px' : null;
+        },
+        applySafeAreaInsets: function (inset, prefix) {
+            const rootStyle = document.documentElement.style;
+            let applied = false;
+
+            ['top', 'right', 'bottom', 'left'].forEach(edge => {
+                const value = this.cssPixel(_.get(inset, edge));
+                if (!value) return;
+
+                rootStyle.setProperty(prefix + '-' + edge, value);
+                applied = true;
+            });
+
+            return applied;
+        },
+        syncViewport: function () {
+            const webApp = this.webApp;
+            const root = document.documentElement;
+            const rootStyle = root.style;
+
+            if (!webApp) return;
+
+            const viewportHeight = this.cssPixel(_.get(webApp, 'viewportHeight'));
+            const viewportStableHeight = this.cssPixel(_.get(webApp, 'viewportStableHeight'));
+
+            if (viewportHeight) {
+                rootStyle.setProperty('--tbc-viewport-height', viewportHeight);
+            }
+            if (viewportStableHeight) {
+                rootStyle.setProperty('--tbc-viewport-stable-height', viewportStableHeight);
+            }
+
+            this.applySafeAreaInsets(_.get(webApp, 'safeAreaInset'), '--tbc-safe-area');
+            this.applySafeAreaInsets(_.get(webApp, 'contentSafeAreaInset'), '--tbc-content-safe-area');
+
+            root.classList.toggle('tbc-telegram-expanded', !!_.get(webApp, 'isExpanded'));
+            root.classList.toggle('tbc-telegram-fullscreen', !!_.get(webApp, 'isFullscreen'));
         },
         applyThemeParams: function (params) {
             const rootStyle = document.documentElement.style;
@@ -468,6 +681,161 @@
                 this.callbacks.push(callback);
             }
         },
+        onEvent: function (name, callback) {
+            if (this.webApp && _.isFunction(this.webApp.onEvent) && _.isFunction(callback)) {
+                this.webApp.onEvent(name, callback);
+                return true;
+            }
+            return false;
+        },
+        ready: function () {
+            this.callWebApp('ready');
+        },
+        expand: function () {
+            this.callWebApp('expand');
+        },
+        requestFullscreen: function () {
+            this.callWebApp('requestFullscreen');
+        },
+        configureMainButton: function (params) {
+            this.mainButton.setParams(params).show();
+            return this.mainButton;
+        },
+        configureSecondaryButton: function (params) {
+            this.secondaryButton.setParams(params).show();
+            return this.secondaryButton;
+        },
+        getHapticFeedback: function () {
+            return _.get(this.webApp, 'HapticFeedback') || null;
+        },
+        hapticImpact: function (style) {
+            callTelegramMethod(this.getHapticFeedback(), 'impactOccurred', [style || 'light']);
+        },
+        hapticNotification: function (type) {
+            callTelegramMethod(this.getHapticFeedback(), 'notificationOccurred', [type || 'success']);
+        },
+        hapticSelection: function () {
+            callTelegramMethod(this.getHapticFeedback(), 'selectionChanged');
+        },
+        showPopup: function (params, callback) {
+            if (this.webApp && _.isFunction(this.webApp.showPopup)) {
+                this.webApp.showPopup(params || {}, callback);
+                return true;
+            }
+
+            if (_.isFunction(callback)) {
+                callback(null);
+            }
+            return false;
+        },
+        showAlert: function (message, callback) {
+            if (this.webApp && _.isFunction(this.webApp.showAlert)) {
+                this.webApp.showAlert(message, callback);
+                return true;
+            }
+
+            if (_.isFunction(window.alert)) {
+                window.alert(message);
+            }
+            if (_.isFunction(callback)) {
+                callback();
+            }
+            return false;
+        },
+        showConfirm: function (message, callback) {
+            if (this.webApp && _.isFunction(this.webApp.showConfirm)) {
+                this.webApp.showConfirm(message, callback);
+                return true;
+            }
+
+            const confirmed = _.isFunction(window.confirm) ? window.confirm(message) : false;
+            if (_.isFunction(callback)) {
+                callback(confirmed);
+            }
+            return false;
+        },
+        shareToStory: function (mediaUrl, params) {
+            if (this.webApp && _.isFunction(this.webApp.shareToStory) && mediaUrl) {
+                this.webApp.shareToStory(mediaUrl, params || {});
+                return true;
+            }
+            return false;
+        },
+        switchInlineQuery: function (query, chatTypes) {
+            if (this.webApp && _.isFunction(this.webApp.switchInlineQuery)) {
+                this.webApp.switchInlineQuery(query || '', chatTypes || []);
+                return true;
+            }
+            return false;
+        },
+        shareUrl: function (url, text) {
+            const shareUrl = utils.validURLString(url, window.location.href);
+            if (!shareUrl) return Promise.resolve(false);
+
+            if (this.webApp && _.isFunction(this.webApp.openTelegramLink)) {
+                const telegramShareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(shareUrl)
+                    + (text ? '&text=' + encodeURIComponent(text) : '');
+                this.webApp.openTelegramLink(telegramShareUrl);
+                return Promise.resolve(true);
+            }
+
+            if (_.isFunction(navigator.share)) {
+                return navigator.share({url: shareUrl, text: text || document.title}).then(() => true).catch(() => false);
+            }
+
+            if (_.get(navigator, 'clipboard.writeText')) {
+                return navigator.clipboard.writeText(shareUrl).then(() => true).catch(() => false);
+            }
+
+            return Promise.resolve(false);
+        },
+        bindBackButton: function () {
+            if (this.backButtonBound) return;
+            this.backButtonBound = this.backButton.onClick(() => this.goBack());
+        },
+        updateBackButton: function (to, from) {
+            if (!this.active) return false;
+
+            const toPath = _.get(to, 'fullPath') || _.get(to, 'path') || window.location.pathname;
+            const fromPath = _.get(from, 'fullPath') || _.get(from, 'path') || '';
+
+            if (!this.handlingBackNavigation && fromPath && fromPath !== toPath) {
+                this.routeStack.push(fromPath);
+                if (this.routeStack.length > 20) {
+                    this.routeStack.shift();
+                }
+            }
+            this.handlingBackNavigation = false;
+
+            const shouldShow = this.routeStack.length > 0 || (toPath && toPath !== '/');
+            if (shouldShow) {
+                this.backButton.show();
+            } else {
+                this.backButton.hide();
+            }
+            return shouldShow;
+        },
+        goBack: function () {
+            const router = GeckoClient.router;
+            const target = this.routeStack.pop();
+            this.handlingBackNavigation = true;
+
+            if (router && target) {
+                router.push(target).catch(() => {});
+                this.hapticSelection();
+                return true;
+            }
+
+            if (router && _.get(router, 'currentRoute.path') !== '/') {
+                router.push('/').catch(() => {});
+                this.hapticSelection();
+                return true;
+            }
+
+            this.handlingBackNavigation = false;
+            this.backButton.hide();
+            return false;
+        },
         init: function () {
             this.webApp = utils.getTelegramWebApp();
             this.active = this.isTelegramSurface();
@@ -480,24 +848,27 @@
             document.documentElement.classList.add('tbc-telegram-webview');
             this.setColorScheme(_.get(this.webApp, 'colorScheme', 'light'));
             this.applyThemeParams(_.get(this.webApp, 'themeParams', {}));
+            this.syncViewport();
+            this.bindBackButton();
 
-            if (this.webApp && _.isFunction(this.webApp.onEvent)) {
-                this.webApp.onEvent('themeChanged', () => {
-                    this.setColorScheme(_.get(this.webApp, 'colorScheme', this.colorScheme));
-                    this.applyThemeParams(_.get(this.webApp, 'themeParams', this.themeParams));
-                });
-            }
+            this.onEvent('themeChanged', () => {
+                this.setColorScheme(_.get(this.webApp, 'colorScheme', this.colorScheme));
+                this.applyThemeParams(_.get(this.webApp, 'themeParams', this.themeParams));
+            });
+            this.onEvent('viewportChanged', () => this.syncViewport());
+            this.onEvent('safeAreaChanged', () => this.syncViewport());
+            this.onEvent('contentSafeAreaChanged', () => this.syncViewport());
 
-            if (this.webApp && _.isFunction(this.webApp.ready)) {
-                this.webApp.ready();
-            }
-            if (this.webApp && _.isFunction(this.webApp.expand)) {
-                this.webApp.expand();
-            }
+            this.ready();
+            this.expand();
+            this.requestFullscreen();
 
             return this;
         }
     };
+    GeckoClient.telegram.backButton = createTelegramButtonController('BackButton');
+    GeckoClient.telegram.mainButton = createTelegramButtonController('MainButton');
+    GeckoClient.telegram.secondaryButton = createTelegramButtonController('SecondaryButton');
 
     GeckoClient.telegram.init();
 
@@ -2920,7 +3291,12 @@
         }
     });
 
-    router.afterEach(() => GeckoClient.setCanonicalUrl())
+    router.afterEach((to, from) => {
+        GeckoClient.setCanonicalUrl();
+        if (GeckoClient.telegram) {
+            GeckoClient.telegram.updateBackButton(to, from);
+        }
+    })
 
 
 })(window, VueRouter, GeckoClient);
@@ -4628,7 +5004,8 @@
                 chartDateHourMinuteFormatter: Intl.DateTimeFormat(formats.chartDateHourMinute.locale, formats.chartDateHourMinute.options),
                 chartDateMonthDayFormatter: Intl.DateTimeFormat(formats.chartDateMonthDay.locale, formats.chartDateMonthDay.options),
                 chartDateYearMonthDayFormatter: Intl.DateTimeFormat(formats.chartDateYearMonthDay.locale, formats.chartDateYearMonthDay.options),
-                chartTooltipDateFormatter: Intl.DateTimeFormat(formats.chartTooltipDate.locale, formats.chartTooltipDate.options)
+                chartTooltipDateFormatter: Intl.DateTimeFormat(formats.chartTooltipDate.locale, formats.chartTooltipDate.options),
+                pwaInstallAvailable: GeckoClient.pwa.installAvailable
             };
         },
         watch: {
@@ -4668,6 +5045,9 @@
             this.setVsCurrencyObject();
             this.syncTelegramTheme();
             GeckoClient.telegram.onThemeChange(() => this.syncTelegramTheme());
+            GeckoClient.pwa.onInstallChange(available => {
+                this.pwaInstallAvailable = available;
+            });
             // fetch global data for stats bar
             CoinGecko.global().then(global => {
                 this.global = global;
@@ -4704,6 +5084,9 @@
                 if (metaThemeColor && themeColor) {
                     metaThemeColor.content = themeColor;
                 }
+            },
+            promptPwaInstall: function () {
+                GeckoClient.pwa.promptInstall();
             },
             setVsCurrencyObject: function () {
                 let defaultCurrency = null;

@@ -43,6 +43,20 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
         }
 
         /*
+         * MOBILE BRAND
+         */
+        ?>
+        <router-link to="/" v-if="!navigationDrawerModel" class="tbc-mobile-brand link-no-style d-flex d-sm-none align-center">
+            <?php if ( ! empty( $site['logo'] ) ) : ?>
+                <v-avatar tile class="mr-2" size="28">
+                    <v-img src="<?php echo esc_url( get_file_url_for_display( $site['logo'] ) ); ?>"></v-img>
+                </v-avatar>
+            <?php endif; ?>
+            <span><?php echo esc_html( $site['name'] ); ?></span>
+        </router-link>
+        <?php
+
+        /*
          * WEBSITE NAME
          *
          * See "NAME" in "config/site.php"
@@ -71,7 +85,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
          * SEARCH BAR COMPONENT
          */
         ?>
-        <gc-search-bar class="mx-auto"></gc-search-bar>
+        <gc-search-bar class="tbc-top-search"></gc-search-bar>
         <?php
 
         /*
@@ -116,6 +130,9 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
         ?>
         <v-btn icon @click.stop="darkTheme=!darkTheme" class="d-none d-sm-inline-flex" :aria-label="darkTheme ? 'Switch to light theme' : 'Switch to dark theme'">
             <v-icon>{{ darkTheme ? 'mdi-white-balance-sunny' : 'mdi-brightness-2' }}</v-icon>
+        </v-btn>
+        <v-btn icon v-if="pwaInstallAvailable" @click.stop="promptPwaInstall" aria-label="Install app" class="tbc-pwa-install-button">
+            <v-icon>mdi-cellphone-arrow-down</v-icon>
         </v-btn>
 
 </v-app-bar>

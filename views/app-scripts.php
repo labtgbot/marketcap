@@ -104,6 +104,10 @@ $gecko_client['runtime'] = [
     ],
     'features' => $runtime['feature_flags'],
 ];
+$gecko_client['pwa'] = [
+    'serviceWorkerUrl' => site_url( 'service-worker.js' ),
+    'offlineUrl'       => site_url( 'offline.html' ),
+];
 // Website Data
 $gecko_client['website'] = [
     'name'           => $site['name'],

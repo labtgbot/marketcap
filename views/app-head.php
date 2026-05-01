@@ -82,6 +82,12 @@ $public_image_url = empty( $public_meta['image'] ) ? '' : get_file_url_for_displ
             <?php
         }
 
+        if ( 'telegram' === TONBANKCARD_PROFILE ) {
+            ?>
+            <script src="https://telegram.org/js/telegram-web-app.js"></script>
+            <?php
+        }
+
         // Add Preconnect Tags
         if ( GECKO_CLIENT_PRECONNECT ) {
             // CoinGecko image asset origin

@@ -59,7 +59,8 @@
                 chartDateHourMinuteFormatter: Intl.DateTimeFormat(formats.chartDateHourMinute.locale, formats.chartDateHourMinute.options),
                 chartDateMonthDayFormatter: Intl.DateTimeFormat(formats.chartDateMonthDay.locale, formats.chartDateMonthDay.options),
                 chartDateYearMonthDayFormatter: Intl.DateTimeFormat(formats.chartDateYearMonthDay.locale, formats.chartDateYearMonthDay.options),
-                chartTooltipDateFormatter: Intl.DateTimeFormat(formats.chartTooltipDate.locale, formats.chartTooltipDate.options)
+                chartTooltipDateFormatter: Intl.DateTimeFormat(formats.chartTooltipDate.locale, formats.chartTooltipDate.options),
+                pwaInstallAvailable: GeckoClient.pwa.installAvailable
             };
         },
         watch: {
@@ -99,6 +100,9 @@
             this.setVsCurrencyObject();
             this.syncTelegramTheme();
             GeckoClient.telegram.onThemeChange(() => this.syncTelegramTheme());
+            GeckoClient.pwa.onInstallChange(available => {
+                this.pwaInstallAvailable = available;
+            });
             // fetch global data for stats bar
             CoinGecko.global().then(global => {
                 this.global = global;
@@ -135,6 +139,9 @@
                 if (metaThemeColor && themeColor) {
                     metaThemeColor.content = themeColor;
                 }
+            },
+            promptPwaInstall: function () {
+                GeckoClient.pwa.promptInstall();
             },
             setVsCurrencyObject: function () {
                 let defaultCurrency = null;
