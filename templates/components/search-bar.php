@@ -74,6 +74,19 @@ $component_search_bar['close_label'] = __( 'Close search' );
                             <span v-else v-text="resultTypeLabel(item)"></span>
                         </v-list-item-subtitle>
                     </v-list-item-content>
+                    <v-list-item-action v-if="isWatchlistResult(item)" class="gc-search-watchlist-action">
+                        <v-btn
+                            icon
+                            small
+                            class="watchlist-icon-button"
+                            :color="isWatched(item) ? 'primary' : undefined"
+                            :aria-label="watchlistLabel(item)"
+                            :title="watchlistLabel(item)"
+                            @click.stop.prevent="toggleWatchlist(item)"
+                        >
+                            <v-icon v-text="watchlistIcon(item)"></v-icon>
+                        </v-btn>
+                    </v-list-item-action>
                     <v-list-item-action class="gc-search-result-meta">
                         <v-chip x-small label v-text="resultTypeLabel(item)"></v-chip>
                     </v-list-item-action>
@@ -150,6 +163,19 @@ $component_search_bar['close_label'] = __( 'Close search' );
                                     <span v-else v-text="resultTypeLabel(item)"></span>
                                 </v-list-item-subtitle>
                             </v-list-item-content>
+                            <v-list-item-action v-if="isWatchlistResult(item)" class="gc-search-watchlist-action">
+                                <v-btn
+                                    icon
+                                    small
+                                    class="watchlist-icon-button"
+                                    :color="isWatched(item) ? 'primary' : undefined"
+                                    :aria-label="watchlistLabel(item)"
+                                    :title="watchlistLabel(item)"
+                                    @click.stop.prevent="toggleWatchlist(item)"
+                                >
+                                    <v-icon v-text="watchlistIcon(item)"></v-icon>
+                                </v-btn>
+                            </v-list-item-action>
                             <v-list-item-action class="gc-search-result-meta">
                                 <v-chip x-small label v-text="resultTypeLabel(item)"></v-chip>
                             </v-list-item-action>

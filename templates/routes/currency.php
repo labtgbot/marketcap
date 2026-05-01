@@ -148,6 +148,18 @@ foreach ( $route_currency['tabs'] as $tab ) {
                 </v-chip-group>
 
                 <div id="currency-info-menus">
+                    <v-btn
+                        depressed
+                        small
+                        color="primary"
+                        :outlined="!isWatched(currency)"
+                        :aria-label="watchlistLabel(currency)"
+                        :title="watchlistLabel(currency)"
+                        @click="toggleWatchlist(currency)"
+                    >
+                        <v-icon left v-text="watchlistIcon(currency)"></v-icon>
+                        <span v-text="isWatched(currency) ? 'Watching' : 'Watchlist'"></span>
+                    </v-btn>
                     <?php
 
                     /*

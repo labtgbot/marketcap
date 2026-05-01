@@ -719,7 +719,7 @@ async function checkSearchInteraction(page, errors, requestLog) {
     if (await activeMenu.getByText('Binance', {exact: true}).count()) {
         fail('TON search exposed a third-party venue result instead of the first-party exchange action');
     }
-    await activeMenu.getByRole('option', {name: /^Toncoin\s+TON\s+Coin$/}).click();
+    await activeMenu.locator('.v-list-item').filter({hasText: /^\s*Toncoin\s+TON/}).first().click();
     await page.waitForURL(`${baseURL}/currency/toncoin`);
     await page.locator('#currency').waitFor({state: 'visible'});
     await page.getByText('Toncoin Price', {exact: false}).first().waitFor({state: 'visible'});
@@ -801,6 +801,108 @@ async function checkSearchMobileDialog(page, errors, requestLog) {
     }
 
     await assertNoErrors(errors, 'compact mobile search dialog');
+}
+
+async function checkWatchlistPersistence(page, errors) {
+    log('Checking watchlist add, remove, and reload persistence');
+
+    await page.goto(`${baseURL}/markets`, {waitUntil: 'domcontentloaded'});
+    await page.locator('#currencies-table').waitFor({state: 'visible'});
+    await page.getByRole('button', {name: /Add Bitcoin to Watchlist/i}).first().click();
+    await page.getByRole('button', {name: /Remove Bitcoin from Watchlist/i}).first().waitFor({state: 'visible'});
+
+    const storedAfterAdd = await page.evaluate(() => {
+        const raw = window.localStorage.getItem('TONBANKCARD:watchlist:v1');
+        return raw ? JSON.parse(raw) : null;
+    });
+    if (!storedAfterAdd || !storedAfterAdd.entries || !storedAfterAdd.entries.some(entry => entry.coin_id === 'bitcoin')) {
+        fail(`Bitcoin was not stored after add: ${JSON.stringify(storedAfterAdd)}`);
+    }
+
+    await page.reload({waitUntil: 'domcontentloaded'});
+    await page.locator('#currencies-table').waitFor({state: 'visible'});
+    await page.getByRole('button', {name: /Remove Bitcoin from Watchlist/i}).first().waitFor({state: 'visible'});
+
+    await page.goto(`${baseURL}/watchlist`, {waitUntil: 'domcontentloaded'});
+    await page.locator('#watchlist').waitFor({state: 'visible'});
+    await page.getByText('Bitcoin', {exact: false}).first().waitFor({state: 'visible'});
+    await page.getByRole('button', {name: /Remove Bitcoin from Watchlist/i}).first().click();
+    await page.getByText('No watched coins yet', {exact: false}).first().waitFor({state: 'visible'});
+
+    const storedAfterRemove = await page.evaluate(() => {
+        const raw = window.localStorage.getItem('TONBANKCARD:watchlist:v1');
+        return raw ? JSON.parse(raw) : null;
+    });
+    if (storedAfterRemove && storedAfterRemove.entries && storedAfterRemove.entries.some(entry => entry.coin_id === 'bitcoin')) {
+        fail(`Bitcoin remained in storage after remove: ${JSON.stringify(storedAfterRemove)}`);
+    }
+
+    await assertNoErrors(errors, 'watchlist persistence');
+}
+
+async function checkWatchlistUnavailableStorageFallback(browser) {
+    log('Checking watchlist unavailable-storage fallback');
+
+    const context = await browser.newContext();
+    const requestLog = {
+        globals: [],
+        coinsMarkets: [],
+        coinDetails: [],
+        marketCharts: [],
+        exchanges: [],
+        trending: [],
+        tonDominanceMarkets: [],
+        searches: [],
+    };
+    await installRoutes(context, requestLog);
+    await context.addInitScript(() => {
+        const originalGetItem = Storage.prototype.getItem;
+        const originalSetItem = Storage.prototype.setItem;
+        const originalRemoveItem = Storage.prototype.removeItem;
+        const blocksWatchlist = key => String(key || '').toLowerCase().includes('watchlist');
+
+        Storage.prototype.getItem = function (key) {
+            if (blocksWatchlist(key)) throw new Error('watchlist storage unavailable');
+            return originalGetItem.call(this, key);
+        };
+        Storage.prototype.setItem = function (key, value) {
+            if (blocksWatchlist(key)) throw new Error('watchlist storage unavailable');
+            return originalSetItem.call(this, key, value);
+        };
+        Storage.prototype.removeItem = function (key) {
+            if (blocksWatchlist(key)) throw new Error('watchlist storage unavailable');
+            return originalRemoveItem.call(this, key);
+        };
+    });
+
+    const errors = [];
+    const page = await context.newPage();
+    page.on('console', message => {
+        if (message.type() === 'error') {
+            errors.push(`console error: ${message.text()}`);
+        }
+    });
+    page.on('pageerror', error => {
+        errors.push(`page error: ${error.message}`);
+    });
+
+    try {
+        await page.goto(`${baseURL}/markets`, {waitUntil: 'domcontentloaded'});
+        await page.locator('#currencies-table').waitFor({state: 'visible'});
+        await page.getByRole('button', {name: /Add Bitcoin to Watchlist/i}).first().click();
+        await page.goto(`${baseURL}/watchlist`, {waitUntil: 'domcontentloaded'});
+        await page.locator('#watchlist').waitFor({state: 'visible'});
+        await page.getByText('Bitcoin', {exact: false}).first().waitFor({state: 'visible'});
+
+        const storageMode = await page.evaluate(() => window.GeckoClient.watchlist.storageMode);
+        if (storageMode !== 'memory') {
+            fail(`Expected memory watchlist fallback, got ${storageMode}`);
+        }
+
+        await assertNoErrors(errors, 'watchlist unavailable-storage fallback');
+    } finally {
+        await context.close();
+    }
 }
 
 async function checkResponsiveDesignSystem(page, errors) {
@@ -942,7 +1044,9 @@ async function run() {
         await checkExchangesList(page, errors, requestLog);
         await checkSearchInteraction(page, errors, requestLog);
         await checkSearchMobileDialog(page, errors, requestLog);
+        await checkWatchlistPersistence(page, errors);
         await checkResponsiveDesignSystem(page, errors);
+        await checkWatchlistUnavailableStorageFallback(browser);
         await assertNoDirectProviderRequests(directProviderRequests);
     } catch (err) {
         const screenshotPath = path.join(logDir, 'browser-smoke-failure.png');

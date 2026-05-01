@@ -37,7 +37,9 @@
                     maxHeight: 560,
                     offsetY: true,
                     closeOnClick: false
-                }
+                },
+                watchlistIds: [],
+                watchlistUnsubscribe: null
             };
         },
         computed: {
@@ -51,6 +53,9 @@
                 return __( 'No results found.' );
             }
         },
+        created: function () {
+            this.initWatchlist();
+        },
         watch: {
             model: function (selected) {
                 this.selectResult(selected);
@@ -63,6 +68,7 @@
         beforeDestroy: function () {
             window.removeEventListener('keydown', this.onGlobalKeydown);
             if (this.searchTimer) window.clearTimeout(this.searchTimer);
+            if (this.watchlistUnsubscribe) this.watchlistUnsubscribe();
         },
         methods: {
             avatarChar: function (name) {
@@ -76,6 +82,43 @@
             },
             searchSurface: function () {
                 return _.get(GeckoClient, 'analytics.surface', () => 'public_web')();
+            },
+            initWatchlist: function () {
+                const watchlist = GeckoClient.watchlist;
+                if (!watchlist) return;
+
+                this.watchlistUnsubscribe = watchlist.onChange(() => this.syncWatchlistIds());
+                watchlist.init().then(() => this.syncWatchlistIds());
+            },
+            syncWatchlistIds: function () {
+                this.watchlistIds = GeckoClient.watchlist ? GeckoClient.watchlist.ids() : [];
+            },
+            isWatchlistResult: function (item) {
+                return item && (item.type === 'coin' || item.coin_id);
+            },
+            isWatched: function (item) {
+                const id = item.coin_id || item.id;
+                return this.watchlistIds.indexOf(id) >= 0;
+            },
+            watchlistIcon: function (item) {
+                return this.isWatched(item) ? 'mdi-star' : 'mdi-star-outline';
+            },
+            watchlistLabel: function (item) {
+                const name = item.name || item.title || item.id || __( 'asset' );
+                return (this.isWatched(item) ? 'Remove ' : 'Add ') + name + ' ' + (this.isWatched(item) ? 'from' : 'to') + ' Watchlist';
+            },
+            toggleWatchlist: function (item) {
+                if (!GeckoClient.watchlist) return;
+
+                const entry = {
+                    id: item.coin_id || item.id,
+                    symbol: item.symbol,
+                    name: item.name || item.title,
+                    image: item.large || item.small || item.thumb || item.image
+                };
+
+                GeckoClient.watchlist.toggle(entry, {sourceRoute: 'search'})
+                    .then(() => this.syncWatchlistIds());
             },
             recentStorageKey: function () {
                 const prefix = _.get(GeckoClient, 'preferences.prefix', 'GeckoClient:');
