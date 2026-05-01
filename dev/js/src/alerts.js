@@ -454,9 +454,7 @@
     }
 
     function emitAnalytics(eventName, rule, options) {
-        if (!GeckoClient.analytics) return;
-
-        GeckoClient.analytics.emit(eventName, {
+        const properties = {
             alert_id: String(rule.id || rule.local_id || ''),
             coin_id: rule.coin_id,
             symbol: rule.symbol,
@@ -467,7 +465,14 @@
             status: rule.status,
             source_route: _.get(options, 'sourceRoute') || _.get(options, 'source_route') || null,
             storage_mode: service.storageMode
-        });
+        };
+
+        if (GeckoClient.analytics) {
+            GeckoClient.analytics.emit(eventName, properties);
+        }
+        if (eventName === 'alert_created' && GeckoClient.achievements) {
+            GeckoClient.achievements.track('alert_created', properties);
+        }
     }
 
     function thresholdBucket(value) {

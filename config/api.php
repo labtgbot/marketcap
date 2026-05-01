@@ -23,6 +23,13 @@ $api_alert_max_rules = tonbankcard_env_int( 'TONBANKCARD_ALERT_MAX_RULES_PER_USE
 $api_alert_default_frequency_cap = tonbankcard_env_int( 'TONBANKCARD_ALERT_DEFAULT_FREQUENCY_CAP_SECONDS', 3600, 300, 86400 );
 $api_alert_max_deliveries = tonbankcard_env_int( 'TONBANKCARD_ALERT_MAX_DELIVERIES_PER_DAY', 8, 1, 100 );
 $api_alert_evaluation_interval = tonbankcard_env_int( 'TONBANKCARD_ALERT_EVALUATION_INTERVAL_SECONDS', 300, 60, 3600 );
+$api_achievement_weekly_check_days = tonbankcard_env_int( 'TONBANKCARD_ACHIEVEMENT_WEEKLY_CHECK_DAYS', 7, 2, 30 );
+$api_achievement_share_milestone_count = tonbankcard_env_int( 'TONBANKCARD_ACHIEVEMENT_SHARE_MILESTONE_COUNT', 3, 1, 100 );
+$api_achievement_movement_threshold_percent = tonbankcard_env( 'TONBANKCARD_ACHIEVEMENT_MOVEMENT_THRESHOLD_PERCENT', '7.5' );
+$api_achievement_movement_threshold_percent = is_numeric( $api_achievement_movement_threshold_percent )
+    ? max( 1.0, min( 100.0, (float) $api_achievement_movement_threshold_percent ) )
+    : 7.5;
+$api_achievement_max_prompts_per_session = tonbankcard_env_int( 'TONBANKCARD_ACHIEVEMENT_MAX_PROMPTS_PER_SESSION', 1, 1, 6 );
 if ( '' === $api_redis_key_prefix ) {
     $api_redis_key_prefix = 'tonbankcard:v2';
 }
@@ -221,5 +228,13 @@ $api = [
         'max_frequency_cap_seconds'       => 86400,
         'default_max_deliveries_per_day'  => $api_alert_max_deliveries,
         'evaluation_interval_seconds'     => $api_alert_evaluation_interval,
+    ],
+    'achievements' => [
+        'weekly_check_days'          => $api_achievement_weekly_check_days,
+        'share_milestone_count'      => $api_achievement_share_milestone_count,
+        'movement_threshold_percent' => $api_achievement_movement_threshold_percent,
+        'max_prompts_per_session'    => $api_achievement_max_prompts_per_session,
+        'prompt_cooldown_hours'      => 24,
+        'haptics_enabled'            => TRUE,
     ],
 ];

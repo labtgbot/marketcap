@@ -472,6 +472,7 @@ v-app {
 }
 #watchlist,
 #alerts,
+#achievements,
 #ton {
     max-width: 1200px;
 }
@@ -480,14 +481,17 @@ v-app {
 .watchlist-route-actions,
 .alerts-header,
 .alerts-route-actions,
-.alerts-form-actions {
+.alerts-form-actions,
+.achievements-header,
+.achievements-route-actions {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
 }
 .watchlist-route-actions,
-.alerts-route-actions {
+.alerts-route-actions,
+.achievements-route-actions {
     justify-content: flex-end;
     flex-wrap: wrap;
     min-width: 260px;
@@ -514,6 +518,53 @@ v-app {
 }
 .alert-rule-card--paused {
     opacity: 0.74;
+}
+.achievement-control-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+    gap: 16px;
+    align-items: stretch;
+}
+.achievement-control-card {
+    height: 100%;
+}
+.achievement-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+.achievement-stat-grid span,
+.achievement-stat-grid strong {
+    display: block;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.achievement-prompt .v-alert__content {
+    min-width: 0;
+}
+.achievement-prompt-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 4px;
+}
+.achievement-badge-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+.achievement-badge-card {
+    height: 100%;
+}
+.achievement-badge-card--locked {
+    opacity: 0.72;
+}
+.achievement-badge-card-title {
+    align-items: flex-start;
+    gap: 0;
+}
+.achievement-badge-description {
+    min-height: 44px;
+    overflow-wrap: anywhere;
 }
 .alert-rule-card-title {
     align-items: flex-start;
@@ -642,14 +693,20 @@ v-app {
         margin-top: 16px;
     }
     .watchlist-header,
-    .alerts-header {
+    .alerts-header,
+    .achievements-header {
         display: block;
     }
     .watchlist-route-actions,
-    .alerts-route-actions {
+    .alerts-route-actions,
+    .achievements-route-actions {
         justify-content: flex-start;
         min-width: 0;
         margin-top: 16px;
+    }
+    .achievement-control-grid,
+    .achievement-badge-grid {
+        grid-template-columns: 1fr;
     }
     .share-market-card-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -702,8 +759,12 @@ v-app {
         flex: 1 1 calc(50% - 8px);
     }
     .watchlist-route-actions .v-btn,
-    .alerts-route-actions .v-btn {
+    .alerts-route-actions .v-btn,
+    .achievements-route-actions .v-btn {
         flex: 1 1 calc(50% - 8px);
+    }
+    .achievement-stat-grid {
+        grid-template-columns: 1fr;
     }
     .share-market-card-title {
         align-items: flex-start;

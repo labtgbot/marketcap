@@ -163,15 +163,20 @@
     }
 
     function emitShareEvent(name, card, target) {
-        if (!GeckoClient.analytics) return;
-
-        GeckoClient.analytics.emit(name, {
+        const properties = {
             source_route: card.route,
             share_context: card.context,
             campaign: card.campaign,
             route: card.route,
             share_target: target || null
-        });
+        };
+
+        if (GeckoClient.analytics) {
+            GeckoClient.analytics.emit(name, properties);
+        }
+        if (name === 'share_started' && GeckoClient.achievements) {
+            GeckoClient.achievements.track('share_started', properties);
+        }
     }
 
     function share(card) {

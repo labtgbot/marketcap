@@ -60,6 +60,11 @@ $navigation['items'] = [
         'route' => 'alerts',
     ],
     [
+        'text' => 'Achievements',
+        'icon' => 'mdi-trophy-outline',
+        'route' => 'achievements',
+    ],
+    [
         'text' => 'Wallet Profile',
         'icon' => 'mdi-wallet-outline',
         'route' => 'wallet-profile',

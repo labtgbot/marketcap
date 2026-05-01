@@ -1,4 +1,4 @@
-(function (window, VueRouter, GeckoClient) {
+(function (window, _, VueRouter, GeckoClient) {
     'use strict';
 
     const router = GeckoClient.router = new VueRouter({
@@ -14,7 +14,10 @@
         if (GeckoClient.telegram) {
             GeckoClient.telegram.updateBackButton(to, from);
         }
+        if (GeckoClient.achievements && _.isFunction(GeckoClient.achievements.trackRoute)) {
+            GeckoClient.achievements.trackRoute(to);
+        }
     })
 
 
-})(window, VueRouter, GeckoClient);
+})(window, _, VueRouter, GeckoClient);
