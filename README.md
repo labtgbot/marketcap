@@ -90,6 +90,7 @@ npm run test:design-system
 npm run test:pwa-telegram
 npm run test:admin-panel
 npm run test:security-compliance
+npm run test:launch-readiness
 npm run validate:bundle
 npm run test:smoke
 ```
@@ -179,3 +180,5 @@ See [docs/v2-pwa-telegram-webapp.md](docs/v2-pwa-telegram-webapp.md) for the PWA
 See [docs/v2-admin-panel.md](docs/v2-admin-panel.md) for the authenticated provider, feature flag, content, operations, and audit controls from issue #35.
 
 See [docs/v2-security-privacy-compliance.md](docs/v2-security-privacy-compliance.md) for the public-launch security, privacy, compliance, and manual abuse checklist from issue #38.
+
+See [docs/v2-launch-readiness.md](docs/v2-launch-readiness.md) for the BotFather Main Mini App setup, localized launch assets, production verification matrix, support workflow, admin runbook, rollout, rollback, and incident response plan from issue #40. Run `npm run test:launch-readiness` to verify the launch documentation gate.
