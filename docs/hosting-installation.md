@@ -11,6 +11,8 @@ at the repository root as the public web root.
 
 Use `docs/runtime-configuration.md` for the full environment variable reference
 and `docs/v2-database-schema-and-migrations.md` for the migration model.
+For guided first-run setup after upload, use the browser installer documented in
+`docs/automatic-hosting-installer.md` and available at `/install/`.
 
 ## Prerequisites
 
