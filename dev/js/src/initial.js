@@ -1,4 +1,4 @@
-(function (window, navigator, _, Vue, GeckoClient) {
+(function (window, navigator, _, Vue, axios, GeckoClient) {
     'use strict';
 
     // UTILS
@@ -148,6 +148,74 @@
             if (accepted === true) return this.set('cookies_accepted', Date.now())
         }
     };
+
+    GeckoClient.security = (function () {
+        const existing = GeckoClient.security || {};
+        const unsafeMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
+        const headerName = existing.csrfHeaderName || 'X-TONBANKCARD-CSRF';
+        let csrfToken = normalizeToken(existing.csrfToken || '');
+
+        function normalizeToken(value) {
+            value = _.toLower(_.trim(value || ''));
+            return /^[a-f0-9]{64}$/.test(value) ? value : '';
+        }
+
+        function isSameOriginApi(url) {
+            if (!url) return false;
+
+            try {
+                const parsed = new URL(url, window.location.href);
+                return parsed.origin === window.location.origin && /^\/api(?:\/|$)/.test(parsed.pathname);
+            } catch (err) {
+                return _.startsWith(url, '/api/');
+            }
+        }
+
+        function shouldAttach(config) {
+            const method = _.toUpper(_.get(config, 'method', 'GET'));
+            return !!csrfToken
+                && unsafeMethods.indexOf(method) >= 0
+                && _.get(config, 'withCredentials') === true
+                && isSameOriginApi(_.get(config, 'url', ''));
+        }
+
+        function attach(config) {
+            if (!shouldAttach(config)) return config;
+
+            config.headers = Object.assign({}, config.headers || {});
+            config.headers[headerName] = csrfToken;
+            return config;
+        }
+
+        function captureSessionResponse(response) {
+            const token = normalizeToken(_.get(response, 'data.data.session.csrf_token'));
+            if (token) csrfToken = token;
+            return response;
+        }
+
+        function installAxiosInterceptors() {
+            if (!axios || !axios.interceptors || axios.__tonbankcardSecurityInterceptors) return;
+
+            axios.interceptors.request.use(config => attach(config || {}));
+            axios.interceptors.response.use(response => captureSessionResponse(response));
+            axios.__tonbankcardSecurityInterceptors = true;
+        }
+
+        installAxiosInterceptors();
+
+        return {
+            csrfHeaderName: headerName,
+            captureSessionResponse: captureSessionResponse,
+            csrfHeaders: function () {
+                return csrfToken ? {[headerName]: csrfToken} : {};
+            },
+            csrfToken: function (value) {
+                if (value === undefined) return csrfToken;
+                csrfToken = normalizeToken(value);
+                return csrfToken;
+            }
+        };
+    })();
 
     const pwaConfig = GeckoClient.pwa || {};
 
@@ -861,4 +929,4 @@
     Vue.filter('lowercase', value => _.toLower(value));
 
 
-})(window, navigator, _, Vue, GeckoClient);
+})(window, navigator, _, Vue, axios, GeckoClient);
