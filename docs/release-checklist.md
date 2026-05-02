@@ -33,3 +33,15 @@ Use this checklist before a public website or Telegram Mini App release.
   desktop widths.
 - Confirm production debug output is disabled and required secrets are not
   committed.
+
+## Performance, load, and reliability checkpoint
+
+- Run `npm run test:performance` and keep the
+  `test-logs/performance-load-summary.json` result with release notes.
+- Confirm `first_contentful_render_ms`, `app_ready_ms`, and `chart_render_ms`
+  budgets from `config/performance.php` on mobile and desktop browsers.
+- Verify production static asset headers mirror the app policy: timestamped
+  assets are immutable for one year, unversioned assets allow
+  `stale-while-revalidate`, and `service-worker.js` revalidates.
+- Confirm market provider outage mode renders stale cached data or explanatory
+  UI on the market pulse and coin chart paths.

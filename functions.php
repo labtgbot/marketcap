@@ -679,6 +679,131 @@ function tonbankcard_dispatch_public_seo_assets() {
 }
 
 /**
+ * Returns TRUE when the path is a public static asset managed by the app.
+ *
+ * @param string $path
+ * @param array $performance
+ * @return bool
+ */
+function tonbankcard_static_asset_is_cacheable( string $path, array $performance = [] ) {
+    $settings = isset( $performance['static_assets'] ) && is_array( $performance['static_assets'] )
+        ? $performance['static_assets']
+        : [];
+    $extensions = isset( $settings['extensions'] ) && is_array( $settings['extensions'] )
+        ? $settings['extensions']
+        : [ 'css', 'js', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'ico', 'webmanifest', 'woff', 'woff2', 'ttf', 'eot' ];
+
+    $extension = strtolower( pathinfo( parse_url( $path, PHP_URL_PATH ) ?: $path, PATHINFO_EXTENSION ) );
+
+    return '' !== $extension && in_array( $extension, $extensions, TRUE );
+}
+
+/**
+ * Returns a static asset MIME type for local router responses.
+ *
+ * @param string $path
+ * @return string
+ */
+function tonbankcard_static_asset_content_type( string $path ) {
+    $extension = strtolower( pathinfo( parse_url( $path, PHP_URL_PATH ) ?: $path, PATHINFO_EXTENSION ) );
+    $types = [
+        'css'         => 'text/css; charset=UTF-8',
+        'js'          => 'application/javascript; charset=UTF-8',
+        'mjs'         => 'application/javascript; charset=UTF-8',
+        'json'        => 'application/json; charset=UTF-8',
+        'webmanifest' => 'application/manifest+json; charset=UTF-8',
+        'svg'         => 'image/svg+xml',
+        'png'         => 'image/png',
+        'jpg'         => 'image/jpeg',
+        'jpeg'        => 'image/jpeg',
+        'gif'         => 'image/gif',
+        'ico'         => 'image/x-icon',
+        'woff'        => 'font/woff',
+        'woff2'       => 'font/woff2',
+        'ttf'         => 'font/ttf',
+        'eot'         => 'application/vnd.ms-fontobject',
+    ];
+
+    return isset( $types[ $extension ] ) ? $types[ $extension ] : 'application/octet-stream';
+}
+
+/**
+ * Builds production cache headers for app-managed static assets.
+ *
+ * @param string $request_uri
+ * @param array $performance
+ * @return array
+ */
+function tonbankcard_static_asset_cache_headers( string $request_uri, array $performance = [] ) {
+    $settings = isset( $performance['static_assets'] ) && is_array( $performance['static_assets'] )
+        ? $performance['static_assets']
+        : [];
+    $immutable_max_age = isset( $settings['immutable_max_age_seconds'] ) ? (int) $settings['immutable_max_age_seconds'] : 31536000;
+    $unversioned_max_age = isset( $settings['unversioned_max_age_seconds'] ) ? (int) $settings['unversioned_max_age_seconds'] : 86400;
+    $stale_while_revalidate = isset( $settings['stale_while_revalidate_seconds'] ) ? (int) $settings['stale_while_revalidate_seconds'] : 604800;
+    $manifest_max_age = isset( $settings['manifest_max_age_seconds'] ) ? (int) $settings['manifest_max_age_seconds'] : 3600;
+    $service_worker_cache_control = isset( $settings['service_worker_cache_control'] )
+        ? (string) $settings['service_worker_cache_control']
+        : 'no-cache, no-store, must-revalidate';
+
+    $path = parse_url( $request_uri, PHP_URL_PATH );
+    if ( FALSE === $path || null === $path || '' === $path ) {
+        $path = $request_uri;
+    }
+    $query_string = parse_url( $request_uri, PHP_URL_QUERY );
+    $query = [];
+    if ( FALSE !== $query_string && null !== $query_string && '' !== $query_string ) {
+        parse_str( $query_string, $query );
+    }
+
+    $basename = strtolower( basename( $path ) );
+    $extension = strtolower( pathinfo( $path, PATHINFO_EXTENSION ) );
+    $headers = [
+        'X-Content-Type-Options' => 'nosniff',
+    ];
+
+    if ( 'service-worker.js' === $basename ) {
+        $headers['Cache-Control'] = $service_worker_cache_control;
+        $headers['Service-Worker-Allowed'] = '/';
+        return $headers;
+    }
+
+    if ( 'webmanifest' === $extension || 'manifest.json' === $basename ) {
+        $headers['Cache-Control'] = 'public, max-age=' . max( 0, $manifest_max_age ) . ', stale-while-revalidate=' . max( 0, $stale_while_revalidate );
+        $headers['Vary'] = 'Accept-Encoding';
+        return $headers;
+    }
+
+    if ( in_array( $extension, [ 'html', 'htm' ], TRUE ) ) {
+        $headers['Cache-Control'] = 'no-cache';
+        return $headers;
+    }
+
+    $versioned = isset( $query['t'] ) || isset( $query['v'] ) || 1 === preg_match( '/[._-][a-f0-9]{8,}\./i', $path );
+    if ( $versioned ) {
+        $headers['Cache-Control'] = 'public, max-age=' . max( 0, $immutable_max_age ) . ', immutable';
+    } else {
+        $headers['Cache-Control'] = 'public, max-age=' . max( 0, $unversioned_max_age ) . ', stale-while-revalidate=' . max( 0, $stale_while_revalidate );
+    }
+    $headers['Vary'] = 'Accept-Encoding';
+
+    return $headers;
+}
+
+/**
+ * Emits static asset cache headers.
+ *
+ * @param string $request_uri
+ * @param array $performance
+ * @return void
+ */
+function tonbankcard_emit_static_asset_headers( string $request_uri, array $performance = [] ) {
+    foreach ( tonbankcard_static_asset_cache_headers( $request_uri, $performance ) as $name => $value ) {
+        header( $name . ': ' . $value );
+    }
+}
+
+/**
  * @since 1.0.0
  * Generates stylesheet URL
  *
