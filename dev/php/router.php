@@ -7,7 +7,8 @@
  */
 
 $root = realpath( __DIR__ . '/../..' );
-$path = parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH );
+$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '/';
+$path = parse_url( $request_uri, PHP_URL_PATH );
 
 if ( FALSE === $path ) {
     $path = '/';
@@ -28,6 +29,18 @@ if (
     && 0 === strpos( $file, $root . DIRECTORY_SEPARATOR )
     && is_file( $file )
 ) {
+    require_once $root . '/constants.php';
+    require_once $root . '/functions.php';
+    require_once GECKO_CLIENT_CONFIG_DIR . '/performance.php';
+
+    if ( tonbankcard_static_asset_is_cacheable( $path, $performance ) ) {
+        tonbankcard_emit_static_asset_headers( $request_uri, $performance );
+        header( 'Content-Type: ' . tonbankcard_static_asset_content_type( $path ) );
+        header( 'Content-Length: ' . filesize( $file ) );
+        readfile( $file );
+        return TRUE;
+    }
+
     return FALSE;
 }
 
