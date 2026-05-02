@@ -26,6 +26,7 @@
     "test:ai-insights": "sh tests/ai-insight-cards-check.sh",
     "test:ai-sentiment": "sh tests/ai-sentiment-check.sh",
     "test:observability": "sh tests/observability-check.sh",
+    "test:performance": "php tests/performance-load-check.php && sh tests/performance-hardening-check.sh",
     "test:charts": "sh tests/chart-visualization-check.sh",
     "test:pwa-telegram": "sh tests/pwa-telegram-check.sh",
     "test:ton-connect": "sh tests/ton-connect-check.sh",
@@ -36,7 +37,7 @@
     "test:workflow": "sh tests/development-workflow-check.sh",
     "test:design-system": "sh tests/design-system-check.sh",
     "test:smoke": "node tests/browser-smoke.js",
-    "test": "npm run test:workflow && npm run lint:php && npm run test:content && npm run test:architecture && npm run test:analytics && npm run test:database && npm run test:api && npm run test:market-gateway && npm run test:cache-rate-limit && npm run test:search-api && npm run test:ton-ecosystem && npm run test:telegram-session && npm run test:telegram-bot && npm run test:watchlist && npm run test:screener && npm run test:alerts && npm run test:share-referrals && npm run test:achievements && npm run test:premium && npm run test:public-shell && npm run test:seo && npm run test:ai-provider && npm run test:ai-sentiment && npm run test:ai-insights && npm run test:observability && npm run test:design-system && npm run test:charts && npm run test:pwa-telegram && npm run test:ton-connect && npm run test:admin-panel && npm run test:security-compliance && npm run test:launch-readiness && npm run validate:bundle && npm run test:smoke"
+    "test": "npm run test:workflow && npm run lint:php && npm run test:content && npm run test:architecture && npm run test:analytics && npm run test:database && npm run test:api && npm run test:market-gateway && npm run test:cache-rate-limit && npm run test:search-api && npm run test:ton-ecosystem && npm run test:telegram-session && npm run test:telegram-bot && npm run test:watchlist && npm run test:screener && npm run test:alerts && npm run test:share-referrals && npm run test:achievements && npm run test:premium && npm run test:public-shell && npm run test:seo && npm run test:ai-provider && npm run test:ai-sentiment && npm run test:ai-insights && npm run test:observability && npm run test:performance && npm run test:design-system && npm run test:charts && npm run test:pwa-telegram && npm run test:ton-connect && npm run test:admin-panel && npm run test:security-compliance && npm run test:launch-readiness && npm run validate:bundle && npm run test:smoke"
   },
   "devDependencies": {
     "playwright": "^1.59.1",

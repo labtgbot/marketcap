@@ -90,6 +90,10 @@ require_once GECKO_CLIENT_CONFIG_DIR . '/links.php';
  * @var array $api
  */
 require_once GECKO_CLIENT_CONFIG_DIR . '/api.php';
+/**
+ * @var array $performance
+ */
+require_once GECKO_CLIENT_CONFIG_DIR . '/performance.php';
 
 /*
 | -------------------------------------------------------------------------

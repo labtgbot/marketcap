@@ -86,6 +86,7 @@ npm run test:public-shell
 npm run test:ai-provider
 npm run test:ai-sentiment
 npm run test:observability
+npm run test:performance
 npm run test:design-system
 npm run test:pwa-telegram
 npm run test:admin-panel
@@ -99,6 +100,9 @@ The checks write inspectable output to `test-logs/`. The browser smoke test
 starts the PHP server automatically, stubs CoinGecko/search/ChangeNOW network
 responses, and verifies the home, coin detail, exchanges, crypto exchange, and
 search paths render without browser JavaScript errors.
+The performance check writes p50/p95 synthetic load results to
+`test-logs/performance-load-summary.json` for the market pulse, smart search,
+coin detail, alert evaluation, and share-card generation paths.
 The public shell check starts the PHP server and verifies server-rendered
 metadata, canonical URLs, the install manifest, and the public website route
 registry for shareable web routes.
@@ -166,6 +170,8 @@ See [docs/v2-premium-subscriptions.md](docs/v2-premium-subscriptions.md) for Tel
 See [docs/v2-charting-and-market-visualization.md](docs/v2-charting-and-market-visualization.md) for the chart rendering decision, advanced coin chart views, lazy ECharts loading, stale state, and accessibility coverage from issue #25.
 
 See [docs/v2-observability-operational-logging.md](docs/v2-observability-operational-logging.md) for request ID tracing, frontend/API/provider error logging, verbose tracing flags, and operational health queries from issue #18.
+
+See [docs/v2-performance-load-reliability.md](docs/v2-performance-load-reliability.md) for performance budgets, CI load profiles, provider outage behavior, and static asset cache headers from issue #39.
 
 See [docs/v2-ai-provider-foundation.md](docs/v2-ai-provider-foundation.md) for the configurable Groq-first AI provider layer, structured insight validation, safety rules, and fallback behavior from issue #17.
 

@@ -92,6 +92,18 @@ See `docs/v2-launch-readiness.md` for the detailed launch runbook.
 - Run `npm test`, including `npm run test:launch-readiness`, before tagging or
   moving the pull request out of draft.
 
+## Performance, load, and reliability checkpoint
+
+- Run `npm run test:performance` and keep the
+  `test-logs/performance-load-summary.json` result with release notes.
+- Confirm `first_contentful_render_ms`, `app_ready_ms`, and `chart_render_ms`
+  budgets from `config/performance.php` on mobile and desktop browsers.
+- Verify production static asset headers mirror the app policy: timestamped
+  assets are immutable for one year, unversioned assets allow
+  `stale-while-revalidate`, and `service-worker.js` revalidates.
+- Confirm market provider outage mode renders stale cached data or explanatory
+  UI on the market pulse and coin chart paths.
+
 ## Rollback and incident response
 
 - Owner: incident commander.
