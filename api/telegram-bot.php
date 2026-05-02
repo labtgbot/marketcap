@@ -172,11 +172,23 @@ function tonbankcard_api_telegram_bot_secret_allowed( array $request, array $set
  * @return array
  */
 function tonbankcard_api_telegram_bot_response_for_update( array $update, array $runtime, array $config, array $settings, string $request_id ) {
+    if ( isset( $update['pre_checkout_query'] ) && is_array( $update['pre_checkout_query'] ) && function_exists( 'tonbankcard_api_premium_pre_checkout_response' ) ) {
+        return tonbankcard_api_premium_pre_checkout_response( $update['pre_checkout_query'], $runtime, $config, $request_id );
+    }
+
     if ( isset( $update['inline_query'] ) && is_array( $update['inline_query'] ) ) {
         return tonbankcard_api_telegram_bot_inline_query_response( $update['inline_query'], $runtime, $config, $settings );
     }
 
     if ( isset( $update['message'] ) && is_array( $update['message'] ) ) {
+        if ( isset( $update['message']['successful_payment'] ) && is_array( $update['message']['successful_payment'] ) && function_exists( 'tonbankcard_api_premium_successful_payment_response' ) ) {
+            return tonbankcard_api_premium_successful_payment_response( $update['message'], $runtime, $config, $request_id );
+        }
+
+        if ( isset( $update['message']['refunded_payment'] ) && is_array( $update['message']['refunded_payment'] ) && function_exists( 'tonbankcard_api_premium_refunded_payment_response' ) ) {
+            return tonbankcard_api_premium_refunded_payment_response( $update['message'], $runtime, $config, $request_id );
+        }
+
         return tonbankcard_api_telegram_bot_message_response( $update['message'], $runtime, $settings );
     }
 

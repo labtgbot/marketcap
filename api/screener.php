@@ -98,6 +98,27 @@ function tonbankcard_api_screener_handle( array $request, array $runtime, array 
  */
 function tonbankcard_api_screener_markets_response( array $request, array $runtime, array $config, string $request_id, array $headers ) {
     $filters = tonbankcard_api_screener_filters( isset( $request['query'] ) ? $request['query'] : [] );
+    if ( '' !== $filters['advanced_range'] && function_exists( 'tonbankcard_api_premium_state_for_request' ) ) {
+        $premium_settings = tonbankcard_api_premium_settings( $runtime, $config );
+        $premium_state = tonbankcard_api_premium_state_for_request( $request, $runtime, $config, $premium_settings );
+        if ( ! tonbankcard_api_premium_limit_allows( $premium_state, 'advanced_ranges', $filters['advanced_range'] ) ) {
+            return tonbankcard_api_error_response(
+                402,
+                'premium_required',
+                'This screener range requires a premium entitlement.',
+                [
+                    'feature'           => 'advanced_ranges',
+                    'range'             => $filters['advanced_range'],
+                    'allowed_ranges'    => isset( $premium_state['limits']['advanced_ranges'] ) ? $premium_state['limits']['advanced_ranges'] : [],
+                    'plan_code'         => isset( $premium_state['plan_code'] ) ? $premium_state['plan_code'] : 'free',
+                    'upgrade_plan_code' => isset( $premium_state['upgrade_plan_code'] ) ? $premium_state['upgrade_plan_code'] : 'premium_monthly',
+                ],
+                $request_id,
+                $headers
+            );
+        }
+    }
+
     $ton_context = tonbankcard_api_screener_ton_context( $runtime, $config, $filters );
 
     if ( ! empty( $filters['ton_tag'] ) && empty( $ton_context['active_coin_ids'] ) ) {
@@ -217,6 +238,7 @@ function tonbankcard_api_screener_filters( array $query ) {
         'change_30d_max'    => tonbankcard_api_screener_number_or_null( isset( $query['change_30d_max'] ) ? $query['change_30d_max'] : null ),
         'sentiment_min'     => tonbankcard_api_screener_number_or_null( isset( $query['sentiment_min'] ) ? $query['sentiment_min'] : null ),
         'sentiment_max'     => tonbankcard_api_screener_number_or_null( isset( $query['sentiment_max'] ) ? $query['sentiment_max'] : null ),
+        'advanced_range'    => isset( $query['advanced_range'] ) ? tonbankcard_api_screener_advanced_range( $query['advanced_range'] ) : '',
     ];
 
     if ( 'ton' === $filters['ton_tag'] ) {
@@ -1313,6 +1335,17 @@ function tonbankcard_api_screener_coin_ids( $value, int $max = 250 ) {
 function tonbankcard_api_screener_ton_tag( $value ) {
     $tag = tonbankcard_api_ton_slug( $value );
     return 'ton' === $tag ? 'ton_ecosystem' : $tag;
+}
+
+/**
+ * Normalizes a premium-gated historical range selector.
+ *
+ * @param mixed $value
+ * @return string
+ */
+function tonbankcard_api_screener_advanced_range( $value ) {
+    $range = strtolower( trim( (string) $value ) );
+    return preg_match( '/^[0-9]+[hdmy]$/', $range ) ? $range : '';
 }
 
 /**

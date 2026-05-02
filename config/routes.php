@@ -100,6 +100,11 @@ $routes['achievements'] = [
     'enabled' => TRUE,
 ];
 
+$routes['premium'] = [
+    'path' => '/premium',
+    'enabled' => TRUE,
+];
+
 $routes['app-alerts'] = [
     'path' => '/app/alerts',
     'enabled' => TRUE,
@@ -110,6 +115,12 @@ $routes['app-alert-detail'] = [
     'path' => '/app/alert/:id',
     'enabled' => TRUE,
     'template' => 'alerts',
+];
+
+$routes['app-premium'] = [
+    'path' => '/app/premium',
+    'enabled' => TRUE,
+    'template' => 'premium',
 ];
 
 $routes['wallet-profile'] = [
