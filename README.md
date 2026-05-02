@@ -90,6 +90,7 @@ npm run test:performance
 npm run test:design-system
 npm run test:pwa-telegram
 npm run test:admin-panel
+npm run test:security-compliance
 npm run validate:bundle
 npm run test:smoke
 ```
@@ -182,3 +183,5 @@ See [docs/v2-responsive-design-system.md](docs/v2-responsive-design-system.md) f
 See [docs/v2-pwa-telegram-webapp.md](docs/v2-pwa-telegram-webapp.md) for the PWA install shell, service worker strategy, offline fallback, and Telegram WebApp adapter behavior from issue #26.
 
 See [docs/v2-admin-panel.md](docs/v2-admin-panel.md) for the authenticated provider, feature flag, content, operations, and audit controls from issue #35.
+
+See [docs/v2-security-privacy-compliance.md](docs/v2-security-privacy-compliance.md) for the public-launch security, privacy, compliance, and manual abuse checklist from issue #38.

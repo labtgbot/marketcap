@@ -220,6 +220,24 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
 
         $context = tonbankcard_api_middleware_context( $request, $runtime, $config, $request_id );
         $path    = tonbankcard_api_normalize_path( $request['path'] );
+        $csrf_error = tonbankcard_api_csrf_validation_error( $request );
+        if ( null !== $csrf_error ) {
+            return tonbankcard_api_finalize_response(
+                tonbankcard_api_error_response(
+                    403,
+                    $csrf_error['code'],
+                    $csrf_error['message'],
+                    $csrf_error['details'],
+                    $request_id,
+                    $headers
+                ),
+                $request,
+                $runtime,
+                $config,
+                $request_id,
+                $started_at
+            );
+        }
 
         if ( '/api' === $path || '/api/' === $path ) {
             if ( 'GET' !== $request['method'] ) {
@@ -883,12 +901,21 @@ function tonbankcard_api_request_id( array $headers ) {
  * @return array
  */
 function tonbankcard_api_base_headers( array $request, array $config, string $request_id ) {
+    $security_headers = function_exists( 'tonbankcard_security_headers' )
+        ? tonbankcard_security_headers( 'api' )
+        : [
+            'X-Content-Type-Options' => 'nosniff',
+            'Referrer-Policy'        => 'strict-origin-when-cross-origin',
+            'Permissions-Policy'     => 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()',
+        ];
+
     return array_merge(
         [
             'Content-Type'  => 'application/json; charset=utf-8',
             'Cache-Control' => 'no-store',
             'X-Request-ID'  => $request_id,
         ],
+        $security_headers,
         tonbankcard_api_cors_headers( $request, $config )
     );
 }
@@ -966,6 +993,7 @@ function tonbankcard_api_middleware_context( array $request, array $runtime, arr
             'request_ids'  => TRUE,
             'cors'         => TRUE,
             'sessions'     => TRUE,
+            'csrf'         => TRUE,
             'rate_limits'  => isset( $config['rate_limit']['enabled'] ) ? (bool) $config['rate_limit']['enabled'] : FALSE,
             'validation'   => TRUE,
             'audit_logging' => isset( $config['audit']['enabled'] ) ? (bool) $config['audit']['enabled'] : FALSE,
@@ -1679,6 +1707,7 @@ function tonbankcard_api_session_response_payload( array $session ) {
             'source'     => $session['source'],
             'surface'    => $session['surface'],
             'expires_at' => $session['expires_at_iso'],
+            'csrf_token' => tonbankcard_api_csrf_token( $session['session_token'] ),
         ],
         'user'    => null === $session['telegram_user_id'] ? null : [
             'telegram_user_id' => (string) $session['telegram_user_id'],
@@ -1773,6 +1802,140 @@ function tonbankcard_api_session_token_from_request( array $request ) {
         if ( preg_match( '/^[A-Fa-f0-9]{64}$/', $token ) ) {
             return strtolower( $token );
         }
+    }
+
+    return null;
+}
+
+/**
+ * Derives a CSRF token bound to a server session token without exposing it.
+ *
+ * @param string $session_token
+ * @return string
+ */
+function tonbankcard_api_csrf_token( string $session_token ) {
+    $session_token = strtolower( trim( $session_token ) );
+    if ( ! preg_match( '/^[a-f0-9]{64}$/', $session_token ) ) {
+        return '';
+    }
+
+    return hash_hmac( 'sha256', 'tonbankcard-api-csrf-v1', $session_token );
+}
+
+/**
+ * Returns a CSRF validation error for cookie-backed unsafe session writes.
+ *
+ * @param array $request
+ * @return array|null
+ */
+function tonbankcard_api_csrf_validation_error( array $request ) {
+    $session_token = tonbankcard_api_csrf_cookie_session_token( $request );
+    if ( null === $session_token ) {
+        return null;
+    }
+
+    $provided = isset( $request['headers']['x-tonbankcard-csrf'] ) ? strtolower( trim( (string) $request['headers']['x-tonbankcard-csrf'] ) ) : '';
+    if ( '' === $provided ) {
+        return [
+            'code'    => 'csrf_token_required',
+            'message' => 'Cookie-authenticated write requests require a CSRF token header.',
+            'details' => [ 'header' => 'X-TONBANKCARD-CSRF' ],
+        ];
+    }
+
+    $expected = tonbankcard_api_csrf_token( $session_token );
+    if ( '' === $expected || ! preg_match( '/^[a-f0-9]{64}$/', $provided ) || ! hash_equals( $expected, $provided ) ) {
+        return [
+            'code'    => 'csrf_token_invalid',
+            'message' => 'The CSRF token header did not match the active session.',
+            'details' => [ 'header' => 'X-TONBANKCARD-CSRF' ],
+        ];
+    }
+
+    return null;
+}
+
+/**
+ * Returns the cookie session token only when the request needs CSRF defense.
+ *
+ * @param array $request
+ * @return string|null
+ */
+function tonbankcard_api_csrf_cookie_session_token( array $request ) {
+    if ( ! tonbankcard_api_csrf_protected_request( $request ) ) {
+        return null;
+    }
+
+    if ( null !== tonbankcard_api_bearer_session_token_from_request( $request ) ) {
+        return null;
+    }
+
+    if ( null !== tonbankcard_api_header_session_token_from_request( $request ) ) {
+        return null;
+    }
+
+    return tonbankcard_api_session_token_from_request( $request );
+}
+
+/**
+ * Returns TRUE for unsafe routes that mutate trusted-session user state.
+ *
+ * @param array $request
+ * @return bool
+ */
+function tonbankcard_api_csrf_protected_request( array $request ) {
+    $method = strtoupper( isset( $request['method'] ) ? (string) $request['method'] : 'GET' );
+    if ( ! in_array( $method, [ 'POST', 'PUT', 'PATCH', 'DELETE' ], TRUE ) ) {
+        return FALSE;
+    }
+
+    $path = tonbankcard_api_normalize_path( isset( $request['path'] ) ? (string) $request['path'] : '/' );
+    $protected_prefixes = [
+        '/api/watchlist',
+        '/api/alerts',
+        '/api/screener/presets',
+        '/api/premium/checkout',
+        '/api/premium/entitlement/cancel',
+    ];
+
+    if ( '/api/alerts/evaluate' === $path ) {
+        return FALSE;
+    }
+
+    foreach ( $protected_prefixes as $prefix ) {
+        if ( $path === $prefix || 0 === strpos( $path, $prefix . '/' ) ) {
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
+/**
+ * Reads bearer session credentials used by non-cookie clients.
+ *
+ * @param array $request
+ * @return string|null
+ */
+function tonbankcard_api_bearer_session_token_from_request( array $request ) {
+    $authorization = isset( $request['headers']['authorization'] ) ? trim( (string) $request['headers']['authorization'] ) : '';
+    if ( preg_match( '/^Bearer\s+([A-Fa-f0-9]{64})$/', $authorization, $matches ) ) {
+        return strtolower( $matches[1] );
+    }
+
+    return null;
+}
+
+/**
+ * Reads explicit session headers used by service clients.
+ *
+ * @param array $request
+ * @return string|null
+ */
+function tonbankcard_api_header_session_token_from_request( array $request ) {
+    $token = isset( $request['headers']['x-tonbankcard-session'] ) ? trim( (string) $request['headers']['x-tonbankcard-session'] ) : '';
+    if ( preg_match( '/^[A-Fa-f0-9]{64}$/', $token ) ) {
+        return strtolower( $token );
     }
 
     return null;

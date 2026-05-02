@@ -118,6 +118,9 @@ $invalid_configs = array_merge(
 if ( tonbankcard_api_is_request() ) {
     tonbankcard_api_dispatch( $invalid_configs );
 }
+
+tonbankcard_emit_security_headers( 'html' );
+
 // if any config invalid show "Configuration Errors" view
 if ( ! empty( $invalid_configs ) ) {
     header( 'cache-control: no-cache', TRUE, 500 );

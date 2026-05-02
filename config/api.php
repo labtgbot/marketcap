@@ -60,6 +60,7 @@ $api = [
             'X-TONBANKCARD-TON-Curation-Token',
             'X-TONBANKCARD-Alert-Worker-Token',
             'X-TONBANKCARD-Admin',
+            'X-TONBANKCARD-CSRF',
             'X-TONBANKCARD-Session',
             'X-Telegram-Init-Data',
             'X-Telegram-Bot-Api-Secret-Token',
