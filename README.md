@@ -52,6 +52,13 @@ php database/migrate.php dry-run
 php database/migrate.php up
 ```
 
+## Hosting Installation
+
+Use [docs/hosting-installation.md](docs/hosting-installation.md) for the
+step-by-step production hosting plan. It covers PHP 8.1+, MySQL/MariaDB,
+Apache/Nginx routing, environment variables, migrations, health checks, cron
+jobs, backups, rollback, and shared-hosting troubleshooting.
+
 ## Local Checks
 
 Run all reproducible checks:
@@ -92,6 +99,7 @@ npm run test:pwa-telegram
 npm run test:admin-panel
 npm run test:security-compliance
 npm run test:launch-readiness
+npm run test:hosting-installation
 npm run validate:bundle
 npm run test:smoke
 ```
@@ -188,3 +196,5 @@ See [docs/v2-admin-panel.md](docs/v2-admin-panel.md) for the authenticated provi
 See [docs/v2-security-privacy-compliance.md](docs/v2-security-privacy-compliance.md) for the public-launch security, privacy, compliance, and manual abuse checklist from issue #38.
 
 See [docs/v2-launch-readiness.md](docs/v2-launch-readiness.md) for the BotFather Main Mini App setup, localized launch assets, production verification matrix, support workflow, admin runbook, rollout, rollback, and incident response plan from issue #40. Run `npm run test:launch-readiness` to verify the launch documentation gate.
+
+See [docs/hosting-installation.md](docs/hosting-installation.md) for the production hosting installation guide from issue #82. Run `npm run test:hosting-installation` to verify the hosting documentation gate.
