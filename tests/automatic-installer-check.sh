@@ -57,6 +57,12 @@ assert_contains "$doc" 'Telegram Mini App' 'Telegram Mini App configuration'
 assert_contains "$doc" '\.env' 'environment file generation'
 assert_contains "$doc" 'database migrations' 'database migration execution'
 assert_contains "$doc" 'TONBANKCARD_INSTALLER_ENABLED' 'installer lock guidance'
+assert_contains "$doc" '## Language Selection' 'installer language selection guidance'
+assert_contains "$doc" 'English and Russian' 'English and Russian installer support'
+assert_contains "$doc" '## Field Filling Reference' 'field filling reference'
+assert_contains "$doc" 'BotFather' 'Telegram BotFather field guidance'
+assert_contains "$doc" 'UPSTASH_REDIS_REST_URL' 'Upstash Redis field guidance'
+assert_contains "$doc" 'TONBANKCARD_FEATURE_ALERTS' 'feature flag field guidance'
 
 assert_contains .env.example '^TONBANKCARD_INSTALLER_ENABLED=false$' 'the installer enabled flag'
 assert_contains .env.example '^TONBANKCARD_INSTALLER_TOKEN=' 'the installer token'
@@ -67,6 +73,38 @@ assert_contains package.json 'tests/automatic-installer-check\.sh' 'the automati
 assert_contains package.json 'test:automatic-installer' 'the aggregate automatic installer check'
 assert_contains dev/php/router.php 'is_dir\( \$file \)' 'directory detection for installer routing'
 assert_contains dev/php/router.php '\$file \. .*/index[.]php' 'directory index routing for the installer'
+assert_contains install/index.php 'name="language"' 'installer language selector'
+assert_contains install/includes/installer.php 'function tonbankcard_installer_supported_languages' 'supported installer language helper'
+assert_contains install/includes/installer.php 'function tonbankcard_installer_translate' 'installer translation helper'
+
+php_check 'installer should expose English and Russian language copy' \
+    env -i PATH="$PATH" php <<'PHP'
+<?php
+require 'install/includes/installer.php';
+
+$languages = tonbankcard_installer_supported_languages();
+if ( ! isset( $languages['en'], $languages['ru'] ) || 'Русский' !== $languages['ru'] ) {
+    fwrite( STDERR, "Installer should support English and Russian language labels\n" );
+    exit( 1 );
+}
+
+if ( 'en' !== tonbankcard_installer_normalize_language( 'de' ) ) {
+    fwrite( STDERR, "Unsupported installer languages should fall back to English\n" );
+    exit( 1 );
+}
+
+$groups = tonbankcard_installer_field_groups( 'ru' );
+$runtime = reset( $groups );
+if ( FALSE === strpos( $runtime['title'], 'Шаг 2' ) || FALSE === strpos( $runtime['description'], 'Telegram' ) ) {
+    fwrite( STDERR, "Runtime field group should be translated into Russian\n" );
+    exit( 1 );
+}
+
+if ( 'Проверить базу данных' !== tonbankcard_installer_translate( 'Test database', 'ru' ) ) {
+    fwrite( STDERR, "Installer action labels should be translated into Russian\n" );
+    exit( 1 );
+}
+PHP
 
 php_check 'installer should expose every .env.example key as a configurable value' \
     env -i PATH="$PATH" php <<'PHP'

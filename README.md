@@ -58,7 +58,9 @@ Use the browser-based [automatic hosting installer](docs/automatic-hosting-insta
 after uploading the repository to hosting. Open `/install/` before `.env`
 exists, configure PHP 8.1+, MySQL/MariaDB, Telegram Mini App settings, providers,
 feature flags, write `.env`, and optionally apply database migrations from the
-installer.
+installer. The installer includes an English/Russian language selector and the
+documentation includes a field-filling reference for hosting, BotFather, Redis,
+database, provider, and feature flag values.
 
 Use [docs/hosting-installation.md](docs/hosting-installation.md) for the
 step-by-step production hosting plan. It covers PHP 8.1+, MySQL/MariaDB,

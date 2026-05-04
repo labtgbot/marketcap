@@ -16,7 +16,13 @@ if ( empty( $_SESSION['tonbankcard_installer_csrf'] ) ) {
 }
 
 $query = array_merge( $_GET, $_POST );
-$lock_state = tonbankcard_installer_lock_state( $root_dir, $query );
+$installer_language = tonbankcard_installer_normalize_language(
+    isset( $query['language'] )
+        ? $query['language']
+        : ( isset( $_SESSION['tonbankcard_installer_language'] ) ? $_SESSION['tonbankcard_installer_language'] : 'en' )
+);
+$_SESSION['tonbankcard_installer_language'] = $installer_language;
+$lock_state = tonbankcard_installer_lock_state( $root_dir, $query, $installer_language );
 $values = tonbankcard_installer_default_values( $root_dir );
 if ( ! empty( $_SESSION['tonbankcard_installer_values'] ) && is_array( $_SESSION['tonbankcard_installer_values'] ) ) {
     $values = array_merge( $values, $_SESSION['tonbankcard_installer_values'] );
@@ -32,7 +38,7 @@ if ( ! empty( $lock_state['allowed'] ) && 'POST' === ( isset( $_SERVER['REQUEST_
     if ( ! hash_equals( (string) $_SESSION['tonbankcard_installer_csrf'], $csrf ) ) {
         $messages[] = [
             'type' => 'error',
-            'text' => 'The installer form expired. Reload the page and try again.',
+            'text' => tonbankcard_installer_translate( 'The installer form expired. Reload the page and try again.', $installer_language ),
         ];
     } else {
         $values = tonbankcard_installer_prepare_values( $_POST, $root_dir );
@@ -40,14 +46,14 @@ if ( ! empty( $lock_state['allowed'] ) && 'POST' === ( isset( $_SERVER['REQUEST_
         $action = isset( $_POST['action'] ) ? (string) $_POST['action'] : 'preview_env';
 
         if ( 'test_database' === $action ) {
-            $database_result = tonbankcard_installer_test_database( $values );
+            $database_result = tonbankcard_installer_test_database( $values, $installer_language );
             $messages[] = [
                 'type' => ! empty( $database_result['ok'] ) ? 'success' : 'error',
                 'text' => $database_result['message'],
             ];
         } elseif ( 'run_migrations' === $action ) {
             try {
-                $migration_result = tonbankcard_installer_apply_migrations( $values, $root_dir . '/database/migrations' );
+                $migration_result = tonbankcard_installer_apply_migrations( $values, $root_dir . '/database/migrations', $installer_language );
                 $messages[] = [
                     'type' => 'success',
                     'text' => $migration_result['message'],
@@ -55,11 +61,11 @@ if ( ! empty( $lock_state['allowed'] ) && 'POST' === ( isset( $_SERVER['REQUEST_
             } catch ( Throwable $error ) {
                 $messages[] = [
                     'type' => 'error',
-                    'text' => 'Database migrations failed: ' . $error->getMessage(),
+                    'text' => tonbankcard_installer_translate( 'Database migrations failed:', $installer_language ) . ' ' . $error->getMessage(),
                 ];
             }
         } elseif ( 'write_env' === $action ) {
-            $validation_errors = tonbankcard_installer_validate_values( $values );
+            $validation_errors = tonbankcard_installer_validate_values( $values, $installer_language );
             if ( ! empty( $validation_errors ) ) {
                 $generated_env = tonbankcard_installer_render_env( $values, $root_dir );
                 foreach ( $validation_errors as $validation_error ) {
@@ -69,7 +75,7 @@ if ( ! empty( $lock_state['allowed'] ) && 'POST' === ( isset( $_SERVER['REQUEST_
                     ];
                 }
             } else {
-                $write = tonbankcard_installer_write_env( $root_dir, $values );
+                $write = tonbankcard_installer_write_env( $root_dir, $values, $installer_language );
                 $generated_env = isset( $write['env'] ) ? $write['env'] : '';
                 $messages[] = [
                     'type' => ! empty( $write['ok'] ) ? 'success' : 'error',
@@ -78,7 +84,7 @@ if ( ! empty( $lock_state['allowed'] ) && 'POST' === ( isset( $_SERVER['REQUEST_
 
                 if ( ! empty( $_POST['run_migrations_after_write'] ) ) {
                     try {
-                        $migration_result = tonbankcard_installer_apply_migrations( $values, $root_dir . '/database/migrations' );
+                        $migration_result = tonbankcard_installer_apply_migrations( $values, $root_dir . '/database/migrations', $installer_language );
                         $messages[] = [
                             'type' => 'success',
                             'text' => $migration_result['message'],
@@ -86,7 +92,7 @@ if ( ! empty( $lock_state['allowed'] ) && 'POST' === ( isset( $_SERVER['REQUEST_
                     } catch ( Throwable $error ) {
                         $messages[] = [
                             'type' => 'error',
-                            'text' => 'The .env file was written, but migrations failed: ' . $error->getMessage(),
+                            'text' => tonbankcard_installer_translate( 'The .env file was written, but migrations failed:', $installer_language ) . ' ' . $error->getMessage(),
                         ];
                     }
                 }
@@ -99,13 +105,13 @@ if ( ! empty( $lock_state['allowed'] ) && 'POST' === ( isset( $_SERVER['REQUEST_
             $generated_env = tonbankcard_installer_render_env( $values, $root_dir );
             $messages[] = [
                 'type' => 'success',
-                'text' => 'Review the generated .env preview below before writing it to the server.',
+                'text' => tonbankcard_installer_translate( 'Review the generated .env preview below before writing it to the server.', $installer_language ),
             ];
         }
     }
 }
 
-$system_checks = tonbankcard_installer_system_checks( $root_dir );
+$system_checks = tonbankcard_installer_system_checks( $root_dir, $installer_language );
 $migration_plan = tonbankcard_installer_migration_plan( $root_dir . '/database/migrations', [] );
 
 /**
@@ -114,6 +120,15 @@ $migration_plan = tonbankcard_installer_migration_plan( $root_dir . '/database/m
  */
 function tonbankcard_installer_e( $value ) {
     return htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' );
+}
+
+/**
+ * @param string $text
+ * @return string
+ */
+function tonbankcard_installer_ui_text( string $text ) {
+    global $installer_language;
+    return tonbankcard_installer_translate( $text, $installer_language );
 }
 
 /**
@@ -164,12 +179,12 @@ function tonbankcard_installer_render_field( string $key, array $definition, arr
 }
 
 ?><!doctype html>
-<html lang="en">
+<html lang="<?php echo tonbankcard_installer_e( $installer_language ); ?>">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow">
-    <title>TONBANKCARD Automatic Hosting Installer</title>
+    <title><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'TONBANKCARD Automatic Hosting Installer' ) ); ?></title>
     <style>
         :root {
             color-scheme: light;
@@ -233,6 +248,12 @@ function tonbankcard_installer_render_field( string $key, array $definition, arr
             color: var(--muted);
         }
 
+        .installer-meta {
+            display: grid;
+            gap: 10px;
+            justify-items: end;
+        }
+
         .installer-pill {
             display: inline-flex;
             align-items: center;
@@ -244,6 +265,18 @@ function tonbankcard_installer_render_field( string $key, array $definition, arr
             color: var(--muted);
             font-size: 13px;
             white-space: nowrap;
+        }
+
+        .installer-language {
+            display: grid;
+            gap: 6px;
+            min-width: 180px;
+        }
+
+        .installer-language label {
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 700;
         }
 
         .installer-layout {
@@ -460,6 +493,10 @@ function tonbankcard_installer_render_field( string $key, array $definition, arr
                 grid-template-columns: 1fr;
             }
 
+            .installer-meta {
+                justify-items: start;
+            }
+
             .installer-nav {
                 position: static;
             }
@@ -491,39 +528,55 @@ function tonbankcard_installer_render_field( string $key, array $definition, arr
     <main class="installer-shell">
         <header class="installer-header">
             <div>
-                <h1>TONBANKCARD Automatic Hosting Installer</h1>
-                <p>Configure PHP hosting, MySQL or MariaDB, Telegram Mini App settings, providers, feature flags, worker tokens, and database migrations from one guarded setup screen.</p>
+                <h1><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'TONBANKCARD Automatic Hosting Installer' ) ); ?></h1>
+                <p><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'Configure PHP hosting, MySQL or MariaDB, Telegram Mini App settings, providers, feature flags, worker tokens, and database migrations from one guarded setup screen.' ) ); ?></p>
             </div>
-            <span class="installer-pill">PHP <?php echo tonbankcard_installer_e( PHP_VERSION ); ?></span>
+            <div class="installer-meta">
+                <span class="installer-pill">PHP <?php echo tonbankcard_installer_e( PHP_VERSION ); ?></span>
+                <form class="installer-language" method="get">
+                    <label for="installer-language"><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'Installer language' ) ); ?></label>
+                    <select id="installer-language" name="language" onchange="this.form.submit()">
+                        <?php foreach ( tonbankcard_installer_supported_languages() as $language_code => $language_label ) : ?>
+                            <option value="<?php echo tonbankcard_installer_e( $language_code ); ?>"<?php echo $installer_language === $language_code ? ' selected' : ''; ?>>
+                                <?php echo tonbankcard_installer_e( $language_label ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <?php if ( ! empty( $_GET['token'] ) ) : ?>
+                        <input type="hidden" name="token" value="<?php echo tonbankcard_installer_e( $_GET['token'] ); ?>">
+                    <?php endif; ?>
+                    <noscript><button class="secondary" type="submit"><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'Apply language' ) ); ?></button></noscript>
+                </form>
+            </div>
         </header>
 
         <div class="installer-layout">
-            <nav class="installer-nav" aria-label="Installer steps">
-                <a href="#readiness">Step 1. Readiness</a>
-                <?php foreach ( tonbankcard_installer_field_groups() as $group ) : ?>
-                    <a href="#<?php echo tonbankcard_installer_e( strtolower( preg_replace( '/[^a-z0-9]+/i', '-', $group['title'] ) ) ); ?>">
+            <nav class="installer-nav" aria-label="<?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'Installer steps' ) ); ?>">
+                <a href="#readiness"><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'Step 1. Readiness' ) ); ?></a>
+                <?php foreach ( tonbankcard_installer_field_groups( $installer_language ) as $group_key => $group ) : ?>
+                    <a href="#step-<?php echo tonbankcard_installer_e( $group_key ); ?>">
                         <?php echo tonbankcard_installer_e( $group['title'] ); ?>
                     </a>
                 <?php endforeach; ?>
-                <a href="#migrations">Step 8. Migrations</a>
+                <a href="#migrations"><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'Step 8. Migrations' ) ); ?></a>
             </nav>
 
             <div class="installer-main">
                 <?php if ( empty( $lock_state['allowed'] ) ) : ?>
                     <section class="installer-section installer-lock">
-                        <h2>Installer locked</h2>
+                        <h2><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'Installer locked' ) ); ?></h2>
                         <p><?php echo tonbankcard_installer_e( $lock_state['message'] ); ?></p>
-                        <p>To reopen it, edit <code>.env</code>, set <code>TONBANKCARD_INSTALLER_ENABLED=true</code>, set a strong <code>TONBANKCARD_INSTALLER_TOKEN</code>, and open <code>/install/?token=your-token</code>.</p>
+                        <p><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'To reopen it, edit .env, set TONBANKCARD_INSTALLER_ENABLED=true, set a strong TONBANKCARD_INSTALLER_TOKEN, and open /install/?token=your-token.' ) ); ?></p>
                     </section>
                 <?php endif; ?>
 
                 <?php if ( ! empty( $messages ) ) : ?>
                     <section class="installer-section">
-                        <h2>Installer messages</h2>
+                        <h2><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'Installer messages' ) ); ?></h2>
                         <div class="installer-messages">
                             <?php foreach ( $messages as $message ) : ?>
                                 <div class="installer-message">
-                                    <span class="installer-badge <?php echo tonbankcard_installer_e( $message['type'] ); ?>"><?php echo tonbankcard_installer_e( $message['type'] ); ?></span>
+                                    <span class="installer-badge <?php echo tonbankcard_installer_e( $message['type'] ); ?>"><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( $message['type'] ) ); ?></span>
                                     <span><?php echo tonbankcard_installer_e( $message['text'] ); ?></span>
                                 </div>
                             <?php endforeach; ?>
@@ -532,12 +585,12 @@ function tonbankcard_installer_render_field( string $key, array $definition, arr
                 <?php endif; ?>
 
                 <section class="installer-section" id="readiness">
-                    <h2>Step 1. Readiness</h2>
-                    <p>Confirm the host can run TONBANKCARD before writing configuration or applying migrations.</p>
+                    <h2><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'Step 1. Readiness' ) ); ?></h2>
+                    <p><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'Confirm the host can run TONBANKCARD before writing configuration or applying migrations.' ) ); ?></p>
                     <div class="installer-checks">
                         <?php foreach ( $system_checks as $check ) : ?>
                             <div class="installer-check">
-                                <span class="installer-badge <?php echo tonbankcard_installer_e( $check['status'] ); ?>"><?php echo tonbankcard_installer_e( $check['status'] ); ?></span>
+                                <span class="installer-badge <?php echo tonbankcard_installer_e( $check['status'] ); ?>"><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( $check['status'] ) ); ?></span>
                                 <span><strong><?php echo tonbankcard_installer_e( $check['name'] ); ?></strong><br><?php echo tonbankcard_installer_e( $check['message'] ); ?></span>
                             </div>
                         <?php endforeach; ?>
@@ -547,12 +600,13 @@ function tonbankcard_installer_render_field( string $key, array $definition, arr
                 <?php if ( ! empty( $lock_state['allowed'] ) ) : ?>
                     <form method="post">
                         <input type="hidden" name="csrf" value="<?php echo tonbankcard_installer_e( $_SESSION['tonbankcard_installer_csrf'] ); ?>">
+                        <input type="hidden" name="language" value="<?php echo tonbankcard_installer_e( $installer_language ); ?>">
                         <?php if ( ! empty( $_GET['token'] ) ) : ?>
                             <input type="hidden" name="token" value="<?php echo tonbankcard_installer_e( $_GET['token'] ); ?>">
                         <?php endif; ?>
 
-                        <?php foreach ( tonbankcard_installer_field_groups() as $group ) : ?>
-                            <?php $id = strtolower( preg_replace( '/[^a-z0-9]+/i', '-', $group['title'] ) ); ?>
+                        <?php foreach ( tonbankcard_installer_field_groups( $installer_language ) as $group_key => $group ) : ?>
+                            <?php $id = 'step-' . $group_key; ?>
                             <section class="installer-section" id="<?php echo tonbankcard_installer_e( $id ); ?>">
                                 <h2><?php echo tonbankcard_installer_e( $group['title'] ); ?></h2>
                                 <p><?php echo tonbankcard_installer_e( $group['description'] ); ?></p>
@@ -565,30 +619,30 @@ function tonbankcard_installer_render_field( string $key, array $definition, arr
                         <?php endforeach; ?>
 
                         <section class="installer-section" id="migrations">
-                            <h2>Step 8. Database migrations and final write</h2>
-                            <p>Preview the migration list, test credentials, write the generated .env file, and optionally apply all pending migrations.</p>
+                            <h2><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'Step 8. Database migrations and final write' ) ); ?></h2>
+                            <p><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'Preview the migration list, test credentials, write the generated .env file, and optionally apply all pending migrations.' ) ); ?></p>
                             <div class="installer-migrations">
                                 <?php foreach ( $migration_plan as $migration ) : ?>
                                     <div class="installer-migration">
-                                        <span class="installer-badge <?php echo 'applied' === $migration['status'] ? 'ok' : 'warn'; ?>"><?php echo tonbankcard_installer_e( $migration['status'] ); ?></span>
+                                        <span class="installer-badge <?php echo 'applied' === $migration['status'] ? 'ok' : 'warn'; ?>"><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( $migration['status'] ) ); ?></span>
                                         <span><strong><?php echo tonbankcard_installer_e( $migration['version'] ); ?></strong><br><?php echo tonbankcard_installer_e( basename( $migration['file'] ) ); ?></span>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
 
                             <?php if ( '' !== $generated_env ) : ?>
-                                <p><strong>Generated .env preview</strong></p>
+                                <p><strong><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'Generated .env preview' ) ); ?></strong></p>
                                 <textarea readonly><?php echo tonbankcard_installer_e( $generated_env ); ?></textarea>
                             <?php endif; ?>
 
                             <div class="installer-actions">
-                                <button class="secondary" type="submit" name="action" value="test_database">Test database</button>
-                                <button class="secondary" type="submit" name="action" value="run_migrations">Run migrations</button>
-                                <button class="secondary" type="submit" name="action" value="preview_env">Preview .env</button>
-                                <button type="submit" name="action" value="write_env">Write .env and lock installer</button>
+                                <button class="secondary" type="submit" name="action" value="test_database"><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'Test database' ) ); ?></button>
+                                <button class="secondary" type="submit" name="action" value="run_migrations"><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'Run migrations' ) ); ?></button>
+                                <button class="secondary" type="submit" name="action" value="preview_env"><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'Preview .env' ) ); ?></button>
+                                <button type="submit" name="action" value="write_env"><?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'Write .env and lock installer' ) ); ?></button>
                                 <label class="installer-checkbox">
                                     <input type="checkbox" name="run_migrations_after_write" value="1">
-                                    Run migrations after writing .env
+                                    <?php echo tonbankcard_installer_e( tonbankcard_installer_ui_text( 'Run migrations after writing .env' ) ); ?>
                                 </label>
                             </div>
                         </section>

@@ -102,14 +102,266 @@ if ( ! function_exists( 'tonbankcard_installer_parse_env_file' ) ) {
     }
 }
 
+if ( ! function_exists( 'tonbankcard_installer_supported_languages' ) ) {
+    /**
+     * @return array
+     */
+    function tonbankcard_installer_supported_languages() {
+        return [
+            'en' => 'English',
+            'ru' => 'Русский',
+        ];
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_normalize_language' ) ) {
+    /**
+     * @param mixed $language
+     * @return string
+     */
+    function tonbankcard_installer_normalize_language( $language ) {
+        $language = strtolower( trim( (string) $language ) );
+        if ( FALSE !== strpos( $language, '-' ) ) {
+            $language = substr( $language, 0, strpos( $language, '-' ) );
+        }
+
+        $supported = tonbankcard_installer_supported_languages();
+        return isset( $supported[ $language ] ) ? $language : 'en';
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_translations' ) ) {
+    /**
+     * @return array
+     */
+    function tonbankcard_installer_translations() {
+        return [
+            'ru' => [
+                'TONBANKCARD Automatic Hosting Installer' => 'Автоматический установщик TONBANKCARD для хостинга',
+                'Configure PHP hosting, MySQL or MariaDB, Telegram Mini App settings, providers, feature flags, worker tokens, and database migrations from one guarded setup screen.' => 'Настройте PHP-хостинг, MySQL или MariaDB, параметры Telegram Mini App, провайдеры, флаги функций, токены воркеров и миграции базы данных на одном защищенном экране.',
+                'Installer language' => 'Язык установщика',
+                'Apply language' => 'Применить язык',
+                'Installer steps' => 'Шаги установщика',
+                'Step 1. Readiness' => 'Шаг 1. Готовность',
+                'Step 8. Migrations' => 'Шаг 8. Миграции',
+                'Installer locked' => 'Установщик заблокирован',
+                'To reopen it, edit .env, set TONBANKCARD_INSTALLER_ENABLED=true, set a strong TONBANKCARD_INSTALLER_TOKEN, and open /install/?token=your-token.' => 'Чтобы открыть его снова, отредактируйте .env, задайте TONBANKCARD_INSTALLER_ENABLED=true, укажите надежный TONBANKCARD_INSTALLER_TOKEN и откройте /install/?token=your-token.',
+                'Installer messages' => 'Сообщения установщика',
+                'Confirm the host can run TONBANKCARD before writing configuration or applying migrations.' => 'Проверьте, что хостинг может запускать TONBANKCARD, прежде чем записывать конфигурацию или применять миграции.',
+                'Step 8. Database migrations and final write' => 'Шаг 8. Миграции базы данных и финальная запись',
+                'Preview the migration list, test credentials, write the generated .env file, and optionally apply all pending migrations.' => 'Просмотрите список миграций, проверьте учетные данные, запишите созданный файл .env и при необходимости примените все ожидающие миграции.',
+                'Generated .env preview' => 'Предпросмотр созданного .env',
+                'Test database' => 'Проверить базу данных',
+                'Run migrations' => 'Запустить миграции',
+                'Preview .env' => 'Предпросмотр .env',
+                'Write .env and lock installer' => 'Записать .env и заблокировать установщик',
+                'Run migrations after writing .env' => 'Запустить миграции после записи .env',
+                'The installer form expired. Reload the page and try again.' => 'Форма установщика устарела. Обновите страницу и попробуйте снова.',
+                'Database migrations failed:' => 'Миграции базы данных завершились ошибкой:',
+                'The .env file was written, but migrations failed:' => 'Файл .env был записан, но миграции завершились ошибкой:',
+                'Review the generated .env preview below before writing it to the server.' => 'Проверьте созданный ниже предпросмотр .env перед записью файла на сервер.',
+                'success' => 'успех',
+                'error' => 'ошибка',
+                'ok' => 'готово',
+                'warn' => 'внимание',
+                'fail' => 'ошибка',
+                'applied' => 'применено',
+                'pending' => 'ожидает',
+                'Step 2. Runtime profile and public URLs' => 'Шаг 2. Профиль запуска и публичные URL',
+                'Choose the deployment mode and the exact HTTPS URLs that users and Telegram will open.' => 'Выберите режим развертывания и точные HTTPS-адреса, которые будут открывать пользователи и Telegram.',
+                'Runtime profile' => 'Профиль запуска',
+                'Use production for the public website and telegram for a Mini App-first deployment.' => 'Используйте production для публичного сайта и telegram для развертывания с приоритетом Mini App.',
+                'Public website URL' => 'URL публичного сайта',
+                'Canonical website URL used for public pages and shared links.' => 'Канонический URL сайта для публичных страниц и ссылок общего доступа.',
+                'Telegram Mini App URL' => 'URL Telegram Mini App',
+                'HTTPS URL configured in BotFather for the Mini App.' => 'HTTPS URL, настроенный в BotFather для Mini App.',
+                'Staging URL' => 'URL тестового стенда',
+                'Local URL' => 'Локальный URL',
+                'Show PHP errors' => 'Показывать ошибки PHP',
+                'Keep disabled for production unless a controlled troubleshooting window is active.' => 'Оставьте выключенным в production, кроме контролируемого периода диагностики.',
+                'Use minified application bundle' => 'Использовать минифицированный пакет приложения',
+                'Enable preconnect hints' => 'Включить подсказки preconnect',
+                'Load vendor assets from CDN' => 'Загружать vendor-ресурсы из CDN',
+                'Step 3. Telegram bot and Mini App entry points' => 'Шаг 3. Telegram-бот и точки входа Mini App',
+                'Configure the bot identity, server-side bot token, webhook secret, and worker tokens used by Telegram flows.' => 'Настройте идентификатор бота, серверный токен бота, секрет вебхука и токены воркеров для Telegram-сценариев.',
+                'Bot username' => 'Имя пользователя бота',
+                'Username only, without the @ prefix.' => 'Только имя пользователя, без префикса @.',
+                'Bot token' => 'Токен бота',
+                'Webhook secret' => 'Секрет вебхука',
+                'Alert worker token' => 'Токен воркера алертов',
+                'Leave blank to generate a safe token.' => 'Оставьте пустым, чтобы создать безопасный токен.',
+                'Search refresh token' => 'Токен обновления поиска',
+                'Step 4. MySQL or MariaDB database' => 'Шаг 4. База данных MySQL или MariaDB',
+                'Enter the hosting database credentials. The installer can test the connection and run all pending SQL migrations.' => 'Введите учетные данные базы данных хостинга. Установщик может проверить подключение и запустить все ожидающие SQL-миграции.',
+                'Database host' => 'Хост базы данных',
+                'Helper field used to build MYSQL_DSN.' => 'Вспомогательное поле для создания MYSQL_DSN.',
+                'Database port' => 'Порт базы данных',
+                'Optional helper field.' => 'Необязательное вспомогательное поле.',
+                'Database name' => 'Имя базы данных',
+                'Database charset' => 'Кодировка базы данных',
+                'Use utf8mb4 for production.' => 'Используйте utf8mb4 для production.',
+                'Database user' => 'Пользователь базы данных',
+                'Database password' => 'Пароль базы данных',
+                'Step 5. Providers, cache, and AI' => 'Шаг 5. Провайдеры, кеш и AI',
+                'Configure provider keys and cache services. Secrets stay in .env and are not rendered to the public app.' => 'Настройте ключи провайдеров и сервисы кеша. Секреты остаются в .env и не выводятся в публичное приложение.',
+                'CoinGecko API plan' => 'Тариф CoinGecko API',
+                'CoinGecko API key' => 'Ключ CoinGecko API',
+                'Upstash Redis REST URL' => 'URL Upstash Redis REST',
+                'Upstash Redis REST token' => 'Токен Upstash Redis REST',
+                'AI provider' => 'AI-провайдер',
+                'AI prompt version' => 'Версия AI-промпта',
+                'AI enabled features' => 'Включенные AI-функции',
+                'Comma-separated subset of summary, sentiment, insight.' => 'Список через запятую из summary, sentiment, insight.',
+                'AI fallback behavior' => 'Поведение AI при недоступности',
+                'Sentiment cache TTL seconds' => 'TTL кеша sentiment в секундах',
+                'Groq API key' => 'Ключ Groq API',
+                'Groq model id' => 'ID модели Groq',
+                'Groq base URL' => 'Базовый URL Groq',
+                'Groq timeout seconds' => 'Таймаут Groq в секундах',
+                'Groq rate-limit window seconds' => 'Окно rate-limit Groq в секундах',
+                'Groq max requests per window' => 'Максимум запросов Groq за окно',
+                'ChangeNOW link id' => 'ID ссылки ChangeNOW',
+                'Step 6. Feature flags and product limits' => 'Шаг 6. Флаги функций и лимиты продукта',
+                'Start with optional features disabled, then enable each feature after readiness checks pass.' => 'Начните с отключенными необязательными функциями, затем включайте каждую после успешных проверок готовности.',
+                'AI insights' => 'AI-инсайты',
+                'Smart alerts' => 'Умные алерты',
+                'Exchange widget alias' => 'Псевдоним виджета обмена',
+                'ChangeNOW exchange widget' => 'Виджет обмена ChangeNOW',
+                'TON Connect' => 'TON Connect',
+                'Referral attribution' => 'Реферальная атрибуция',
+                'Achievements' => 'Достижения',
+                'Telegram Stars premium' => 'Премиум Telegram Stars',
+                'Alert max rules per user' => 'Максимум правил алертов на пользователя',
+                'Alert default frequency cap seconds' => 'Стандартная задержка алертов в секундах',
+                'Alert max deliveries per day' => 'Максимум доставок алертов в день',
+                'Alert evaluation interval seconds' => 'Интервал проверки алертов в секундах',
+                'Achievement weekly check days' => 'Дней для недельной проверки достижений',
+                'Achievement share milestone count' => 'Порог шарингов для достижения',
+                'Achievement movement threshold percent' => 'Порог движения для достижения, %',
+                'Achievement max prompts per session' => 'Максимум prompts достижений за сессию',
+                'Premium plan code' => 'Код премиум-плана',
+                'Premium monthly Stars' => 'Stars в месяц для премиума',
+                'Premium period seconds' => 'Период премиума в секундах',
+                'Premium signing secret' => 'Секрет подписи премиума',
+                'Step 7. Operations, admin, and performance budgets' => 'Шаг 7. Операции, администрирование и бюджеты производительности',
+                'Optional store paths, admin tokens, logging controls, readiness behavior, and performance budgets.' => 'Необязательные пути хранилищ, токены администратора, управление логами, поведение readiness и бюджеты производительности.',
+                'Installer enabled after .env exists' => 'Установщик включен после появления .env',
+                'The saved .env sets this to false to lock the installer.' => 'Сохраненный .env устанавливает false, чтобы заблокировать установщик.',
+                'Installer re-entry token' => 'Токен повторного входа в установщик',
+                'Required in the URL as ?token=... when re-enabling the installer.' => 'Требуется в URL как ?token=... при повторном включении установщика.',
+                'API audit log' => 'Аудит-лог API',
+                'Active readiness probes' => 'Активные readiness-проверки',
+                'Observability log level' => 'Уровень логов observability',
+                'Verbose tracing' => 'Подробная трассировка',
+                'Client error reporting' => 'Отправка клиентских ошибок',
+                'TON curation file' => 'Файл курирования TON',
+                'TON curation token' => 'Токен курирования TON',
+                'Admin store path' => 'Путь хранилища админки',
+                'Admin token' => 'Токен администратора',
+                'Admin support token' => 'Токен поддержки администратора',
+                'Cache enabled override' => 'Переопределение включения кеша',
+                'Rate limit enabled override' => 'Переопределение включения rate limit',
+                'Budget first contentful render ms' => 'Бюджет first contentful render, мс',
+                'Budget app ready ms' => 'Бюджет готовности приложения, мс',
+                'Budget market API p95 ms' => 'Бюджет market API p95, мс',
+                'Budget search API p95 ms' => 'Бюджет search API p95, мс',
+                'Budget coin detail API p95 ms' => 'Бюджет coin detail API p95, мс',
+                'Budget chart render ms' => 'Бюджет рендера графика, мс',
+                'Budget alert delivery p95 ms' => 'Бюджет доставки алерта p95, мс',
+                'Budget share card generation p95 ms' => 'Бюджет создания share card p95, мс',
+                'Immutable asset max-age seconds' => 'max-age неизменяемых ресурсов, сек',
+                'Unversioned asset max-age seconds' => 'max-age ресурсов без версии, сек',
+                'Asset stale-while-revalidate seconds' => 'stale-while-revalidate ресурсов, сек',
+                'Manifest max-age seconds' => 'max-age манифеста, сек',
+                'PHP version' => 'Версия PHP',
+                'Running PHP %s; PHP 8.1+ is required.' => 'Запущен PHP %s; требуется PHP 8.1+.',
+                'PHP extension %s' => 'Расширение PHP %s',
+                'Loaded.' => 'Загружено.',
+                'Enable this extension in the hosting PHP selector.' => 'Включите это расширение в переключателе PHP на хостинге.',
+                '.env write access' => 'Доступ на запись .env',
+                'The installer needs write access to create or replace .env. If this is not available, use the generated .env preview.' => 'Установщику нужен доступ на запись, чтобы создать или заменить .env. Если доступа нет, используйте созданный предпросмотр .env.',
+                'HTTPS request' => 'HTTPS-запрос',
+                'Production and Telegram Mini App deployments must use HTTPS.' => 'Production и Telegram Mini App должны работать через HTTPS.',
+                'Installer is available because no .env file exists yet.' => 'Установщик доступен, потому что файл .env еще не существует.',
+                'Installer is locked because .env exists and TONBANKCARD_INSTALLER_ENABLED is not true.' => 'Установщик заблокирован, потому что .env существует, а TONBANKCARD_INSTALLER_ENABLED не равно true.',
+                'Set TONBANKCARD_INSTALLER_TOKEN before re-opening the installer.' => 'Укажите TONBANKCARD_INSTALLER_TOKEN перед повторным открытием установщика.',
+                'Installer token accepted.' => 'Токен установщика принят.',
+                'Installer is locked. Add the configured token to the URL as ?token=...' => 'Установщик заблокирован. Добавьте настроенный токен в URL как ?token=...',
+                'Could not create a backup of the existing .env file.' => 'Не удалось создать резервную копию существующего файла .env.',
+                'Could not write .env. Check write permissions on the repository root.' => 'Не удалось записать .env. Проверьте права на запись в корне репозитория.',
+                'The .env file was written and the installer was locked.' => 'Файл .env записан, установщик заблокирован.',
+                'Database connection succeeded.' => 'Подключение к базе данных успешно.',
+                'Database connection failed:' => 'Подключение к базе данных завершилось ошибкой:',
+                'MYSQL_DSN and MYSQL_USER are required before testing the database.' => 'MYSQL_DSN и MYSQL_USER обязательны перед проверкой базы данных.',
+                'No pending migrations.' => 'Нет ожидающих миграций.',
+                'Applied %d migration(s).' => 'Применено миграций: %d.',
+                'TONBANKCARD_PROFILE must be local, staging, production, or telegram.' => 'TONBANKCARD_PROFILE должен быть local, staging, production или telegram.',
+                '%s must be a valid absolute HTTP(S) %s.' => '%s должен быть корректным абсолютным HTTP(S) %s.',
+                '%s is required for non-local installs (%s).' => '%s обязателен для нелокальной установки (%s).',
+                'UPSTASH_REDIS_REST_URL must be a valid absolute HTTP(S) URL.' => 'UPSTASH_REDIS_REST_URL должен быть корректным абсолютным HTTP(S) URL.',
+                'MYSQL_DSN must start with mysql:.' => 'MYSQL_DSN должен начинаться с mysql:.',
+                'COINGECKO_API_KEY is required when COINGECKO_API_PLAN is pro.' => 'COINGECKO_API_KEY обязателен, когда COINGECKO_API_PLAN равен pro.',
+                'TONBANKCARD_BOT_TOKEN is required for the telegram profile or alerts.' => 'TONBANKCARD_BOT_TOKEN обязателен для профиля telegram или алертов.',
+                'GROQ_API_KEY is required when TONBANKCARD_FEATURE_AI is true.' => 'GROQ_API_KEY обязателен, когда TONBANKCARD_FEATURE_AI равно true.',
+                'CHANGENOW_LINK_ID is required when TONBANKCARD_FEATURE_CHANGENOW is true.' => 'CHANGENOW_LINK_ID обязателен, когда TONBANKCARD_FEATURE_CHANGENOW равно true.',
+                'local base URL' => 'локальный URL',
+                'staging URL' => 'URL тестового стенда',
+                'public website URL' => 'URL публичного сайта',
+                'Telegram Mini App URL' => 'URL Telegram Mini App',
+                'Telegram bot username' => 'имя пользователя Telegram-бота',
+                'Upstash Redis REST URL' => 'URL Upstash Redis REST',
+                'Upstash Redis REST token' => 'токен Upstash Redis REST',
+                'MySQL DSN' => 'MySQL DSN',
+                'MySQL user' => 'пользователь MySQL',
+                'MySQL password' => 'пароль MySQL',
+            ],
+        ];
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_translate' ) ) {
+    /**
+     * @param string $text
+     * @param string $language
+     * @return string
+     */
+    function tonbankcard_installer_translate( string $text, string $language = 'en' ) {
+        $language = tonbankcard_installer_normalize_language( $language );
+        if ( 'en' === $language ) {
+            return $text;
+        }
+
+        $translations = tonbankcard_installer_translations();
+        return isset( $translations[ $language ][ $text ] ) ? $translations[ $language ][ $text ] : $text;
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_localize_copy' ) ) {
+    /**
+     * @param array $value
+     * @param string $language
+     * @return array
+     */
+    function tonbankcard_installer_localize_copy( array $value, string $language ) {
+        foreach ( [ 'title', 'description', 'label', 'help' ] as $key ) {
+            if ( isset( $value[ $key ] ) && is_string( $value[ $key ] ) ) {
+                $value[ $key ] = tonbankcard_installer_translate( $value[ $key ], $language );
+            }
+        }
+
+        return $value;
+    }
+}
+
 if ( ! function_exists( 'tonbankcard_installer_field_groups' ) ) {
     /**
      * Returns grouped form fields for the installation wizard.
      *
+     * @param string $language
      * @return array
      */
-    function tonbankcard_installer_field_groups() {
-        return [
+    function tonbankcard_installer_field_groups( $language = 'en' ) {
+        $groups = [
             'runtime'      => [
                 'title'       => 'Step 2. Runtime profile and public URLs',
                 'description' => 'Choose the deployment mode and the exact HTTPS URLs that users and Telegram will open.',
@@ -391,6 +643,21 @@ if ( ! function_exists( 'tonbankcard_installer_field_groups' ) ) {
                 ],
             ],
         ];
+
+        $language = tonbankcard_installer_normalize_language( $language );
+        if ( 'en' === $language ) {
+            return $groups;
+        }
+
+        foreach ( $groups as $group_key => $group ) {
+            $group = tonbankcard_installer_localize_copy( $group, $language );
+            foreach ( $group['fields'] as $field_key => $definition ) {
+                $group['fields'][ $field_key ] = tonbankcard_installer_localize_copy( $definition, $language );
+            }
+            $groups[ $group_key ] = $group;
+        }
+
+        return $groups;
     }
 }
 
@@ -695,9 +962,10 @@ if ( ! function_exists( 'tonbankcard_installer_write_env' ) ) {
     /**
      * @param string $root
      * @param array $values
+     * @param string $language
      * @return array
      */
-    function tonbankcard_installer_write_env( string $root, array $values ) {
+    function tonbankcard_installer_write_env( string $root, array $values, string $language = 'en' ) {
         $path = tonbankcard_installer_env_path( $root );
         $env = tonbankcard_installer_render_env( $values, $root );
         $backup = null;
@@ -707,7 +975,7 @@ if ( ! function_exists( 'tonbankcard_installer_write_env' ) ) {
             if ( ! copy( $path, $backup ) ) {
                 return [
                     'ok'      => FALSE,
-                    'message' => 'Could not create a backup of the existing .env file.',
+                    'message' => tonbankcard_installer_translate( 'Could not create a backup of the existing .env file.', $language ),
                     'env'     => $env,
                 ];
             }
@@ -716,7 +984,7 @@ if ( ! function_exists( 'tonbankcard_installer_write_env' ) ) {
         if ( FALSE === file_put_contents( $path, $env, LOCK_EX ) ) {
             return [
                 'ok'      => FALSE,
-                'message' => 'Could not write .env. Check write permissions on the repository root.',
+                'message' => tonbankcard_installer_translate( 'Could not write .env. Check write permissions on the repository root.', $language ),
                 'env'     => $env,
             ];
         }
@@ -725,7 +993,7 @@ if ( ! function_exists( 'tonbankcard_installer_write_env' ) ) {
 
         return [
             'ok'      => TRUE,
-            'message' => 'The .env file was written and the installer was locked.',
+            'message' => tonbankcard_installer_translate( 'The .env file was written and the installer was locked.', $language ),
             'path'    => $path,
             'backup'  => $backup,
             'env'     => $env,
@@ -797,74 +1065,75 @@ if ( ! function_exists( 'tonbankcard_installer_validate_values' ) ) {
      * Validates high-risk runtime values before writing .env.
      *
      * @param array $values
+     * @param string $language
      * @return array
      */
-    function tonbankcard_installer_validate_values( array $values ) {
+    function tonbankcard_installer_validate_values( array $values, string $language = 'en' ) {
         $prepared = tonbankcard_installer_prepare_values( $values );
         $errors = [];
         $profile = isset( $prepared['TONBANKCARD_PROFILE'] ) ? $prepared['TONBANKCARD_PROFILE'] : 'production';
 
         if ( ! in_array( $profile, [ 'local', 'staging', 'production', 'telegram' ], TRUE ) ) {
-            $errors[] = 'TONBANKCARD_PROFILE must be local, staging, production, or telegram.';
+            $errors[] = tonbankcard_installer_translate( 'TONBANKCARD_PROFILE must be local, staging, production, or telegram.', $language );
         }
 
         $required_urls = [];
         if ( 'local' === $profile ) {
-            $required_urls['TONBANKCARD_LOCAL_BASE_URL'] = 'local base URL';
+            $required_urls['TONBANKCARD_LOCAL_BASE_URL'] = tonbankcard_installer_translate( 'local base URL', $language );
         } elseif ( 'staging' === $profile ) {
-            $required_urls['TONBANKCARD_STAGING_BASE_URL'] = 'staging URL';
+            $required_urls['TONBANKCARD_STAGING_BASE_URL'] = tonbankcard_installer_translate( 'staging URL', $language );
         } elseif ( 'production' === $profile ) {
-            $required_urls['TONBANKCARD_PUBLIC_BASE_URL'] = 'public website URL';
+            $required_urls['TONBANKCARD_PUBLIC_BASE_URL'] = tonbankcard_installer_translate( 'public website URL', $language );
         } elseif ( 'telegram' === $profile ) {
-            $required_urls['TONBANKCARD_PUBLIC_BASE_URL'] = 'public website URL';
-            $required_urls['TONBANKCARD_TELEGRAM_BASE_URL'] = 'Telegram Mini App URL';
+            $required_urls['TONBANKCARD_PUBLIC_BASE_URL'] = tonbankcard_installer_translate( 'public website URL', $language );
+            $required_urls['TONBANKCARD_TELEGRAM_BASE_URL'] = tonbankcard_installer_translate( 'Telegram Mini App URL', $language );
         }
 
         foreach ( $required_urls as $key => $label ) {
             if ( empty( $prepared[ $key ] ) || ! tonbankcard_installer_valid_url( $prepared[ $key ] ) ) {
-                $errors[] = $key . ' must be a valid absolute HTTP(S) ' . $label . '.';
+                $errors[] = sprintf( tonbankcard_installer_translate( '%s must be a valid absolute HTTP(S) %s.', $language ), $key, $label );
             }
         }
 
         if ( 'local' !== $profile ) {
             foreach ( [
-                'TONBANKCARD_BOT_USERNAME'     => 'Telegram bot username',
-                'UPSTASH_REDIS_REST_URL'       => 'Upstash Redis REST URL',
-                'UPSTASH_REDIS_REST_TOKEN'     => 'Upstash Redis REST token',
-                'MYSQL_DSN'                    => 'MySQL DSN',
-                'MYSQL_USER'                   => 'MySQL user',
-                'MYSQL_PASSWORD'               => 'MySQL password',
+                'TONBANKCARD_BOT_USERNAME'     => tonbankcard_installer_translate( 'Telegram bot username', $language ),
+                'UPSTASH_REDIS_REST_URL'       => tonbankcard_installer_translate( 'Upstash Redis REST URL', $language ),
+                'UPSTASH_REDIS_REST_TOKEN'     => tonbankcard_installer_translate( 'Upstash Redis REST token', $language ),
+                'MYSQL_DSN'                    => tonbankcard_installer_translate( 'MySQL DSN', $language ),
+                'MYSQL_USER'                   => tonbankcard_installer_translate( 'MySQL user', $language ),
+                'MYSQL_PASSWORD'               => tonbankcard_installer_translate( 'MySQL password', $language ),
             ] as $key => $label ) {
                 if ( empty( $prepared[ $key ] ) ) {
-                    $errors[] = $key . ' is required for non-local installs (' . $label . ').';
+                    $errors[] = sprintf( tonbankcard_installer_translate( '%s is required for non-local installs (%s).', $language ), $key, $label );
                 }
             }
         }
 
         if ( ! empty( $prepared['UPSTASH_REDIS_REST_URL'] ) && ! tonbankcard_installer_valid_url( $prepared['UPSTASH_REDIS_REST_URL'] ) ) {
-            $errors[] = 'UPSTASH_REDIS_REST_URL must be a valid absolute HTTP(S) URL.';
+            $errors[] = tonbankcard_installer_translate( 'UPSTASH_REDIS_REST_URL must be a valid absolute HTTP(S) URL.', $language );
         }
 
         if ( ! empty( $prepared['MYSQL_DSN'] ) && 0 !== strpos( $prepared['MYSQL_DSN'], 'mysql:' ) ) {
-            $errors[] = 'MYSQL_DSN must start with mysql:.';
+            $errors[] = tonbankcard_installer_translate( 'MYSQL_DSN must start with mysql:.', $language );
         }
 
         if ( isset( $prepared['COINGECKO_API_PLAN'] ) && 'pro' === strtolower( (string) $prepared['COINGECKO_API_PLAN'] ) && empty( $prepared['COINGECKO_API_KEY'] ) ) {
-            $errors[] = 'COINGECKO_API_KEY is required when COINGECKO_API_PLAN is pro.';
+            $errors[] = tonbankcard_installer_translate( 'COINGECKO_API_KEY is required when COINGECKO_API_PLAN is pro.', $language );
         }
 
         if ( 'telegram' === $profile || tonbankcard_installer_value_enabled( $prepared, 'TONBANKCARD_FEATURE_ALERTS' ) ) {
             if ( empty( $prepared['TONBANKCARD_BOT_TOKEN'] ) ) {
-                $errors[] = 'TONBANKCARD_BOT_TOKEN is required for the telegram profile or alerts.';
+                $errors[] = tonbankcard_installer_translate( 'TONBANKCARD_BOT_TOKEN is required for the telegram profile or alerts.', $language );
             }
         }
 
         if ( tonbankcard_installer_value_enabled( $prepared, 'TONBANKCARD_FEATURE_AI' ) && empty( $prepared['GROQ_API_KEY'] ) ) {
-            $errors[] = 'GROQ_API_KEY is required when TONBANKCARD_FEATURE_AI is true.';
+            $errors[] = tonbankcard_installer_translate( 'GROQ_API_KEY is required when TONBANKCARD_FEATURE_AI is true.', $language );
         }
 
         if ( tonbankcard_installer_value_enabled( $prepared, 'TONBANKCARD_FEATURE_CHANGENOW' ) && empty( $prepared['CHANGENOW_LINK_ID'] ) ) {
-            $errors[] = 'CHANGENOW_LINK_ID is required when TONBANKCARD_FEATURE_CHANGENOW is true.';
+            $errors[] = tonbankcard_installer_translate( 'CHANGENOW_LINK_ID is required when TONBANKCARD_FEATURE_CHANGENOW is true.', $language );
         }
 
         return $errors;
@@ -877,16 +1146,17 @@ if ( ! function_exists( 'tonbankcard_installer_lock_state' ) ) {
      *
      * @param string $root
      * @param array $query
+     * @param string $language
      * @return array
      */
-    function tonbankcard_installer_lock_state( string $root, array $query ) {
+    function tonbankcard_installer_lock_state( string $root, array $query, string $language = 'en' ) {
         $path = tonbankcard_installer_env_path( $root );
         if ( ! is_file( $path ) ) {
             return [
                 'allowed'   => TRUE,
                 'first_run' => TRUE,
                 'locked'    => FALSE,
-                'message'   => 'Installer is available because no .env file exists yet.',
+                'message'   => tonbankcard_installer_translate( 'Installer is available because no .env file exists yet.', $language ),
             ];
         }
 
@@ -900,7 +1170,7 @@ if ( ! function_exists( 'tonbankcard_installer_lock_state' ) ) {
                 'allowed'   => FALSE,
                 'first_run' => FALSE,
                 'locked'    => TRUE,
-                'message'   => 'Installer is locked because .env exists and TONBANKCARD_INSTALLER_ENABLED is not true.',
+                'message'   => tonbankcard_installer_translate( 'Installer is locked because .env exists and TONBANKCARD_INSTALLER_ENABLED is not true.', $language ),
             ];
         }
 
@@ -911,7 +1181,7 @@ if ( ! function_exists( 'tonbankcard_installer_lock_state' ) ) {
                 'first_run'      => FALSE,
                 'locked'         => TRUE,
                 'token_required' => TRUE,
-                'message'        => 'Set TONBANKCARD_INSTALLER_TOKEN before re-opening the installer.',
+                'message'        => tonbankcard_installer_translate( 'Set TONBANKCARD_INSTALLER_TOKEN before re-opening the installer.', $language ),
             ];
         }
 
@@ -922,7 +1192,7 @@ if ( ! function_exists( 'tonbankcard_installer_lock_state' ) ) {
                 'first_run'   => FALSE,
                 'locked'      => FALSE,
                 'token_valid' => TRUE,
-                'message'     => 'Installer token accepted.',
+                'message'     => tonbankcard_installer_translate( 'Installer token accepted.', $language ),
             ];
         }
 
@@ -931,7 +1201,7 @@ if ( ! function_exists( 'tonbankcard_installer_lock_state' ) ) {
             'first_run'      => FALSE,
             'locked'         => TRUE,
             'token_required' => TRUE,
-            'message'        => 'Installer is locked. Add the configured token to the URL as ?token=...',
+            'message'        => tonbankcard_installer_translate( 'Installer is locked. Add the configured token to the URL as ?token=...', $language ),
         ];
     }
 }
@@ -939,37 +1209,40 @@ if ( ! function_exists( 'tonbankcard_installer_lock_state' ) ) {
 if ( ! function_exists( 'tonbankcard_installer_system_checks' ) ) {
     /**
      * @param string $root
+     * @param string $language
      * @return array
      */
-    function tonbankcard_installer_system_checks( string $root ) {
+    function tonbankcard_installer_system_checks( string $root, string $language = 'en' ) {
         $extensions = [ 'pdo', 'pdo_mysql', 'json', 'hash', 'openssl', 'filter', 'session' ];
         $checks = [
             [
-                'name'    => 'PHP version',
+                'name'    => tonbankcard_installer_translate( 'PHP version', $language ),
                 'status'  => version_compare( PHP_VERSION, '8.1.0', '>=' ) ? 'ok' : 'fail',
-                'message' => 'Running PHP ' . PHP_VERSION . '; PHP 8.1+ is required.',
+                'message' => sprintf( tonbankcard_installer_translate( 'Running PHP %s; PHP 8.1+ is required.', $language ), PHP_VERSION ),
             ],
         ];
 
         foreach ( $extensions as $extension ) {
             $checks[] = [
-                'name'    => 'PHP extension ' . $extension,
+                'name'    => sprintf( tonbankcard_installer_translate( 'PHP extension %s', $language ), $extension ),
                 'status'  => extension_loaded( $extension ) ? 'ok' : 'fail',
-                'message' => extension_loaded( $extension ) ? 'Loaded.' : 'Enable this extension in the hosting PHP selector.',
+                'message' => extension_loaded( $extension )
+                    ? tonbankcard_installer_translate( 'Loaded.', $language )
+                    : tonbankcard_installer_translate( 'Enable this extension in the hosting PHP selector.', $language ),
             ];
         }
 
         $env_path = tonbankcard_installer_env_path( $root );
         $checks[] = [
-            'name'    => '.env write access',
+            'name'    => tonbankcard_installer_translate( '.env write access', $language ),
             'status'  => ( is_file( $env_path ) && is_writable( $env_path ) ) || ( ! is_file( $env_path ) && is_writable( $root ) ) ? 'ok' : 'warn',
-            'message' => 'The installer needs write access to create or replace .env. If this is not available, use the generated .env preview.',
+            'message' => tonbankcard_installer_translate( 'The installer needs write access to create or replace .env. If this is not available, use the generated .env preview.', $language ),
         ];
 
         $checks[] = [
-            'name'    => 'HTTPS request',
+            'name'    => tonbankcard_installer_translate( 'HTTPS request', $language ),
             'status'  => ( ! empty( $_SERVER['HTTPS'] ) && 'off' !== strtolower( (string) $_SERVER['HTTPS'] ) ) ? 'ok' : 'warn',
-            'message' => 'Production and Telegram Mini App deployments must use HTTPS.',
+            'message' => tonbankcard_installer_translate( 'Production and Telegram Mini App deployments must use HTTPS.', $language ),
         ];
 
         return $checks;
@@ -979,9 +1252,10 @@ if ( ! function_exists( 'tonbankcard_installer_system_checks' ) ) {
 if ( ! function_exists( 'tonbankcard_installer_database_connection' ) ) {
     /**
      * @param array $values
+     * @param string $language
      * @return PDO
      */
-    function tonbankcard_installer_database_connection( array $values ) {
+    function tonbankcard_installer_database_connection( array $values, string $language = 'en' ) {
         if ( ! class_exists( 'PDO' ) ) {
             throw new RuntimeException( 'PDO is not available.' );
         }
@@ -992,7 +1266,7 @@ if ( ! function_exists( 'tonbankcard_installer_database_connection' ) ) {
         $password = isset( $prepared['MYSQL_PASSWORD'] ) ? (string) $prepared['MYSQL_PASSWORD'] : '';
 
         if ( '' === $dsn || '' === $user ) {
-            throw new RuntimeException( 'MYSQL_DSN and MYSQL_USER are required before testing the database.' );
+            throw new RuntimeException( tonbankcard_installer_translate( 'MYSQL_DSN and MYSQL_USER are required before testing the database.', $language ) );
         }
 
         return new PDO(
@@ -1010,21 +1284,22 @@ if ( ! function_exists( 'tonbankcard_installer_database_connection' ) ) {
 if ( ! function_exists( 'tonbankcard_installer_test_database' ) ) {
     /**
      * @param array $values
+     * @param string $language
      * @return array
      */
-    function tonbankcard_installer_test_database( array $values ) {
+    function tonbankcard_installer_test_database( array $values, string $language = 'en' ) {
         try {
-            $pdo = tonbankcard_installer_database_connection( $values );
+            $pdo = tonbankcard_installer_database_connection( $values, $language );
             $pdo->query( 'SELECT 1' );
 
             return [
                 'ok'      => TRUE,
-                'message' => 'Database connection succeeded.',
+                'message' => tonbankcard_installer_translate( 'Database connection succeeded.', $language ),
             ];
         } catch ( Throwable $error ) {
             return [
                 'ok'      => FALSE,
-                'message' => 'Database connection failed: ' . $error->getMessage(),
+                'message' => tonbankcard_installer_translate( 'Database connection failed:', $language ) . ' ' . $error->getMessage(),
             ];
         }
     }
@@ -1155,10 +1430,11 @@ if ( ! function_exists( 'tonbankcard_installer_apply_migrations' ) ) {
     /**
      * @param array $values
      * @param string $dir
+     * @param string $language
      * @return array
      */
-    function tonbankcard_installer_apply_migrations( array $values, string $dir ) {
-        $pdo = tonbankcard_installer_database_connection( $values );
+    function tonbankcard_installer_apply_migrations( array $values, string $dir, string $language = 'en' ) {
+        $pdo = tonbankcard_installer_database_connection( $values, $language );
         tonbankcard_installer_ensure_migration_ledger( $pdo );
         $applied = array_fill_keys( tonbankcard_installer_applied_migrations( $pdo ), TRUE );
         $applied_now = [];
@@ -1194,7 +1470,9 @@ if ( ! function_exists( 'tonbankcard_installer_apply_migrations' ) ) {
         return [
             'ok'       => TRUE,
             'applied'  => $applied_now,
-            'message'  => empty( $applied_now ) ? 'No pending migrations.' : 'Applied ' . count( $applied_now ) . ' migration(s).',
+            'message'  => empty( $applied_now )
+                ? tonbankcard_installer_translate( 'No pending migrations.', $language )
+                : sprintf( tonbankcard_installer_translate( 'Applied %d migration(s).', $language ), count( $applied_now ) ),
         ];
     }
 }

@@ -34,6 +34,14 @@ TONBANKCARD_INSTALLER_TOKEN=replace-with-a-long-random-token
 Then open `/install/?token=replace-with-a-long-random-token`. When the installer
 writes `.env` again it sets `TONBANKCARD_INSTALLER_ENABLED=false` to lock itself.
 
+## Language Selection
+
+The installer UI supports English and Russian. Use the language selector in the
+top-right corner of `/install/` before filling fields. The selected language is
+kept while previewing `.env`, testing the database, running migrations, and
+writing configuration. It does not add a language setting to `.env`; it only
+changes installer labels, help text, readiness messages, and action buttons.
+
 ## Installer Steps
 
 1. Readiness checks: PHP version, required extensions, `.env` write access, and
@@ -56,6 +64,32 @@ writes `.env` again it sets `TONBANKCARD_INSTALLER_ENABLED=false` to lock itself
 Leave optional features disabled for the first production boot. After
 `/api/health` and `/api/ready` pass, enable features one at a time and recheck
 the affected route.
+
+## Field Filling Reference
+
+Collect these values before opening `/install/`. Values marked optional can stay
+empty during the first production boot unless the related feature is enabled.
+
+| Installer field | What to enter | Where to find it |
+| --- | --- | --- |
+| `TONBANKCARD_PROFILE` | Use `production` for the public website, `telegram` when the Mini App is the primary entry point, `staging` for a test domain, or `local` only on a development machine. | Deployment plan. |
+| `TONBANKCARD_PUBLIC_BASE_URL` | The exact HTTPS website URL with trailing slash, for example `https://marketcap.example.com/`. | Hosting domain or CDN control panel. |
+| `TONBANKCARD_TELEGRAM_BASE_URL` | The HTTPS URL configured for the Telegram Mini App. Required for the `telegram` profile. | BotFather Mini App settings. |
+| `TONBANKCARD_BOT_USERNAME` | Bot username without `@`, for example `tonbankcard_bot`. | BotFather bot profile. |
+| `TONBANKCARD_BOT_TOKEN` | Server-side bot token. Required for the `telegram` profile and alerts. | BotFather token screen. Rotate it if it was shared in chat or logs. |
+| `TONBANKCARD_BOT_WEBHOOK_SECRET` | Long random secret used to verify Telegram webhook calls. Optional until webhooks are enabled. | Generate with the hosting password tool or a local secret generator. |
+| `TONBANKCARD_ALERT_WORKER_TOKEN` | Long random token for the alert evaluation worker. Leave empty to let the installer generate one. | Generate locally or let the installer fill it. |
+| `TONBANKCARD_SEARCH_REFRESH_TOKEN` | Long random token for search refresh jobs. Leave empty to let the installer generate one. | Generate locally or let the installer fill it. |
+| `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_CHARSET` | Database connection parts. `MYSQL_CHARSET` should normally be `utf8mb4`; `MYSQL_PORT` is often `3306` or blank on shared hosting. | Hosting MySQL or MariaDB database panel. |
+| `MYSQL_DSN` | Full DSN such as `mysql:host=127.0.0.1;dbname=marketcap;charset=utf8mb4`. The installer builds it from helper fields when left empty. | Built by the installer or copied from hosting database docs. |
+| `MYSQL_USER` and `MYSQL_PASSWORD` | Database user and password with permissions for the application database. | Hosting MySQL or MariaDB database panel. |
+| `COINGECKO_API_PLAN` and `COINGECKO_API_KEY` | Use `demo` without a key for first boot. Use `pro` only when a Pro key is available. | CoinGecko account. |
+| `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` | Redis REST endpoint and token. Required for non-local installs because readiness and provider caching expect Redis. | Upstash database details page. |
+| `GROQ_API_KEY`, `GROQ_MODEL_ID`, `GROQ_BASE_URL` | AI provider settings. Keep `TONBANKCARD_FEATURE_AI=false` until the Groq key is configured. | Groq console. |
+| `CHANGENOW_LINK_ID` | Partner or link identifier for the exchange widget. Required only when `TONBANKCARD_FEATURE_CHANGENOW=true`. | ChangeNOW partner dashboard. |
+| `TONBANKCARD_FEATURE_ALERTS` | Set `false` for first boot. Set `true` only after the bot token, alert worker token, migrations, and cron are ready. | Product rollout decision. |
+| Other `TONBANKCARD_FEATURE_*` flags | Keep optional features `false` until `/api/health`, `/api/ready`, and the related UI route pass. | Product rollout decision and feature-specific docs linked from `README.md`. |
+| Admin, curation, cache, rate-limit, observability, and budget fields | Keep defaults unless the hosting runbook requires a specific path, token, log level, or performance budget. | Operations runbook. |
 
 ## Database Migrations
 
