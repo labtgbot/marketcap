@@ -54,6 +54,14 @@ php database/migrate.php up
 
 ## Hosting Installation
 
+Use the browser-based [automatic hosting installer](docs/automatic-hosting-installer.md)
+after uploading the repository to hosting. Open `/install/` before `.env`
+exists, configure PHP 8.1+, MySQL/MariaDB, Telegram Mini App settings, providers,
+feature flags, write `.env`, and optionally apply database migrations from the
+installer. The installer includes an English/Russian language selector and the
+documentation includes a field-filling reference for hosting, BotFather, Redis,
+database, provider, and feature flag values.
+
 Use [docs/hosting-installation.md](docs/hosting-installation.md) for the
 step-by-step production hosting plan. It covers PHP 8.1+, MySQL/MariaDB,
 Apache/Nginx routing, environment variables, migrations, health checks, cron
@@ -100,6 +108,7 @@ npm run test:admin-panel
 npm run test:security-compliance
 npm run test:launch-readiness
 npm run test:hosting-installation
+npm run test:automatic-installer
 npm run validate:bundle
 npm run test:smoke
 ```
@@ -198,3 +207,5 @@ See [docs/v2-security-privacy-compliance.md](docs/v2-security-privacy-compliance
 See [docs/v2-launch-readiness.md](docs/v2-launch-readiness.md) for the BotFather Main Mini App setup, localized launch assets, production verification matrix, support workflow, admin runbook, rollout, rollback, and incident response plan from issue #40. Run `npm run test:launch-readiness` to verify the launch documentation gate.
 
 See [docs/hosting-installation.md](docs/hosting-installation.md) for the production hosting installation guide from issue #82. Run `npm run test:hosting-installation` to verify the hosting documentation gate.
+
+See [docs/automatic-hosting-installer.md](docs/automatic-hosting-installer.md) for the guarded browser installer from issue #84. Run `npm run test:automatic-installer` to verify the installer gate.

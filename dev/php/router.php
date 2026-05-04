@@ -27,6 +27,16 @@ if (
     '/' !== $path
     && FALSE !== $file
     && 0 === strpos( $file, $root . DIRECTORY_SEPARATOR )
+    && is_dir( $file )
+    && is_file( $file . '/index.php' )
+) {
+    return FALSE;
+}
+
+if (
+    '/' !== $path
+    && FALSE !== $file
+    && 0 === strpos( $file, $root . DIRECTORY_SEPARATOR )
     && is_file( $file )
 ) {
     require_once $root . '/constants.php';
