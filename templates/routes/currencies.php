@@ -21,15 +21,7 @@ $frontend_options['currencies']['priceChanges'] = [
     '30d',
 ];
 $frontend_options['currencies']['order'] = 'market_cap_desc';
-$frontend_options['currencies']['tonCoinIds'] = [
-    'toncoin',
-    'the-open-network',
-    'notcoin',
-    'dogs-2',
-    'ston',
-    'dedust',
-    'tether',
-];
+$frontend_options['currencies']['tonApiBaseUrl'] = site_url( 'api/ton/assets' );
 
 ?>
 <section class="market-pulse py-6 py-sm-8">

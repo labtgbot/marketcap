@@ -327,6 +327,7 @@
                     const categories = (_.get(currency, 'categories', []) || []).map(category => _.toLower(category));
 
                     return id === 'toncoin'
+                        || id === 'the-open-network'
                         || symbol === 'ton'
                         || platforms.indexOf('the-open-network') >= 0
                         || platforms.indexOf('ton') >= 0

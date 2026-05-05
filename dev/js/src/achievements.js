@@ -466,8 +466,9 @@
     function trackRoute(to) {
         const name = _.get(to, 'name');
         const sourceRoute = name || _.get(to, 'path') || 'unknown';
-        if ((name === 'currency' || name === 'coins') && _.toLower(_.get(to, 'params.id')) === 'toncoin') {
-            track('ton_viewed', {source_route: sourceRoute, coin_id: 'toncoin', symbol: 'TON'});
+        const paramId = _.toLower(_.get(to, 'params.id'));
+        if ((name === 'currency' || name === 'coins') && (paramId === 'toncoin' || paramId === 'the-open-network')) {
+            track('ton_viewed', {source_route: sourceRoute, coin_id: paramId, symbol: 'TON'});
         }
     }
 

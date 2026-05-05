@@ -1890,8 +1890,9 @@
     function trackRoute(to) {
         const name = _.get(to, 'name');
         const sourceRoute = name || _.get(to, 'path') || 'unknown';
-        if ((name === 'currency' || name === 'coins') && _.toLower(_.get(to, 'params.id')) === 'toncoin') {
-            track('ton_viewed', {source_route: sourceRoute, coin_id: 'toncoin', symbol: 'TON'});
+        const paramId = _.toLower(_.get(to, 'params.id'));
+        if ((name === 'currency' || name === 'coins') && (paramId === 'toncoin' || paramId === 'the-open-network')) {
+            track('ton_viewed', {source_route: sourceRoute, coin_id: paramId, symbol: 'TON'});
         }
     }
 
@@ -5531,7 +5532,7 @@
         doge: 'dogecoin',
         dot: 'polkadot',
         eth: 'ethereum',
-        ton: 'toncoin',
+        ton: 'the-open-network',
         usdc: 'usd-coin',
         usdt: 'tether',
         xrp: 'ripple'
@@ -5669,13 +5670,14 @@
 
 })(window, GeckoClient);
 
-(function (window, _, CoinGecko, GeckoClient) {
+(function (window, _, axios, CoinGecko, GeckoClient) {
     'use strict';
 
     const setTitle = GeckoClient.setTitle;
     const options = GeckoClient.getOptions('currencies');
     const route = GeckoClient.routesConfig.currencies;
     const perPage = Math.min(100, options.perPage) || 50;
+    const tonEndpoint = options.tonApiBaseUrl || '/api/ton/assets';
 
     function percentChange(currency) {
         return parseFloat(currency.price_change_percentage_24h_in_currency);
@@ -5696,12 +5698,18 @@
                     marketCurrencies: [],
                     trendingCoins: [],
                     watchlistIds: [],
+                    tonAssets: [],
+                    tonMarketCurrencies: [],
                     loadingGlobal: false,
                     loadingMarkets: false,
                     loadingTrending: false,
+                    loadingTonCuration: false,
+                    loadingTonMarkets: false,
                     globalError: false,
                     marketError: false,
                     trendingError: false,
+                    tonCurationError: false,
+                    tonMarketError: false,
                     globalMeta: null,
                     marketMeta: null,
                     marketConfig: null,
@@ -5719,6 +5727,9 @@
             watch: {
                 '$root.vsCurrencyId': function () {
                     this.fetchPulse();
+                },
+                tonAssets: function () {
+                    this.fetchTonMarkets();
                 }
             },
             computed: {
@@ -5775,14 +5786,18 @@
                         }
                     ];
                 },
+                tonAssetCoinIds: function () {
+                    return _.uniq((this.tonAssets || []).map(asset => _.toLower(asset && asset.coin_id || '')).filter(Boolean));
+                },
                 tonCurrencies: function () {
-                    const tonCoinIds = options.tonCoinIds || ['toncoin'];
-                    return this.marketCurrencies.filter(currency => {
-                        const id = _.toLower(currency.id);
-                        const symbol = _.toLower(currency.symbol);
-                        const name = _.toLower(currency.name);
-                        return tonCoinIds.indexOf(id) >= 0 || symbol === 'ton' || name.indexOf('ton') >= 0;
-                    }).slice(0, 4);
+                    const ids = this.tonAssetCoinIds;
+                    if (!ids.length) return [];
+                    const byId = _.keyBy(this.tonMarketCurrencies, 'id');
+                    return ids
+                        .map(id => byId[id] || null)
+                        .filter(Boolean)
+                        .map(currency => this.extendCurrency(Object.assign({}, currency)))
+                        .slice(0, 6);
                 },
                 topGainers: function () {
                     return this.marketCurrencies
@@ -5857,6 +5872,54 @@
                     this.fetchGlobal();
                     this.fetchMarketCurrencies();
                     this.fetchTrendingCoins();
+                    this.fetchTonCuration();
+                },
+                fetchTonCuration: function () {
+                    if (!axios) return Promise.resolve();
+
+                    this.loadingTonCuration = true;
+                    this.tonCurationError = false;
+
+                    return axios.get(tonEndpoint)
+                        .then(response => {
+                            const payload = response.data && response.data.ok === true ? response.data.data : response.data;
+                            this.tonAssets = _.get(payload, 'assets', []);
+                        })
+                        .catch(() => {
+                            this.tonAssets = [];
+                            this.tonCurationError = true;
+                        })
+                        .finally(() => this.loadingTonCuration = false);
+                },
+                fetchTonMarkets: function () {
+                    const ids = this.tonAssetCoinIds;
+                    if (!ids.length) {
+                        this.tonMarketCurrencies = [];
+                        return Promise.resolve([]);
+                    }
+
+                    this.loadingTonMarkets = true;
+                    this.tonMarketError = false;
+
+                    return CoinGecko.coinsMarkets({
+                        ids: ids.join(','),
+                        per_page: Math.min(250, ids.length),
+                        page: 1,
+                        order: 'market_cap_desc',
+                        vs_currency: this.$root.vsCurrencyId,
+                        price_change_percentage: options.priceChanges.join(','),
+                        sparkline: false
+                    })
+                        .then(currencies => {
+                            this.tonMarketCurrencies = (currencies || []).map(currency => this.extendCurrency(currency));
+                            return this.tonMarketCurrencies;
+                        })
+                        .catch(() => {
+                            this.tonMarketCurrencies = [];
+                            this.tonMarketError = true;
+                            return [];
+                        })
+                        .finally(() => this.loadingTonMarkets = false);
                 },
                 initWatchlist: function () {
                     const watchlist = GeckoClient.watchlist;
@@ -5976,7 +6039,7 @@
         }
     });
 
-})(window, _, CoinGecko, GeckoClient);
+})(window, _, axios, CoinGecko, GeckoClient);
 
 (function (window, _, CoinGecko, GeckoClient) {
     'use strict';
@@ -6307,6 +6370,7 @@
                     const categories = (_.get(currency, 'categories', []) || []).map(category => _.toLower(category));
 
                     return id === 'toncoin'
+                        || id === 'the-open-network'
                         || symbol === 'ton'
                         || platforms.indexOf('the-open-network') >= 0
                         || platforms.indexOf('ton') >= 0
@@ -8949,6 +9013,11 @@
     const adminApiBaseUrl = '/api/admin';
     const tonCategoryOptions = ['native', 'stablecoin', 'jetton', 'defi', 'wallet', 'infrastructure', 'community'];
     const tonVerificationStateOptions = ['verified', 'curated', 'unverified'];
+    const tonLinkTypeOptions = [
+        {value: 'currency', text: 'Cryptocurrency page'},
+        {value: 'project', text: 'Project catalog page'}
+    ];
+    const tonProjectCategoryOptions = ['defi', 'wallet', 'infrastructure', 'community', 'jetton', 'stablecoin', 'native'];
 
     const normalizeTag = value => {
         value = _.toString(value || '').toLowerCase().trim().replace(/[^a-z0-9._-]+/g, '_').replace(/^[._-]+|[._-]+$/g, '');
@@ -8993,7 +9062,9 @@
                     editorIndex: -1,
                     editorIsNew: false,
                     tonCategoryOptions: tonCategoryOptions.slice(),
-                    tonVerificationStateOptions: tonVerificationStateOptions.slice()
+                    tonVerificationStateOptions: tonVerificationStateOptions.slice(),
+                    tonLinkTypeOptions: tonLinkTypeOptions.slice(),
+                    tonProjectCategoryOptions: tonProjectCategoryOptions.slice()
                 };
             },
             created: function () {
@@ -9177,9 +9248,17 @@
                 },
                 decorateAssets: function (assets) {
                     return assets.map(asset => Object.assign({}, asset, {
-                        market: asset.coin_id ? (this.tonMarketMap[asset.coin_id] || null) : null,
+                        market: this.marketForAsset(asset),
                         categoryLabel: this.categoryTitle(asset.category)
                     }));
+                },
+                marketForAsset: function (asset) {
+                    if (!asset || !asset.coin_id) return null;
+                    const direct = this.tonMarketMap[asset.coin_id];
+                    if (direct) return direct;
+                    const symbol = _.toLower(asset.symbol || '');
+                    if (!symbol) return null;
+                    return _.find(this.tonMarketMap, currency => _.toLower(currency.symbol) === symbol) || null;
                 },
                 assetMatchesFilters: function (asset) {
                     if (this.tonFilters.category && this.tonFilters.category !== asset.category) return false;
@@ -9231,10 +9310,13 @@
                     return 'warning';
                 },
                 assetRoute: function (asset) {
-                    if (asset && asset.id) return {name: 'ton-asset', params: {id: asset.id}};
-                    if (asset && asset.route) return asset.route;
-                    if (asset && asset.coin_id) return {name: 'currency', params: {id: asset.coin_id}};
-                    return {name: 'ton', query: {category: asset ? asset.category : ''}};
+                    if (!asset) return {name: 'ton'};
+                    if (asset.link_type === 'currency' && asset.coin_id) return {name: 'currency', params: {id: asset.coin_id}};
+                    if (asset.link_type === 'project' && asset.id) return {name: 'ton-asset', params: {id: asset.id}};
+                    if (asset.id) return {name: 'ton-asset', params: {id: asset.id}};
+                    if (asset.route) return asset.route;
+                    if (asset.coin_id) return {name: 'currency', params: {id: asset.coin_id}};
+                    return {name: 'ton', query: {category: asset.category || ''}};
                 },
                 coinRoute: function (asset) {
                     if (asset && asset.coin_id) return {name: 'currency', params: {id: asset.coin_id}};
@@ -9281,6 +9363,7 @@
                 openEditor: function (asset, index) {
                     if (!this.canEditCuration) return;
                     const source = asset || {};
+                    const link_type = source.link_type || (source.coin_id ? 'currency' : 'project');
                     this.editorAsset = {
                         id: source.id || '',
                         coin_id: source.coin_id || '',
@@ -9288,6 +9371,8 @@
                         symbol: source.symbol || '',
                         category: source.category || 'jetton',
                         verification_state: source.verification_state || 'curated',
+                        link_type: link_type,
+                        project_category: source.project_category || (link_type === 'project' ? source.category || '' : ''),
                         description: source.description || '',
                         featured: !!source.featured,
                         tags: Array.isArray(source.tags) ? source.tags.slice() : ['ton_ecosystem'],
@@ -9331,6 +9416,7 @@
                         .then(content => {
                             const assets = Array.isArray(content.ton_assets) ? content.ton_assets.slice() : [];
                             const matchIndex = _.findIndex(assets, entry => entry && entry.id === draft.id);
+                            const link_type = draft.link_type === 'currency' ? 'currency' : 'project';
                             const payload = {
                                 id: draft.id,
                                 coin_id: draft.coin_id || '',
@@ -9338,6 +9424,8 @@
                                 symbol: draft.symbol || '',
                                 category: draft.category || 'jetton',
                                 verification_state: draft.verification_state || 'curated',
+                                link_type: link_type,
+                                project_category: link_type === 'project' ? (draft.project_category || draft.category || '') : '',
                                 description: draft.description || '',
                                 featured: !!draft.featured,
                                 tags: Array.isArray(draft.tags) ? draft.tags : [],
@@ -9409,6 +9497,11 @@
     const adminApiBaseUrl = '/api/admin';
     const tonCategoryOptions = ['native', 'stablecoin', 'jetton', 'defi', 'wallet', 'infrastructure', 'community'];
     const tonVerificationStateOptions = ['verified', 'curated', 'unverified'];
+    const tonLinkTypeOptions = [
+        {value: 'currency', text: 'Cryptocurrency page'},
+        {value: 'project', text: 'Project catalog page'}
+    ];
+    const tonProjectCategoryOptions = ['defi', 'wallet', 'infrastructure', 'community', 'jetton', 'stablecoin', 'native'];
 
     const normalizeTag = value => {
         value = _.toString(value || '').toLowerCase().trim().replace(/[^a-z0-9._-]+/g, '_').replace(/^[._-]+|[._-]+$/g, '');
@@ -9434,7 +9527,9 @@
                     editorOpen: false,
                     editorAsset: null,
                     tonCategoryOptions: tonCategoryOptions.slice(),
-                    tonVerificationStateOptions: tonVerificationStateOptions.slice()
+                    tonVerificationStateOptions: tonVerificationStateOptions.slice(),
+                    tonLinkTypeOptions: tonLinkTypeOptions.slice(),
+                    tonProjectCategoryOptions: tonProjectCategoryOptions.slice()
                 };
             },
             created: function () {
@@ -9601,6 +9696,7 @@
                 openEditor: function () {
                     if (!this.canEditCuration || !this.asset) return;
                     const asset = this.asset;
+                    const link_type = asset.link_type || (asset.coin_id ? 'currency' : 'project');
                     this.editorAsset = {
                         id: asset.id,
                         coin_id: asset.coin_id || '',
@@ -9608,6 +9704,8 @@
                         symbol: asset.symbol || '',
                         category: asset.category || 'jetton',
                         verification_state: asset.verification_state || 'curated',
+                        link_type: link_type,
+                        project_category: asset.project_category || (link_type === 'project' ? asset.category || '' : ''),
                         description: asset.description || '',
                         featured: !!asset.featured,
                         tags: Array.isArray(asset.tags) ? asset.tags.slice() : ['ton_ecosystem'],
@@ -9633,6 +9731,7 @@
                         .then(content => {
                             const assets = Array.isArray(content.ton_assets) ? content.ton_assets.slice() : [];
                             const matchIndex = _.findIndex(assets, entry => entry && entry.id === draft.id);
+                            const link_type = draft.link_type === 'currency' ? 'currency' : 'project';
                             const payload = {
                                 id: draft.id,
                                 coin_id: draft.coin_id || '',
@@ -9640,6 +9739,8 @@
                                 symbol: draft.symbol || '',
                                 category: draft.category || 'jetton',
                                 verification_state: draft.verification_state || 'curated',
+                                link_type: link_type,
+                                project_category: link_type === 'project' ? (draft.project_category || draft.category || '') : '',
                                 description: draft.description || '',
                                 featured: !!draft.featured,
                                 tags: Array.isArray(draft.tags) ? draft.tags : [],
@@ -10183,7 +10284,7 @@
     const initialTheme = preferences.theme();
     const derivedDominanceAssets = {
         ton: {
-            id: 'toncoin',
+            id: 'the-open-network',
             vsCurrencyId: 'usd'
         }
     };

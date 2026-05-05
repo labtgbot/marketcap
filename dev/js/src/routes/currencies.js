@@ -1,10 +1,11 @@
-(function (window, _, CoinGecko, GeckoClient) {
+(function (window, _, axios, CoinGecko, GeckoClient) {
     'use strict';
 
     const setTitle = GeckoClient.setTitle;
     const options = GeckoClient.getOptions('currencies');
     const route = GeckoClient.routesConfig.currencies;
     const perPage = Math.min(100, options.perPage) || 50;
+    const tonEndpoint = options.tonApiBaseUrl || '/api/ton/assets';
 
     function percentChange(currency) {
         return parseFloat(currency.price_change_percentage_24h_in_currency);
@@ -25,12 +26,18 @@
                     marketCurrencies: [],
                     trendingCoins: [],
                     watchlistIds: [],
+                    tonAssets: [],
+                    tonMarketCurrencies: [],
                     loadingGlobal: false,
                     loadingMarkets: false,
                     loadingTrending: false,
+                    loadingTonCuration: false,
+                    loadingTonMarkets: false,
                     globalError: false,
                     marketError: false,
                     trendingError: false,
+                    tonCurationError: false,
+                    tonMarketError: false,
                     globalMeta: null,
                     marketMeta: null,
                     marketConfig: null,
@@ -48,6 +55,9 @@
             watch: {
                 '$root.vsCurrencyId': function () {
                     this.fetchPulse();
+                },
+                tonAssets: function () {
+                    this.fetchTonMarkets();
                 }
             },
             computed: {
@@ -104,14 +114,18 @@
                         }
                     ];
                 },
+                tonAssetCoinIds: function () {
+                    return _.uniq((this.tonAssets || []).map(asset => _.toLower(asset && asset.coin_id || '')).filter(Boolean));
+                },
                 tonCurrencies: function () {
-                    const tonCoinIds = options.tonCoinIds || ['toncoin'];
-                    return this.marketCurrencies.filter(currency => {
-                        const id = _.toLower(currency.id);
-                        const symbol = _.toLower(currency.symbol);
-                        const name = _.toLower(currency.name);
-                        return tonCoinIds.indexOf(id) >= 0 || symbol === 'ton' || name.indexOf('ton') >= 0;
-                    }).slice(0, 4);
+                    const ids = this.tonAssetCoinIds;
+                    if (!ids.length) return [];
+                    const byId = _.keyBy(this.tonMarketCurrencies, 'id');
+                    return ids
+                        .map(id => byId[id] || null)
+                        .filter(Boolean)
+                        .map(currency => this.extendCurrency(Object.assign({}, currency)))
+                        .slice(0, 6);
                 },
                 topGainers: function () {
                     return this.marketCurrencies
@@ -186,6 +200,54 @@
                     this.fetchGlobal();
                     this.fetchMarketCurrencies();
                     this.fetchTrendingCoins();
+                    this.fetchTonCuration();
+                },
+                fetchTonCuration: function () {
+                    if (!axios) return Promise.resolve();
+
+                    this.loadingTonCuration = true;
+                    this.tonCurationError = false;
+
+                    return axios.get(tonEndpoint)
+                        .then(response => {
+                            const payload = response.data && response.data.ok === true ? response.data.data : response.data;
+                            this.tonAssets = _.get(payload, 'assets', []);
+                        })
+                        .catch(() => {
+                            this.tonAssets = [];
+                            this.tonCurationError = true;
+                        })
+                        .finally(() => this.loadingTonCuration = false);
+                },
+                fetchTonMarkets: function () {
+                    const ids = this.tonAssetCoinIds;
+                    if (!ids.length) {
+                        this.tonMarketCurrencies = [];
+                        return Promise.resolve([]);
+                    }
+
+                    this.loadingTonMarkets = true;
+                    this.tonMarketError = false;
+
+                    return CoinGecko.coinsMarkets({
+                        ids: ids.join(','),
+                        per_page: Math.min(250, ids.length),
+                        page: 1,
+                        order: 'market_cap_desc',
+                        vs_currency: this.$root.vsCurrencyId,
+                        price_change_percentage: options.priceChanges.join(','),
+                        sparkline: false
+                    })
+                        .then(currencies => {
+                            this.tonMarketCurrencies = (currencies || []).map(currency => this.extendCurrency(currency));
+                            return this.tonMarketCurrencies;
+                        })
+                        .catch(() => {
+                            this.tonMarketCurrencies = [];
+                            this.tonMarketError = true;
+                            return [];
+                        })
+                        .finally(() => this.loadingTonMarkets = false);
                 },
                 initWatchlist: function () {
                     const watchlist = GeckoClient.watchlist;
@@ -305,4 +367,4 @@
         }
     });
 
-})(window, _, CoinGecko, GeckoClient);
+})(window, _, axios, CoinGecko, GeckoClient);
