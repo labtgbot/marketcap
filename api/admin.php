@@ -469,7 +469,8 @@ function tonbankcard_api_admin_default_state( array $runtime, array $config ) {
                 'alerts_disclaimer'      => 'Alerts are best-effort notifications and can be delayed.',
                 'widget_disclaimer'      => 'Exchange widgets are provided by third parties under their own terms.',
             ],
-            'ton_assets' => [],
+            'ton_assets'              => [],
+            'ton_excluded_asset_ids'  => [],
         ],
         'operations'       => [
             'cache' => [
@@ -921,6 +922,17 @@ function tonbankcard_api_admin_merge_content( array $base, array $input ) {
             }
         }
         $base['ton_assets'] = array_slice( $assets, 0, 100 );
+    }
+
+    if ( isset( $input['ton_excluded_asset_ids'] ) && is_array( $input['ton_excluded_asset_ids'] ) ) {
+        $excluded = [];
+        foreach ( $input['ton_excluded_asset_ids'] as $id ) {
+            $safe = tonbankcard_api_admin_slug( $id, '' );
+            if ( '' !== $safe ) {
+                $excluded[] = $safe;
+            }
+        }
+        $base['ton_excluded_asset_ids'] = array_values( array_unique( array_slice( $excluded, 0, 200 ) ) );
     }
 
     return $base;

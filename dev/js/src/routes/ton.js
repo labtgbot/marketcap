@@ -433,8 +433,9 @@
                         .then(content => {
                             const assets = (Array.isArray(content.ton_assets) ? content.ton_assets : [])
                                 .filter(entry => entry && entry.id !== asset.id);
+                            const excluded = _.uniq((Array.isArray(content.ton_excluded_asset_ids) ? content.ton_excluded_asset_ids : []).concat([asset.id]));
                             return this.adminClient().put('/content', {
-                                content: _.assign({}, content, {ton_assets: assets})
+                                content: _.assign({}, content, {ton_assets: assets, ton_excluded_asset_ids: excluded})
                             });
                         })
                         .then(() => {
