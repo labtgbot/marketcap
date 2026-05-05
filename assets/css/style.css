@@ -1078,6 +1078,22 @@ v-app {
     border-color: var(--tbc-brand-gold) !important;
     background: linear-gradient(0deg, rgba(242, 184, 75, 0.08), rgba(242, 184, 75, 0.08)), var(--tbc-surface-panel) !important;
 }
+.ton-asset-editor .v-card__text {
+    padding-top: 16px;
+}
+.ton-asset-detail {
+    padding: 8px 4px;
+}
+.ton-asset-detail-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.ton-admin-add-btn,
+.ton-admin-edit-btn,
+.ton-admin-delete-btn {
+    margin-left: 4px;
+}
 .wallet-profile-header,
 .wallet-profile-status,
 .wallet-profile-actions,

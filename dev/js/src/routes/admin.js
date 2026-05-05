@@ -152,10 +152,10 @@
                     return ['serve_stale', 'strict', 'bypass'];
                 },
                 tonCategories: function () {
-                    return ['jetton', 'token', 'nft', 'app', 'infrastructure'];
+                    return ['native', 'stablecoin', 'jetton', 'defi', 'wallet', 'infrastructure', 'community'];
                 },
                 tonVerificationStates: function () {
-                    return ['curated', 'verified', 'manual_review', 'unverified'];
+                    return ['verified', 'curated', 'unverified'];
                 },
                 overviewMetrics: function () {
                     const flags = this.flagDefinitions.filter(flag => this.featureFlags[flag.key] === true).length;

@@ -66,10 +66,26 @@ TONBANKCARD_TON_CURATION_TOKEN=replace-with-admin-token
 
 The default local profile falls back to a temp-file path so the read API always exposes built-in curated defaults. Production should set an explicit writable file path or migrate the same model to the `0005_ton_ecosystem_curation` tables.
 
+## Catalog Pages
+
+Every curated asset has its own catalog page at `/ton/asset/:id` rendered by the `ton-asset` route. The page surfaces the asset description, category, tags, market summary (price, 24h change, market cap when a `coin_id` is linked), and a "View market" deep link to the full coin page. Asset cards on the `/ton` listing link to this catalog page, while a separate "View market" action still routes to `/currency/:coin_id` when a CoinGecko id is configured. New assets get a permanent shareable link as soon as the admin saves them.
+
+## Inline Portal Editing
+
+Authenticated administrators can edit the TON catalog directly from the public `/ton` and `/ton/asset/:id` views. The portal reads the active session from `/api/admin/config` and gates write actions on `actor.permissions.write === true`. When the editor saves, it merges the change into the same admin store used by the admin panel by calling:
+
+```text
+PUT /api/admin/content
+```
+
+Because both the admin panel and the public portal write through `/api/admin/content` and read TON assets through `/api/ton/assets` (which is composed from the admin store via `tonbankcard_api_ton_admin_assets`), edits made in either UI appear immediately in the other after the next refresh of the catalog. The legacy `TONBANKCARD_TON_CURATION_FILE` flow continues to work for environments that prefer a separate curation store.
+
 ## Acceptance Mapping
 
 - TON ecosystem page is a first-class `/ton` route backed by `/api/ton/assets`.
-- TON assets can be curated through a writable JSON store without code deployment.
+- Each TON asset has its own page at `/ton/asset/:id` so the section behaves as a full catalog.
+- TON assets can be curated through a writable JSON store without code deployment, and through an inline portal editor for administrators.
+- Edits saved from either the admin panel or the public portal share the admin content store, keeping both surfaces in sync.
 - Search, markets, and screener surfaces can filter by TON tags.
 - Unverified assets are visibly distinct and preserve verification metadata in API responses.
 

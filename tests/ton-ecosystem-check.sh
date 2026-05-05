@@ -44,6 +44,8 @@ assert_file "$doc"
 assert_file database/migrations/0005_ton_ecosystem_curation.up.sql
 assert_file database/migrations/0005_ton_ecosystem_curation.down.sql
 assert_file dev/js/src/routes/screener.js
+assert_file dev/js/src/routes/ton-asset.js
+assert_file templates/routes/ton-asset.php
 
 assert_contains "$doc" '^# TONBANKCARD V2 TON Ecosystem Curation$' 'the TON ecosystem curation title'
 assert_contains "$doc" 'Issue: \[#29\]' 'the issue reference'
@@ -65,6 +67,18 @@ assert_contains dev/js/src/routes/markets.js 'activeTonTag' 'the market table TO
 assert_contains templates/routes/markets.php 'ton-filter-chip' 'TON filter chips on market tables'
 assert_contains templates/routes/screener.php 'ton-screener-filter-chip' 'TON filter chips on screener'
 assert_contains templates/routes/ton.php 'ton-verification-chip' 'TON verification visual indicator'
+assert_contains templates/routes/ton.php 'ton-admin-add-btn' 'TON catalog inline add control for administrators'
+assert_contains templates/routes/ton.php 'ton-admin-edit-btn' 'TON catalog inline edit control for administrators'
+assert_contains templates/routes/ton.php 'ton-admin-delete-btn' 'TON catalog inline remove control for administrators'
+assert_contains templates/routes/ton.php 'ton-asset-editor' 'TON catalog inline editor dialog'
+assert_contains templates/routes/ton-asset.php 'ton-asset-detail' 'TON per-asset catalog page'
+assert_contains config/routes.php "'ton-asset'" 'TON per-asset Vue route registration'
+assert_contains dev/js/source.json '"routes/ton-asset.js"' 'TON per-asset bundle source entry'
+assert_contains dev/js/src/routes/ton-asset.js "name: 'ton-asset'" 'TON per-asset Vue Router definition'
+assert_contains dev/js/src/routes/ton.js 'TONBANKCARD:adminToken' 'TON catalog admin token discovery for inline editing'
+assert_contains dev/js/src/routes/ton.js 'canEditCuration' 'TON catalog admin write permission gate'
+assert_contains dev/js/src/routes/ton.js "name: 'ton-asset'" 'TON catalog asset route navigation'
+assert_contains api/ton.php "'ton-asset'" 'TON API exposes the per-asset Vue route name'
 assert_contains assets/css/style.css 'ton-asset-unverified' 'distinct unverified TON asset styling'
 
 php_check 'TON curation API should expose defaults, persist manual curation, and preserve verification states' \
@@ -218,6 +232,89 @@ if ( 'stablecoin' !== $payload['data']['tag'] || 'stablecoin' !== $payload['meta
     fwrite( STDERR, "Tagged TON search response did not echo safe tag metadata\n" );
     exit( 1 );
 }
+PHP
+
+php_check 'admin content writes should propagate to the public TON catalog' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_ADMIN_TOKEN='ton-admin-secret' \
+        TONBANKCARD_ADMIN_STORE="$(mktemp)" \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$store_path = (string) getenv( 'TONBANKCARD_ADMIN_STORE' );
+@unlink( $store_path );
+
+$payload = [
+    'content' => [
+        'ton_assets' => [
+            [
+                'id'                 => 'ton-portal-asset',
+                'name'               => 'Portal Curated Asset',
+                'symbol'             => 'PORT',
+                'category'           => 'jetton',
+                'verification_state' => 'curated',
+                'description'        => 'Asset added through the admin panel during portal sync.',
+                'tags'               => [ 'ton_ecosystem', 'jetton' ],
+            ],
+        ],
+    ],
+];
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'PUT',
+        'path'    => '/api/admin/content',
+        'headers' => [
+            'authorization' => 'Bearer ton-admin-secret',
+            'content-type'  => 'application/json',
+            'x-request-id'  => 'ton-portal-admin-write',
+        ],
+        'body'    => json_encode( $payload ),
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $api
+);
+if ( 200 !== $response['status'] ) {
+    fwrite( STDERR, 'Admin content write failed: ' . $response['status'] . ' body ' . $response['body'] . "\n" );
+    exit( 1 );
+}
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'GET',
+        'path'    => '/api/ton/assets?q=portal',
+        'headers' => [ 'x-request-id' => 'ton-portal-public-read' ],
+        'body'    => '',
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $api
+);
+$body = json_decode( $response['body'], TRUE );
+if ( 200 !== $response['status'] || empty( $body['data']['assets'] ) ) {
+    fwrite( STDERR, "Admin curated TON asset is not visible on the public catalog\n" );
+    exit( 1 );
+}
+$found = NULL;
+foreach ( $body['data']['assets'] as $asset ) {
+    if ( 'ton-portal-asset' === $asset['id'] ) {
+        $found = $asset;
+        break;
+    }
+}
+if ( ! $found ) {
+    fwrite( STDERR, "Admin curated asset id is missing from the public TON catalog\n" );
+    exit( 1 );
+}
+if ( 'ton-asset' !== $found['route']['name'] || '/ton/asset/ton-portal-asset' !== $found['route']['path'] ) {
+    fwrite( STDERR, "Admin curated asset is not routed to its dedicated catalog page\n" );
+    exit( 1 );
+}
+@unlink( $store_path );
 PHP
 
 if [ "$failures" -gt 0 ]; then
