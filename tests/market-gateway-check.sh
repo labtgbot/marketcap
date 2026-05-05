@@ -292,6 +292,66 @@ if ( FALSE !== strpos( $response['body'], 'pro-secret-key' ) ) {
 }
 PHP
 
+php_check 'market gateway should infer Pro API routing from CoinGecko Pro key prefixes' \
+    env -i PATH="$PATH" \
+        COINGECKO_API_PLAN=demo \
+        COINGECKO_API_KEY='CG-pro-secret-key' \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$test_api = $api;
+$test_api['market_data']['transport'] = function ( $request ) {
+    if ( 'https://pro-api.coingecko.com/api/v3/global' !== $request['url'] ) {
+        fwrite( STDERR, 'Expected Pro API URL for CG-prefixed key, got: ' . $request['url'] . "\n" );
+        exit( 1 );
+    }
+    if ( empty( $request['headers']['x-cg-pro-api-key'] ) || 'CG-pro-secret-key' !== $request['headers']['x-cg-pro-api-key'] ) {
+        fwrite( STDERR, "CG-prefixed key was not sent with the Pro API header\n" );
+        exit( 1 );
+    }
+    if ( isset( $request['headers']['x-cg-demo-api-key'] ) ) {
+        fwrite( STDERR, "CG-prefixed key should not be sent with the Demo API header\n" );
+        exit( 1 );
+    }
+    if ( 'pro' !== $request['plan'] ) {
+        fwrite( STDERR, 'Expected inferred Pro plan, got ' . $request['plan'] . "\n" );
+        exit( 1 );
+    }
+
+    return [
+        'status'  => 200,
+        'headers' => [ 'content-type' => 'application/json' ],
+        'body'    => '{"data":{"active_cryptocurrencies":12000},"updated_at":1777581511}',
+    ];
+};
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'GET',
+        'path'    => '/api/market/global',
+        'headers' => [],
+        'body'    => '',
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $test_api
+);
+
+if ( 200 !== $response['status'] ) {
+    fwrite( STDERR, 'Expected 200 global response, got ' . $response['status'] . "\n" );
+    exit( 1 );
+}
+
+$payload = json_decode( $response['body'], TRUE );
+if ( ! is_array( $payload ) || 'pro' !== $payload['meta']['provider']['plan'] || empty( $payload['meta']['provider']['credentialed'] ) ) {
+    fwrite( STDERR, "Response did not expose safe inferred Pro provider metadata\n" );
+    exit( 1 );
+}
+PHP
+
 php_check 'market gateway should normalize upstream rate limits' \
     env -i PATH="$PATH" php <<'PHP'
 <?php

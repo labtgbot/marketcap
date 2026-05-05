@@ -83,10 +83,42 @@ assert_contains assets/css/style.css 'admin-shell' 'admin panel styling'
 php_check 'Admin API should require admin auth, enforce read-only support, audit writes, merge runtime flags, and redact secrets' \
     env -i PATH="$PATH" \
         TONBANKCARD_ADMIN_STORE="$(mktemp)" \
+        TEST_ENV_FILE="$PWD/.env" \
         TONBANKCARD_ADMIN_TOKEN='owner-secret-token' \
         TONBANKCARD_ADMIN_SUPPORT_TOKEN='support-secret-token' \
         php <<'PHP'
 <?php
+$env_path = (string) getenv( 'TEST_ENV_FILE' );
+$previous_env = is_file( $env_path ) ? file_get_contents( $env_path ) : null;
+file_put_contents(
+    $env_path,
+    implode(
+        "\n",
+        [
+            'TONBANKCARD_FEATURE_AI=true',
+            'TONBANKCARD_FEATURE_ALERTS=true',
+            'TONBANKCARD_FEATURE_WIDGET=true',
+            'TONBANKCARD_FEATURE_CHANGENOW=true',
+            'COINGECKO_API_PLAN=demo',
+            'COINGECKO_API_KEY=old-demo-key',
+            'GROQ_MODEL_ID=old-model',
+            'GROQ_API_KEY=old-groq-key',
+            'TONBANKCARD_BOT_USERNAME=old_bot',
+            'TONBANKCARD_BOT_TOKEN=old-bot-token',
+            'CHANGENOW_LINK_ID=old-link',
+        ]
+    ) . "\n"
+);
+register_shutdown_function(
+    function () use ( $env_path, $previous_env ) {
+        if ( null === $previous_env ) {
+            @unlink( $env_path );
+            return;
+        }
+        file_put_contents( $env_path, $previous_env );
+    }
+);
+
 require 'constants.php';
 require GECKO_CLIENT_CONFIG_DIR . '/api.php';
 require __DIR__ . '/api/router.php';
@@ -219,6 +251,13 @@ if ( FALSE !== $payload['data']['feature_flags']['changenow'] ) {
     fwrite( STDERR, "Widget flag did not synchronize ChangeNOW runtime control\n" );
     exit( 1 );
 }
+$env_after_flags = file_get_contents( $env_path );
+foreach ( [ 'TONBANKCARD_FEATURE_AI=false', 'TONBANKCARD_FEATURE_ALERTS=false', 'TONBANKCARD_FEATURE_WIDGET=false', 'TONBANKCARD_FEATURE_CHANGENOW=false' ] as $line ) {
+    if ( FALSE === strpos( $env_after_flags, $line ) ) {
+        fwrite( STDERR, "Admin feature flag save did not update .env line: {$line}\n" );
+        exit( 1 );
+    }
+}
 
 $reloaded = tonbankcard_runtime_config();
 if (
@@ -257,6 +296,10 @@ $response = call_admin_api(
                         'status'     => 'enabled',
                         'rest_token' => 'redis-secret-value-that-must-not-return',
                     ],
+                    'telegram' => [
+                        'bot_username' => 'tonbankcard_admin_bot',
+                        'bot_token'    => 'telegram-secret-value-that-must-not-return',
+                    ],
                     'changenow' => [
                         'link_id' => '3cc0024a18fd9d',
                     ],
@@ -281,6 +324,36 @@ foreach ( [ 'groq-secret-value-that-must-not-return', 'coingecko-secret-value-th
 }
 if ( empty( $payload['data']['providers']['groq']['api_key']['configured'] ) || '[redacted]' !== $payload['data']['providers']['groq']['api_key']['display_value'] ) {
     fwrite( STDERR, "Groq secret metadata was not returned as a redacted configured value\n" );
+    exit( 1 );
+}
+$env_after_providers = file_get_contents( $env_path );
+foreach (
+    [
+        'COINGECKO_API_PLAN=pro',
+        'COINGECKO_API_KEY=coingecko-secret-value-that-must-not-return',
+        'GROQ_API_KEY=groq-secret-value-that-must-not-return',
+        'GROQ_MODEL_ID=llama-3.3-70b-versatile',
+        'UPSTASH_REDIS_REST_TOKEN=redis-secret-value-that-must-not-return',
+        'TONBANKCARD_BOT_USERNAME=tonbankcard_admin_bot',
+        'TONBANKCARD_BOT_TOKEN=telegram-secret-value-that-must-not-return',
+        'CHANGENOW_LINK_ID=3cc0024a18fd9d',
+    ] as $line
+) {
+    if ( FALSE === strpos( $env_after_providers, $line ) ) {
+        fwrite( STDERR, "Admin provider save did not update .env line: {$line}\n" );
+        exit( 1 );
+    }
+}
+$reloaded_after_providers = tonbankcard_runtime_config();
+if (
+    'pro' !== $reloaded_after_providers['providers']['coingecko']['api_plan'] ||
+    'coingecko-secret-value-that-must-not-return' !== $reloaded_after_providers['providers']['coingecko']['api_key'] ||
+    'groq-secret-value-that-must-not-return' !== $reloaded_after_providers['providers']['groq']['api_key'] ||
+    'llama-3.3-70b-versatile' !== $reloaded_after_providers['providers']['groq']['model_id'] ||
+    'telegram-secret-value-that-must-not-return' !== $reloaded_after_providers['telegram']['bot_token'] ||
+    '3cc0024a18fd9d' !== $reloaded_after_providers['providers']['changenow']['link_id']
+) {
+    fwrite( STDERR, "Runtime config did not reload provider values saved through admin .env persistence\n" );
     exit( 1 );
 }
 
