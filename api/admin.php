@@ -513,7 +513,8 @@ function tonbankcard_api_admin_update_feature_flags( array $request, array $runt
     $state['feature_flags'] = tonbankcard_api_admin_normalize_feature_flags( $input, $state['feature_flags'] );
     $state = tonbankcard_api_admin_record_write( $state, $actor, 'feature_flags.updated', 'feature_flags', $before, $state['feature_flags'], $request_id );
 
-    $saved = tonbankcard_api_admin_save_state( $state, $runtime, $config );
+    $env_updates = tonbankcard_api_admin_feature_flag_env_updates( $input );
+    $saved = tonbankcard_api_admin_save_state( $state, $runtime, $config, $env_updates );
     if ( empty( $saved['ok'] ) ) {
         return tonbankcard_api_admin_store_error( $saved, $request_id, $headers );
     }
@@ -547,7 +548,8 @@ function tonbankcard_api_admin_update_providers( array $request, array $runtime,
     $state['providers'] = tonbankcard_api_admin_merge_providers( $state['providers'], tonbankcard_api_admin_normalize_provider_input( $input, $state['providers'] ) );
     $state = tonbankcard_api_admin_record_write( $state, $actor, 'providers.updated', 'providers', $before, $state['providers'], $request_id );
 
-    $saved = tonbankcard_api_admin_save_state( $state, $runtime, $config );
+    $env_updates = tonbankcard_api_admin_provider_env_updates( $input );
+    $saved = tonbankcard_api_admin_save_state( $state, $runtime, $config, $env_updates );
     if ( empty( $saved['ok'] ) ) {
         return tonbankcard_api_admin_store_error( $saved, $request_id, $headers );
     }
@@ -703,6 +705,88 @@ function tonbankcard_api_admin_normalize_feature_flags( array $input, array $bas
     }
 
     return $flags;
+}
+
+/**
+ * Returns environment updates represented by a feature flag payload.
+ *
+ * @param array $input
+ * @return array
+ */
+function tonbankcard_api_admin_feature_flag_env_updates( array $input ) {
+    $map = [
+        'ai'           => 'TONBANKCARD_FEATURE_AI',
+        'alerts'       => 'TONBANKCARD_FEATURE_ALERTS',
+        'widget'       => 'TONBANKCARD_FEATURE_WIDGET',
+        'changenow'    => 'TONBANKCARD_FEATURE_CHANGENOW',
+        'ton_connect'  => 'TONBANKCARD_FEATURE_TON_CONNECT',
+        'referrals'    => 'TONBANKCARD_FEATURE_REFERRALS',
+        'gamification' => 'TONBANKCARD_FEATURE_GAMIFICATION',
+        'premium'      => 'TONBANKCARD_FEATURE_PREMIUM',
+    ];
+    $updates = [];
+    foreach ( $map as $flag => $env_key ) {
+        if ( array_key_exists( $flag, $input ) ) {
+            $updates[ $env_key ] = ! empty( $input[ $flag ] ) ? 'true' : 'false';
+        }
+    }
+    if ( array_key_exists( 'widget', $input ) && ! array_key_exists( 'TONBANKCARD_FEATURE_CHANGENOW', $updates ) ) {
+        $updates['TONBANKCARD_FEATURE_CHANGENOW'] = ! empty( $input['widget'] ) ? 'true' : 'false';
+    } elseif ( array_key_exists( 'changenow', $input ) && ! array_key_exists( 'TONBANKCARD_FEATURE_WIDGET', $updates ) ) {
+        $updates['TONBANKCARD_FEATURE_WIDGET'] = ! empty( $input['changenow'] ) ? 'true' : 'false';
+    }
+
+    return $updates;
+}
+
+/**
+ * Returns environment updates represented by a provider payload.
+ *
+ * @param array $input
+ * @return array
+ */
+function tonbankcard_api_admin_provider_env_updates( array $input ) {
+    $updates = [];
+    if ( isset( $input['coingecko'] ) && is_array( $input['coingecko'] ) ) {
+        if ( isset( $input['coingecko']['api_plan'] ) ) {
+            $plan = strtolower( trim( (string) $input['coingecko']['api_plan'] ) );
+            if ( in_array( $plan, [ 'demo', 'pro' ], TRUE ) ) {
+                $updates['COINGECKO_API_PLAN'] = $plan;
+            }
+        }
+        if ( isset( $input['coingecko']['api_key'] ) && '' !== trim( (string) $input['coingecko']['api_key'] ) ) {
+            $updates['COINGECKO_API_KEY'] = trim( (string) $input['coingecko']['api_key'] );
+        }
+    }
+    if ( isset( $input['groq'] ) && is_array( $input['groq'] ) ) {
+        if ( isset( $input['groq']['model_id'] ) ) {
+            $model = tonbankcard_api_admin_safe_text( $input['groq']['model_id'], 96 );
+            if ( '' !== $model ) {
+                $updates['GROQ_MODEL_ID'] = $model;
+            }
+        }
+        if ( isset( $input['groq']['api_key'] ) && '' !== trim( (string) $input['groq']['api_key'] ) ) {
+            $updates['GROQ_API_KEY'] = trim( (string) $input['groq']['api_key'] );
+        }
+    }
+    if ( isset( $input['upstash'] ) && is_array( $input['upstash'] ) ) {
+        if ( isset( $input['upstash']['rest_token'] ) && '' !== trim( (string) $input['upstash']['rest_token'] ) ) {
+            $updates['UPSTASH_REDIS_REST_TOKEN'] = trim( (string) $input['upstash']['rest_token'] );
+        }
+    }
+    if ( isset( $input['telegram'] ) && is_array( $input['telegram'] ) ) {
+        if ( isset( $input['telegram']['bot_username'] ) ) {
+            $updates['TONBANKCARD_BOT_USERNAME'] = tonbankcard_api_admin_safe_text( $input['telegram']['bot_username'], 64 );
+        }
+        if ( isset( $input['telegram']['bot_token'] ) && '' !== trim( (string) $input['telegram']['bot_token'] ) ) {
+            $updates['TONBANKCARD_BOT_TOKEN'] = trim( (string) $input['telegram']['bot_token'] );
+        }
+    }
+    if ( isset( $input['changenow'] ) && is_array( $input['changenow'] ) && isset( $input['changenow']['link_id'] ) ) {
+        $updates['CHANGENOW_LINK_ID'] = tonbankcard_api_admin_safe_text( $input['changenow']['link_id'], 96 );
+    }
+
+    return $updates;
 }
 
 /**
@@ -960,7 +1044,7 @@ function tonbankcard_api_admin_audit_log( array $runtime, array $config ) {
  * @param array $config
  * @return array
  */
-function tonbankcard_api_admin_save_state( array $state, array $runtime, array $config ) {
+function tonbankcard_api_admin_save_state( array $state, array $runtime, array $config, array $env_updates = [] ) {
     $settings = tonbankcard_api_admin_settings( $runtime, $config );
     $path = trim( $settings['store_path'] );
     if ( '' === $path ) {
@@ -981,6 +1065,11 @@ function tonbankcard_api_admin_save_state( array $state, array $runtime, array $
         'operations'    => tonbankcard_api_admin_redact_value( $state['operations'] ),
         'audit_log'     => tonbankcard_api_admin_redact_value( $state['audit_log'] ),
     ];
+
+    $env_saved = tonbankcard_api_admin_save_env_updates( $env_updates );
+    if ( empty( $env_saved['ok'] ) ) {
+        return $env_saved;
+    }
 
     $dir = dirname( $path );
     if ( ! is_dir( $dir ) && ! mkdir( $dir, 0775, TRUE ) && ! is_dir( $dir ) ) {
@@ -1017,6 +1106,131 @@ function tonbankcard_api_admin_save_state( array $state, array $runtime, array $
     @chmod( $path, 0600 );
 
     return [ 'ok' => TRUE ];
+}
+
+/**
+ * Persists admin-editable runtime settings into .env.
+ *
+ * @param array $updates
+ * @return array
+ */
+function tonbankcard_api_admin_save_env_updates( array $updates ) {
+    if ( empty( $updates ) ) {
+        return [ 'ok' => TRUE ];
+    }
+
+    $allowed = tonbankcard_api_admin_env_keys();
+    $filtered = [];
+    foreach ( $updates as $key => $value ) {
+        if ( in_array( $key, $allowed, TRUE ) ) {
+            $filtered[ $key ] = (string) $value;
+        }
+    }
+    if ( empty( $filtered ) ) {
+        return [ 'ok' => TRUE ];
+    }
+
+    $path = GECKO_CLIENT_DIR . '/.env';
+    $lines = is_file( $path ) ? file( $path, FILE_IGNORE_NEW_LINES ) : [];
+    if ( ! is_array( $lines ) ) {
+        $lines = [];
+    }
+
+    $seen = [];
+    foreach ( $lines as $index => $line ) {
+        if ( preg_match( '/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/', $line, $matches ) ) {
+            $key = $matches[1];
+            if ( array_key_exists( $key, $filtered ) ) {
+                $lines[ $index ] = $key . '=' . tonbankcard_api_admin_format_env_value( $filtered[ $key ] );
+                $seen[ $key ] = TRUE;
+            }
+        }
+    }
+
+    if ( empty( $lines ) ) {
+        $lines[] = '# Updated by the TONBANKCARD admin panel.';
+    }
+    foreach ( $filtered as $key => $value ) {
+        if ( empty( $seen[ $key ] ) ) {
+            $lines[] = $key . '=' . tonbankcard_api_admin_format_env_value( $value );
+        }
+    }
+
+    $dir = dirname( $path );
+    if ( ! is_dir( $dir ) || ! is_writable( $dir ) ) {
+        return [
+            'ok'      => FALSE,
+            'status'  => 500,
+            'code'    => 'admin_env_write_failed',
+            'message' => 'The .env file could not be written from the admin panel.',
+        ];
+    }
+
+    $env = implode( "\n", $lines ) . "\n";
+    $tmp = $path . '.tmp.' . getmypid();
+    if ( FALSE === file_put_contents( $tmp, $env, LOCK_EX ) || ! rename( $tmp, $path ) ) {
+        if ( is_file( $tmp ) ) {
+            @unlink( $tmp );
+        }
+        return [
+            'ok'      => FALSE,
+            'status'  => 500,
+            'code'    => 'admin_env_write_failed',
+            'message' => 'The .env file could not be written from the admin panel.',
+        ];
+    }
+    @chmod( $path, 0600 );
+
+    foreach ( $filtered as $key => $value ) {
+        putenv( $key . '=' . $value );
+        $_ENV[ $key ] = $value;
+        $_SERVER[ $key ] = $value;
+    }
+
+    return [ 'ok' => TRUE ];
+}
+
+/**
+ * Returns environment keys that may be written through the admin panel.
+ *
+ * @return array
+ */
+function tonbankcard_api_admin_env_keys() {
+    return [
+        'TONBANKCARD_FEATURE_AI',
+        'TONBANKCARD_FEATURE_ALERTS',
+        'TONBANKCARD_FEATURE_WIDGET',
+        'TONBANKCARD_FEATURE_CHANGENOW',
+        'TONBANKCARD_FEATURE_TON_CONNECT',
+        'TONBANKCARD_FEATURE_REFERRALS',
+        'TONBANKCARD_FEATURE_GAMIFICATION',
+        'TONBANKCARD_FEATURE_PREMIUM',
+        'COINGECKO_API_PLAN',
+        'COINGECKO_API_KEY',
+        'GROQ_API_KEY',
+        'GROQ_MODEL_ID',
+        'UPSTASH_REDIS_REST_TOKEN',
+        'TONBANKCARD_BOT_USERNAME',
+        'TONBANKCARD_BOT_TOKEN',
+        'CHANGENOW_LINK_ID',
+    ];
+}
+
+/**
+ * Formats a dotenv value.
+ *
+ * @param string $value
+ * @return string
+ */
+function tonbankcard_api_admin_format_env_value( string $value ) {
+    if ( '' === $value ) {
+        return '';
+    }
+    if ( preg_match( '/^[A-Za-z0-9._:\/@%+,;=?-]+$/', $value ) && FALSE === strpos( $value, '#' ) ) {
+        return $value;
+    }
+
+    return '"' . str_replace( [ '\\', '"' ], [ '\\\\', '\\"' ], $value ) . '"';
 }
 
 /**
