@@ -97,6 +97,17 @@ $frontend_options['ton-asset']['apiBaseUrl'] = site_url( 'api/ton/assets' );
         </v-card-actions>
     </v-card>
 
+    <v-row class="mt-6 ai-insight-grid" v-if="asset">
+        <v-col cols="12">
+            <gc-ai-insight-card
+                title="<?php echo esc_attr( __( 'AI TON asset insight' ) ); ?>"
+                icon="mdi-diamond-stone"
+                :context="tonAssetInsightContext"
+                source-route="ton_asset"
+            ></gc-ai-insight-card>
+        </v-col>
+    </v-row>
+
     <v-alert v-else-if="!loadingCuration" type="info" dense text class="mt-4">
         <?php echo esc_html( 'This TON asset is not in the catalog yet.' ); ?>
     </v-alert>

@@ -9445,6 +9445,33 @@
                 },
                 canEditCuration: function () {
                     return this.isAdminAuthenticated && _.get(this.adminActor, 'permissions.write') === true;
+                },
+                tonAssetInsightContext: function () {
+                    if (!this.asset || !GeckoClient.ai) return null;
+
+                    const market = this.asset.market || null;
+                    return {
+                        insight_type: 'ton_ecosystem_pulse',
+                        subject: (this.asset.name || this.asset.id) + ' TON asset',
+                        market_data_age_seconds: GeckoClient.ai.marketDataAgeSeconds(market ? {last_updated_at: _.get(market, 'last_updated')} : null),
+                        market_data_updated_at: GeckoClient.ai.marketDataUpdatedAt(market ? {last_updated_at: _.get(market, 'last_updated')} : null),
+                        market_data: {
+                            vs_currency: this.$root.vsCurrencyId,
+                            assets: [{
+                                id: this.asset.id,
+                                coin_id: this.asset.coin_id || null,
+                                name: this.asset.name,
+                                symbol: this.asset.symbol,
+                                category: this.asset.category,
+                                verification_state: this.asset.verification_state,
+                                description: this.asset.description || null,
+                                current_price: market ? (market.current_price || null) : null,
+                                price_change_percentage_24h: market ? (market.price_change_percentage_24h_in_currency || null) : null,
+                                market_cap: market ? (market.market_cap || null) : null
+                            }],
+                            coverage: ['TON asset detail', 'Verification state', 'Category context']
+                        }
+                    };
                 }
             },
             methods: {
