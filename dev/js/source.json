@@ -42,6 +42,7 @@
   "routes/premium.js",
   "routes/screener.js",
   "routes/ton.js",
+  "routes/ton-asset.js",
   "routes/terms.js",
   "routes/wallet-profile.js",
   "routes/watchlist.js",

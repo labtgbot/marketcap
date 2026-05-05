@@ -5,9 +5,18 @@
     const options = GeckoClient.getOptions('ton');
     if (!route) return;
 
+    const adminTokenStorageKey = 'TONBANKCARD:adminToken';
+    const adminApiBaseUrl = '/api/admin';
+    const tonCategoryOptions = ['native', 'stablecoin', 'jetton', 'defi', 'wallet', 'infrastructure', 'community'];
+    const tonVerificationStateOptions = ['verified', 'curated', 'unverified'];
+
     const normalizeTag = value => {
         value = _.toString(value || '').toLowerCase().trim().replace(/[^a-z0-9._-]+/g, '_').replace(/^[._-]+|[._-]+$/g, '');
         return value === 'ton' ? 'ton_ecosystem' : value;
+    };
+
+    const slugId = value => {
+        return _.toString(value || '').toLowerCase().trim().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
     };
 
     GeckoClient.router.addRoute({
@@ -32,7 +41,19 @@
                         category: '',
                         list: '',
                         state: ''
-                    }
+                    },
+                    adminToken: localStorage.getItem(adminTokenStorageKey) || '',
+                    adminActor: null,
+                    adminLoading: false,
+                    adminSaving: false,
+                    adminNotice: '',
+                    adminNoticeType: 'info',
+                    editorOpen: false,
+                    editorAsset: null,
+                    editorIndex: -1,
+                    editorIsNew: false,
+                    tonCategoryOptions: tonCategoryOptions.slice(),
+                    tonVerificationStateOptions: tonVerificationStateOptions.slice()
                 };
             },
             created: function () {
@@ -40,6 +61,7 @@
                 this.syncFiltersFromRoute();
                 this.trackTonAchievement();
                 this.fetchTonEcosystem();
+                if (this.adminToken) this.refreshAdminSession();
             },
             watch: {
                 '$root.vsCurrencyId': function () {
@@ -71,6 +93,12 @@
                 },
                 hasActiveFilters: function () {
                     return !!(this.tonFilters.tag || this.tonFilters.category || this.tonFilters.list || this.tonFilters.state);
+                },
+                isAdminAuthenticated: function () {
+                    return !!this.adminToken && !!_.get(this.adminActor, 'role');
+                },
+                canEditCuration: function () {
+                    return this.isAdminAuthenticated && _.get(this.adminActor, 'permissions.write') === true;
                 },
                 verifiedCount: function () {
                     return this.tonAssets.filter(asset => asset.verification_state === 'verified').length;
@@ -263,9 +291,14 @@
                     return 'warning';
                 },
                 assetRoute: function (asset) {
-                    if (asset.route) return asset.route;
-                    if (asset.coin_id) return {name: 'currency', params: {id: asset.coin_id}};
-                    return {name: 'ton', query: {category: asset.category}};
+                    if (asset && asset.id) return {name: 'ton-asset', params: {id: asset.id}};
+                    if (asset && asset.route) return asset.route;
+                    if (asset && asset.coin_id) return {name: 'currency', params: {id: asset.coin_id}};
+                    return {name: 'ton', query: {category: asset ? asset.category : ''}};
+                },
+                coinRoute: function (asset) {
+                    if (asset && asset.coin_id) return {name: 'currency', params: {id: asset.coin_id}};
+                    return null;
                 },
                 marketRoute: function (tag) {
                     return {name: 'markets', query: {tag: normalizeTag(tag)}};
@@ -277,6 +310,143 @@
                 trackTonAchievement: function () {
                     if (!GeckoClient.achievements) return;
                     GeckoClient.achievements.track('ton_viewed', {source_route: 'ton'});
+                },
+                adminClient: function () {
+                    return axios.create({
+                        baseURL: adminApiBaseUrl,
+                        headers: this.adminToken ? {Authorization: 'Bearer ' + this.adminToken} : {}
+                    });
+                },
+                refreshAdminSession: function () {
+                    if (!this.adminToken) {
+                        this.adminActor = null;
+                        return Promise.resolve(null);
+                    }
+                    this.adminLoading = true;
+                    return this.adminClient().get('/config')
+                        .then(response => {
+                            this.adminActor = _.get(response, 'data.data.actor') || null;
+                            return this.adminActor;
+                        })
+                        .catch(error => {
+                            if (_.get(error, 'response.status') === 401) {
+                                localStorage.removeItem(adminTokenStorageKey);
+                                this.adminToken = '';
+                            }
+                            this.adminActor = null;
+                            return null;
+                        })
+                        .finally(() => this.adminLoading = false);
+                },
+                openEditor: function (asset, index) {
+                    if (!this.canEditCuration) return;
+                    const source = asset || {};
+                    this.editorAsset = {
+                        id: source.id || '',
+                        coin_id: source.coin_id || '',
+                        name: source.name || '',
+                        symbol: source.symbol || '',
+                        category: source.category || 'jetton',
+                        verification_state: source.verification_state || 'curated',
+                        description: source.description || '',
+                        featured: !!source.featured,
+                        tags: Array.isArray(source.tags) ? source.tags.slice() : ['ton_ecosystem'],
+                        list_ids: Array.isArray(source.list_ids) ? source.list_ids.slice() : []
+                    };
+                    this.editorIndex = (typeof index === 'number') ? index : -1;
+                    this.editorIsNew = !source.id;
+                    this.editorOpen = true;
+                },
+                openCreator: function () {
+                    if (!this.canEditCuration) return;
+                    this.openEditor(null, -1);
+                    this.editorIsNew = true;
+                },
+                closeEditor: function () {
+                    this.editorOpen = false;
+                    this.editorAsset = null;
+                    this.editorIndex = -1;
+                    this.editorIsNew = false;
+                },
+                fetchAdminContent: function () {
+                    return this.adminClient().get('/config')
+                        .then(response => {
+                            const data = _.get(response, 'data.data') || {};
+                            this.adminActor = data.actor || this.adminActor;
+                            return _.get(data, 'content') || {ton_assets: []};
+                        });
+                },
+                saveEditor: function () {
+                    if (!this.canEditCuration || !this.editorAsset) return;
+                    const draft = this.editorAsset;
+                    if (!draft.id) draft.id = slugId(draft.name || draft.symbol);
+                    if (!draft.id || !draft.name) {
+                        this.adminNotice = 'Asset name and id are required.';
+                        this.adminNoticeType = 'error';
+                        return;
+                    }
+                    this.adminSaving = true;
+                    this.adminNotice = '';
+                    return this.fetchAdminContent()
+                        .then(content => {
+                            const assets = Array.isArray(content.ton_assets) ? content.ton_assets.slice() : [];
+                            const matchIndex = _.findIndex(assets, entry => entry && entry.id === draft.id);
+                            const payload = {
+                                id: draft.id,
+                                coin_id: draft.coin_id || '',
+                                name: draft.name,
+                                symbol: draft.symbol || '',
+                                category: draft.category || 'jetton',
+                                verification_state: draft.verification_state || 'curated',
+                                description: draft.description || '',
+                                featured: !!draft.featured,
+                                tags: Array.isArray(draft.tags) ? draft.tags : [],
+                                list_ids: Array.isArray(draft.list_ids) ? draft.list_ids : []
+                            };
+                            if (matchIndex >= 0) {
+                                assets[matchIndex] = _.assign({}, assets[matchIndex], payload);
+                            } else {
+                                assets.push(payload);
+                            }
+                            return this.adminClient().put('/content', {
+                                content: _.assign({}, content, {ton_assets: assets})
+                            });
+                        })
+                        .then(() => {
+                            this.adminNotice = 'TON asset saved.';
+                            this.adminNoticeType = 'success';
+                            this.closeEditor();
+                            return this.fetchTonEcosystem();
+                        })
+                        .catch(error => {
+                            this.adminNotice = _.get(error, 'response.data.error.message') || 'Saving the asset failed.';
+                            this.adminNoticeType = 'error';
+                        })
+                        .finally(() => this.adminSaving = false);
+                },
+                deleteAsset: function (asset) {
+                    if (!this.canEditCuration || !asset || !asset.id) return;
+                    if (typeof window.confirm === 'function' && !window.confirm('Remove ' + (asset.name || asset.id) + ' from the TON catalog?')) return;
+                    this.adminSaving = true;
+                    this.adminNotice = '';
+                    return this.fetchAdminContent()
+                        .then(content => {
+                            const assets = (Array.isArray(content.ton_assets) ? content.ton_assets : [])
+                                .filter(entry => entry && entry.id !== asset.id);
+                            return this.adminClient().put('/content', {
+                                content: _.assign({}, content, {ton_assets: assets})
+                            });
+                        })
+                        .then(() => {
+                            this.adminNotice = 'TON asset removed.';
+                            this.adminNoticeType = 'success';
+                            return this.fetchTonEcosystem();
+                        })
+                        .catch(error => {
+                            this.adminNotice = _.get(error, 'response.data.error.message') || 'Removing the asset failed.';
+                            this.adminNoticeType = 'error';
+                        })
+                        .finally(() => this.adminSaving = false);
                 }
             }
         }

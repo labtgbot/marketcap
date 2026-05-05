@@ -34,6 +34,10 @@ $frontend_options['ton']['apiBaseUrl'] = site_url( 'api/ton/assets' );
             </div>
         </div>
         <div class="ton-route-actions">
+            <v-btn v-if="canEditCuration" color="primary" depressed class="ton-admin-add-btn" @click="openCreator">
+                <v-icon left>mdi-plus-circle-outline</v-icon>
+                <?php echo esc_html( __( 'Add asset' ) ); ?>
+            </v-btn>
             <v-btn outlined color="primary" @click="shareTonMovers">
                 <v-icon left>mdi-share-variant</v-icon>
                 <?php echo esc_html( __( 'Share' ) ); ?>
@@ -41,6 +45,7 @@ $frontend_options['ton']['apiBaseUrl'] = site_url( 'api/ton/assets' );
         </div>
     </div>
 
+    <v-alert v-if="adminNotice" :type="adminNoticeType" dense text class="mb-4" v-text="adminNotice"></v-alert>
     <v-alert v-if="curationError" type="warning" dense text class="mb-4" v-text="curationError"></v-alert>
 
     <gc-share-card class="mb-6" dense :card="tonShareCard"></gc-share-card>
@@ -195,6 +200,14 @@ $frontend_options['ton']['apiBaseUrl'] = site_url( 'api/ton/assets' );
                         <v-icon left small>mdi-open-in-new</v-icon>
                         <?php echo esc_html( 'Open' ); ?>
                     </v-btn>
+                    <v-btn v-if="canEditCuration" small text class="ton-admin-edit-btn" @click="openEditor(asset)">
+                        <v-icon left small>mdi-pencil-outline</v-icon>
+                        <?php echo esc_html( 'Edit' ); ?>
+                    </v-btn>
+                    <v-btn v-if="canEditCuration" small text color="error" class="ton-admin-delete-btn" :disabled="adminSaving" @click="deleteAsset(asset)">
+                        <v-icon left small>mdi-delete-outline</v-icon>
+                        <?php echo esc_html( 'Remove' ); ?>
+                    </v-btn>
                     <v-spacer></v-spacer>
                     <v-btn small text :to="marketRoute(asset.category)">
                         <v-icon left small>mdi-table-search</v-icon>
@@ -208,4 +221,111 @@ $frontend_options['ton']['apiBaseUrl'] = site_url( 'api/ton/assets' );
     <v-alert v-if="!loadingCuration && !filteredAssets.length" type="info" dense text class="mt-4">
         <?php echo esc_html( 'No TON assets match the active filters.' ); ?>
     </v-alert>
+
+    <v-dialog v-if="canEditCuration" v-model="editorOpen" max-width="640" persistent>
+        <v-card v-if="editorAsset" class="ton-asset-editor">
+            <v-card-title class="text-subtitle-1 font-weight-bold">
+                <v-icon left color="primary">mdi-pencil-circle-outline</v-icon>
+                <span v-if="editorIsNew"><?php echo esc_html( __( 'Add TON asset' ) ); ?></span>
+                <span v-else><?php echo esc_html( __( 'Edit TON asset' ) ); ?></span>
+            </v-card-title>
+            <v-card-text>
+                <v-row dense>
+                    <v-col cols="12" sm="6">
+                        <v-text-field
+                            v-model.trim="editorAsset.id"
+                            label="<?php echo esc_attr( __( 'Asset id' ) ); ?>"
+                            hint="<?php echo esc_attr( __( 'Stable slug used for the catalog page URL.' ) ); ?>"
+                            persistent-hint
+                            outlined
+                            dense
+                            required
+                        ></v-text-field>
+                    </v-col>
+                    <v-col cols="12" sm="6">
+                        <v-text-field
+                            v-model.trim="editorAsset.symbol"
+                            label="<?php echo esc_attr( __( 'Symbol' ) ); ?>"
+                            outlined
+                            dense
+                        ></v-text-field>
+                    </v-col>
+                    <v-col cols="12">
+                        <v-text-field
+                            v-model.trim="editorAsset.name"
+                            label="<?php echo esc_attr( __( 'Name' ) ); ?>"
+                            outlined
+                            dense
+                            required
+                        ></v-text-field>
+                    </v-col>
+                    <v-col cols="12" sm="6">
+                        <v-select
+                            v-model="editorAsset.category"
+                            :items="tonCategoryOptions"
+                            label="<?php echo esc_attr( __( 'Category' ) ); ?>"
+                            outlined
+                            dense
+                        ></v-select>
+                    </v-col>
+                    <v-col cols="12" sm="6">
+                        <v-select
+                            v-model="editorAsset.verification_state"
+                            :items="tonVerificationStateOptions"
+                            label="<?php echo esc_attr( __( 'Verification state' ) ); ?>"
+                            outlined
+                            dense
+                        ></v-select>
+                    </v-col>
+                    <v-col cols="12" sm="6">
+                        <v-text-field
+                            v-model.trim="editorAsset.coin_id"
+                            label="<?php echo esc_attr( __( 'CoinGecko id (optional)' ) ); ?>"
+                            outlined
+                            dense
+                        ></v-text-field>
+                    </v-col>
+                    <v-col cols="12" sm="6" class="d-flex align-center">
+                        <v-switch
+                            v-model="editorAsset.featured"
+                            inset
+                            hide-details
+                            label="<?php echo esc_attr( __( 'Featured' ) ); ?>"
+                        ></v-switch>
+                    </v-col>
+                    <v-col cols="12">
+                        <v-textarea
+                            v-model.trim="editorAsset.description"
+                            label="<?php echo esc_attr( __( 'Description' ) ); ?>"
+                            rows="3"
+                            auto-grow
+                            outlined
+                            dense
+                        ></v-textarea>
+                    </v-col>
+                    <v-col cols="12">
+                        <v-combobox
+                            v-model="editorAsset.tags"
+                            label="<?php echo esc_attr( __( 'Tags' ) ); ?>"
+                            multiple
+                            small-chips
+                            deletable-chips
+                            outlined
+                            dense
+                        ></v-combobox>
+                    </v-col>
+                </v-row>
+            </v-card-text>
+            <v-card-actions>
+                <v-btn text :disabled="adminSaving" @click="closeEditor">
+                    <?php echo esc_html( __( 'Cancel' ) ); ?>
+                </v-btn>
+                <v-spacer></v-spacer>
+                <v-btn color="primary" depressed :loading="adminSaving" @click="saveEditor">
+                    <v-icon left>mdi-content-save-outline</v-icon>
+                    <?php echo esc_html( __( 'Save asset' ) ); ?>
+                </v-btn>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
 </v-container>

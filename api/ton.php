@@ -972,6 +972,14 @@ function tonbankcard_api_ton_asset_route( array $raw, array $asset ) {
         return $raw['route'];
     }
 
+    if ( ! empty( $asset['id'] ) ) {
+        return [
+            'name'   => 'ton-asset',
+            'params' => [ 'id' => $asset['id'] ],
+            'path'   => '/ton/asset/' . rawurlencode( $asset['id'] ),
+        ];
+    }
+
     if ( ! empty( $asset['coin_id'] ) ) {
         return [
             'name'   => 'currency',

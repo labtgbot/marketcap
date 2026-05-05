@@ -80,6 +80,11 @@ $routes['ton'] = [
     'enabled' => TRUE,
 ];
 
+$routes['ton-asset'] = [
+    'path' => '/ton/asset/:id',
+    'enabled' => TRUE,
+];
+
 $routes['crypto-exchange'] = [
     'path' => '/crypto-exchange',
     'enabled' => TRUE,
