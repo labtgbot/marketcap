@@ -271,7 +271,7 @@ function tonbankcard_api_ton_default_assets() {
     return [
         [
             'id'                 => 'toncoin',
-            'coin_id'            => 'toncoin',
+            'coin_id'            => 'the-open-network',
             'name'               => 'Toncoin',
             'symbol'             => 'TON',
             'category'           => 'native',
@@ -280,12 +280,12 @@ function tonbankcard_api_ton_default_assets() {
             'priority'           => 930,
             'link_type'          => 'currency',
             'tags'               => [ 'ton_ecosystem', 'native_ton', 'layer_1' ],
-            'aliases'            => [ 'TON', 'The Open Network', 'Telegram Open Network' ],
+            'aliases'            => [ 'TON', 'The Open Network', 'Telegram Open Network', 'toncoin' ],
             'list_ids'           => [ 'featured', 'trending' ],
             'description'        => 'Native asset of The Open Network and the anchor asset for TONBANKCARD market context.',
             'links'              => [
-                'web'      => '/currency/toncoin',
-                'telegram' => '/app/coin/toncoin',
+                'web'      => '/currency/the-open-network',
+                'telegram' => '/app/coin/the-open-network',
             ],
         ],
         [
@@ -840,7 +840,7 @@ function tonbankcard_api_ton_search_entries( array $runtime, array $config ) {
         }
         $id = isset( $asset['id'] ) ? (string) $asset['id'] : '';
         $coin_id = isset( $asset['coin_id'] ) ? (string) $asset['coin_id'] : '';
-        $type = 'toncoin' === $id && 'toncoin' === $coin_id ? 'coin' : 'ton_asset';
+        $type = 'toncoin' === $id && 'the-open-network' === $coin_id ? 'coin' : 'ton_asset';
         $entry = [
             'type'                 => $type,
             'id'                   => 'coin' === $type && '' !== $coin_id ? $coin_id : $id,

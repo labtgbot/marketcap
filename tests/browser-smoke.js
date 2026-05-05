@@ -712,9 +712,10 @@ async function installRoutes(context, requestLog) {
         }
 
         if (apiPath === 'coins/markets') {
-            if (url.searchParams.get('ids') === 'toncoin') {
+            const idsParam = url.searchParams.get('ids');
+            if (idsParam === 'toncoin' || idsParam === 'the-open-network') {
                 requestLog.tonDominanceMarkets.push(requestRecord(url));
-                const toncoin = marketCurrency('toncoin', 'ton', 'Toncoin', 12, 6.5, -2.4);
+                const toncoin = marketCurrency(idsParam, 'ton', 'Toncoin', 12, 6.5, -2.4);
                 toncoin.market_cap = 7407407340;
 
                 return fulfillMarketJson(route, [toncoin]);
@@ -824,10 +825,14 @@ async function checkMarketPulseHome(page, errors, requestLog) {
     }
 
     const tonDominanceRequest = lastRequest(requestLog.tonDominanceMarkets, 'TON dominance coins request');
-    assertEqual(tonDominanceRequest.params.ids, 'toncoin', 'TON dominance ids');
+    assertEqual(tonDominanceRequest.params.ids, 'the-open-network', 'TON dominance ids');
     assertEqual(tonDominanceRequest.params.vs_currency, 'usd', 'TON dominance vs_currency');
 
-    const request = lastRequest(requestLog.coinsMarkets, 'market pulse coins request');
+    const pulseRequests = requestLog.coinsMarkets.filter(record => !record.params.ids);
+    if (!pulseRequests.length) {
+        fail('market pulse coins request: expected a matching API request');
+    }
+    const request = pulseRequests[pulseRequests.length - 1];
     assertEqual(request.params.vs_currency, 'usd', 'market pulse vs_currency');
     assertEqual(request.params.per_page, '50', 'market pulse per_page');
     assertEqual(request.params.page, '1', 'market pulse page');
