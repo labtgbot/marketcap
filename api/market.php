@@ -321,9 +321,6 @@ function tonbankcard_api_market_provider_config( array $runtime, array $config )
     if ( ! in_array( $plan, [ 'demo', 'pro' ], TRUE ) ) {
         $plan = 'demo';
     }
-    if ( 'demo' === $plan && tonbankcard_api_market_key_looks_pro( $api_key ) ) {
-        $plan = 'pro';
-    }
 
     $base_url_key = 'pro' === $plan ? 'pro_base_url' : 'demo_base_url';
     $base_url = isset( $coingecko[ $base_url_key ] ) ? (string) $coingecko[ $base_url_key ] : 'https://api.coingecko.com/api/v3/';
@@ -342,16 +339,6 @@ function tonbankcard_api_market_provider_config( array $runtime, array $config )
             'url'  => 'https://www.coingecko.com/',
         ],
     ];
-}
-
-/**
- * Detects CoinGecko Pro keys so a configured key does not keep using the Demo API root.
- *
- * @param string $api_key
- * @return bool
- */
-function tonbankcard_api_market_key_looks_pro( string $api_key ) {
-    return 1 === preg_match( '/^CG-[A-Za-z0-9_-]+$/', trim( $api_key ) );
 }
 
 /**
