@@ -4824,10 +4824,15 @@
         const symbol = normalizeKey(_.get(currency, 'symbol'));
         const asset = ids[id] || symbols[symbol] || null;
 
-        if (!asset) return null;
-        if (_.isString(asset)) return {from: asset};
+        if (asset) {
+            return _.isString(asset) ? {from: asset} : _.cloneDeep(asset);
+        }
 
-        return _.cloneDeep(asset);
+        if (widgetOptions.symbolFallback && symbol) {
+            return {from: symbol};
+        }
+
+        return null;
     }
 
     function buildWidgetUrl(baseUrl, params) {
