@@ -749,7 +749,7 @@ async function installRoutes(context, requestLog) {
 
         if (apiPath === 'coins/unsupported-coin') {
             requestLog.coinDetails.push(requestRecord(url));
-            return fulfillMarketJson(route, coinDetail('unsupported-coin', 'zzzz', 'Unsupported Coin', 999, 1));
+            return fulfillMarketJson(route, coinDetail('unsupported-coin', '', 'Unsupported Coin', 999, 1));
         }
 
         if (apiPath === 'coins/bitcoin/market_chart' || apiPath === 'coins/toncoin/market_chart' || apiPath === 'coins/unsupported-coin/market_chart') {
@@ -978,8 +978,8 @@ async function checkCoinChartFailureFallback(page, errors, requestLog) {
     await page.getByText('Chart Failure Coin Price', {exact: false}).first().waitFor({state: 'visible'});
     await page.getByText('Market chart is unavailable', {exact: false}).first().waitFor({state: 'visible'});
     await page.getByRole('button', {name: 'Retry'}).first().waitFor({state: 'visible'});
-    await page.locator('.currency-exchange-widget[data-widget-status="unsupported"]').waitFor({state: 'visible'});
-    await page.getByText('ChangeNOW does not list this asset for the embedded widget yet.', {exact: false}).first().waitFor({state: 'visible'});
+    await page.locator('.currency-exchange-widget[data-widget-status="ready"]').waitFor({state: 'visible'});
+    await page.locator('.currency-exchange-widget iframe').waitFor({state: 'attached'});
 
     const detailRequest = lastRequest(requestLog.coinDetails, 'chart failure coin detail request');
     assertEqual(detailRequest.path, 'coins/chart-failure', 'chart failure coin detail path');
