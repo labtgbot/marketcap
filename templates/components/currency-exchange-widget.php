@@ -26,6 +26,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
     <v-card-text>
         <div v-if="isReady" class="currency-exchange-widget-frame">
             <iframe
+                id="iframe-widget"
                 :src="iframeSrc"
                 :title="iframeTitle"
                 loading="lazy"
