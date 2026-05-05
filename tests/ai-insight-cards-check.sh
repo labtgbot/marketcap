@@ -80,6 +80,8 @@ assert_contains templates/routes/currency.php 'coinInsightContext' 'coin detail 
 assert_contains templates/routes/currency.php 'alertInsightContext' 'alert explanation AI card context'
 assert_contains templates/routes/watchlist.php 'watchlistInsightContext' 'watchlist digest AI card context'
 assert_contains templates/routes/ton.php 'tonInsightContext' 'TON ecosystem AI card context'
+assert_contains templates/routes/ton-asset.php 'tonAssetInsightContext' 'TON asset detail AI card context'
+assert_contains dev/js/src/routes/ton-asset.js 'tonAssetInsightContext' 'TON asset detail AI card computed property'
 assert_contains package.json '"test:ai-insights"' 'the AI insight cards npm script'
 assert_contains package.json 'test:ai-insights' 'the aggregate AI insight cards check'
 assert_contains README.md 'docs/v2-ai-insight-cards\.md' 'the AI insight cards documentation link'

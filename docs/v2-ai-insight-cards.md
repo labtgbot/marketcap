@@ -18,6 +18,7 @@ any asset.
 | Coin detail | `coin_summary` | Coin price, 24h change, market cap, volume, supply, score metadata, and TON ecosystem classification. |
 | Watchlist digest | `watchlist_digest` | The watchlist digest uses user-selected assets, sort state, freshness status, storage mode, and the active quote currency. |
 | TON ecosystem pulse | `ton_ecosystem_pulse` | TON-focused market rows plus route-level coverage areas for Toncoin, Telegram-native discovery, and risk-aware context. |
+| TON asset detail | `ton_ecosystem_pulse` | Single TON asset with verification state, category, description, and live market data when a CoinGecko id is linked. |
 | Alert explanation | `alert_explanation` | Coin detail market data shaped as alert context, including price range, 24h movement, liquidity, and watchlist state. |
 
 Each route prepares bounded factual context in the browser and sends it to
@@ -77,7 +78,7 @@ wrong, stale, or helpful output.
 - Unsafe alert explanation output is rejected and does not reach users.
 - Feedback payloads are validated and stored without raw subject text.
 - Frontend routes include AI cards for market pulse, coin detail, watchlist,
-  TON ecosystem, and alert explanation.
+  TON ecosystem, TON asset detail, and alert explanation.
 - Documentation, migration files, environment config, source bundle entries,
   and npm scripts remain wired into the repo.
 
