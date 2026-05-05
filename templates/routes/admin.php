@@ -309,6 +309,15 @@ $frontend_options['admin']['apiBaseUrl'] = site_url( 'api/admin' );
                                 :disabled="!canWrite"
                             ></v-text-field>
                             <v-text-field
+                                v-model.trim="providers.changenow.listing_url"
+                                label="<?php echo esc_attr( __( 'Listing URL (shown when coin is not listed)' ) ); ?>"
+                                outlined
+                                dense
+                                hide-details="auto"
+                                class="mt-3"
+                                :disabled="!canWrite"
+                            ></v-text-field>
+                            <v-text-field
                                 v-model.trim="providers.telegram.bot_username"
                                 label="<?php echo esc_attr( __( 'Telegram bot username' ) ); ?>"
                                 outlined

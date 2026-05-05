@@ -27,7 +27,7 @@
             groq: {model_id: 'llama-3.3-70b-versatile', api_key: {configured: false}},
             upstash: {status: 'not_configured', rest_url_configured: false, rest_token: {configured: false}},
             telegram: {bot_username: '', bot_token: {configured: false}},
-            changenow: {link_id: ''}
+            changenow: {link_id: '', listing_url: ''}
         };
     }
 
@@ -287,7 +287,8 @@
                             bot_username: _.get(this.providers, 'telegram.bot_username')
                         },
                         changenow: {
-                            link_id: _.get(this.providers, 'changenow.link_id')
+                            link_id:     _.get(this.providers, 'changenow.link_id'),
+                            listing_url: _.get(this.providers, 'changenow.listing_url')
                         }
                     };
 
