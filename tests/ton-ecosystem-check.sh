@@ -79,7 +79,21 @@ assert_contains dev/js/src/routes/ton.js 'TONBANKCARD:adminToken' 'TON catalog a
 assert_contains dev/js/src/routes/ton.js 'canEditCuration' 'TON catalog admin write permission gate'
 assert_contains dev/js/src/routes/ton.js "name: 'ton-asset'" 'TON catalog asset route navigation'
 assert_contains api/ton.php "'ton-asset'" 'TON API exposes the per-asset Vue route name'
+assert_contains api/ton.php 'tonbankcard_api_ton_link_type' 'TON API normalizer accepts a link_type field'
+assert_contains api/ton.php "'project_category'" 'TON API normalizer exposes the project_category field'
 assert_contains assets/css/style.css 'ton-asset-unverified' 'distinct unverified TON asset styling'
+assert_contains templates/routes/currencies.php "tonApiBaseUrl" 'Market Pulse exposes the TON curation endpoint to the frontend'
+assert_contains dev/js/src/routes/currencies.js 'fetchTonCuration' 'Market Pulse fetches the curated TON ecosystem list'
+assert_contains dev/js/src/routes/currencies.js 'tonAssetCoinIds' 'Market Pulse derives TON coin ids from the curation feed'
+assert_contains dev/js/src/routes/ton.js "link_type === 'currency'" 'TON catalog routes currency-linked assets to the cryptocurrency page'
+assert_contains dev/js/src/routes/ton.js "link_type === 'project'" 'TON catalog routes project-linked assets to the catalog page'
+assert_contains dev/js/src/routes/ton.js 'project_category' 'TON catalog editor preserves project_category metadata'
+assert_contains dev/js/src/routes/ton-asset.js 'project_category' 'TON per-asset editor preserves project_category metadata'
+assert_contains dev/js/src/routes/ton.js 'marketForAsset' 'TON catalog falls back to symbol-based market lookup'
+assert_contains templates/routes/ton.php 'tonLinkTypeOptions' 'TON catalog editor exposes the link type selector'
+assert_contains templates/routes/ton.php 'tonProjectCategoryOptions' 'TON catalog editor exposes the project category selector'
+assert_contains templates/routes/ton-asset.php 'tonLinkTypeOptions' 'TON per-asset editor exposes the link type selector'
+assert_contains templates/routes/ton-asset.php 'tonProjectCategoryOptions' 'TON per-asset editor exposes the project category selector'
 
 php_check 'TON curation API should expose defaults, persist manual curation, and preserve verification states' \
     env -i PATH="$PATH" \
@@ -380,6 +394,156 @@ foreach ( $body['data']['assets'] as $asset ) {
     }
 }
 @unlink( $store_path );
+PHP
+
+php_check 'TON curation API should preserve link_type and project_category through admin writes' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_ADMIN_TOKEN='ton-admin-secret' \
+        TONBANKCARD_ADMIN_STORE="$(mktemp)" \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$store_path = (string) getenv( 'TONBANKCARD_ADMIN_STORE' );
+@unlink( $store_path );
+
+$payload = [
+    'content' => [
+        'ton_assets' => [
+            [
+                'id'                 => 'ton-currency-link',
+                'coin_id'            => 'the-open-network',
+                'name'               => 'Currency Linked Asset',
+                'symbol'             => 'TON',
+                'category'           => 'native',
+                'verification_state' => 'verified',
+                'link_type'          => 'currency',
+                'tags'               => [ 'ton_ecosystem', 'native' ],
+            ],
+            [
+                'id'                 => 'ton-project-link',
+                'name'               => 'Project Linked Asset',
+                'symbol'             => 'PROJ',
+                'category'           => 'jetton',
+                'verification_state' => 'curated',
+                'link_type'          => 'project',
+                'project_category'   => 'wallet',
+                'tags'               => [ 'ton_ecosystem' ],
+            ],
+        ],
+    ],
+];
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'PUT',
+        'path'    => '/api/admin/content',
+        'headers' => [
+            'authorization' => 'Bearer ton-admin-secret',
+            'content-type'  => 'application/json',
+            'x-request-id'  => 'ton-link-type-write',
+        ],
+        'body'    => json_encode( $payload ),
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $api
+);
+if ( 200 !== $response['status'] ) {
+    fwrite( STDERR, 'Admin link_type write failed: ' . $response['status'] . ' body ' . $response['body'] . "\n" );
+    exit( 1 );
+}
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'GET',
+        'path'    => '/api/ton/assets',
+        'headers' => [ 'x-request-id' => 'ton-link-type-read' ],
+        'body'    => '',
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $api
+);
+$body = json_decode( $response['body'], TRUE );
+if ( 200 !== $response['status'] || empty( $body['data']['assets'] ) ) {
+    fwrite( STDERR, "TON assets endpoint failed after link_type write\n" );
+    exit( 1 );
+}
+$currency_link = NULL;
+$project_link = NULL;
+foreach ( $body['data']['assets'] as $asset ) {
+    if ( 'ton-currency-link' === $asset['id'] ) $currency_link = $asset;
+    if ( 'ton-project-link' === $asset['id'] ) $project_link = $asset;
+}
+if ( ! $currency_link || 'currency' !== $currency_link['link_type'] ) {
+    fwrite( STDERR, "Currency-linked asset did not preserve link_type\n" );
+    exit( 1 );
+}
+if ( 'currency' !== $currency_link['route']['name'] || '/currency/the-open-network' !== $currency_link['route']['path'] ) {
+    fwrite( STDERR, "Currency-linked asset is not routed to the cryptocurrency page\n" );
+    exit( 1 );
+}
+if ( ! $project_link || 'project' !== $project_link['link_type'] ) {
+    fwrite( STDERR, "Project-linked asset did not preserve link_type\n" );
+    exit( 1 );
+}
+if ( 'wallet' !== $project_link['project_category'] ) {
+    fwrite( STDERR, "Project-linked asset did not preserve project_category\n" );
+    exit( 1 );
+}
+if ( 'ton-asset' !== $project_link['route']['name'] || '/ton/asset/ton-project-link' !== $project_link['route']['path'] ) {
+    fwrite( STDERR, "Project-linked asset is not routed to the per-asset catalog page\n" );
+    exit( 1 );
+}
+@unlink( $store_path );
+PHP
+
+php_check 'TON curation defaults should expose Toncoin with currency link_type and a coin_id for market enrichment' \
+    env -i PATH="$PATH" php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'GET',
+        'path'    => '/api/ton/assets',
+        'headers' => [ 'x-request-id' => 'ton-defaults-toncoin' ],
+        'body'    => '',
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $api
+);
+$body = json_decode( $response['body'], TRUE );
+if ( 200 !== $response['status'] || empty( $body['data']['assets'] ) ) {
+    fwrite( STDERR, "TON defaults endpoint failed\n" );
+    exit( 1 );
+}
+$toncoin = NULL;
+foreach ( $body['data']['assets'] as $asset ) {
+    if ( 'toncoin' === $asset['id'] ) $toncoin = $asset;
+}
+if ( ! $toncoin ) {
+    fwrite( STDERR, "Toncoin default asset is missing from the catalog\n" );
+    exit( 1 );
+}
+if ( empty( $toncoin['coin_id'] ) ) {
+    fwrite( STDERR, "Toncoin default asset is missing coin_id required for market enrichment\n" );
+    exit( 1 );
+}
+if ( 'currency' !== $toncoin['link_type'] ) {
+    fwrite( STDERR, "Toncoin default asset is not linked to the cryptocurrency page\n" );
+    exit( 1 );
+}
+if ( 'currency' !== $toncoin['route']['name'] ) {
+    fwrite( STDERR, "Toncoin default route does not target the cryptocurrency page\n" );
+    exit( 1 );
+}
 PHP
 
 if [ "$failures" -gt 0 ]; then

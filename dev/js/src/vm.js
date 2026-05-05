@@ -15,7 +15,7 @@
     const initialTheme = preferences.theme();
     const derivedDominanceAssets = {
         ton: {
-            id: 'toncoin',
+            id: 'the-open-network',
             vsCurrencyId: 'usd'
         }
     };

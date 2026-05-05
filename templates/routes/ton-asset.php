@@ -136,7 +136,29 @@ $frontend_options['ton-asset']['apiBaseUrl'] = site_url( 'api/ton/assets' );
                         <v-select v-model="editorAsset.verification_state" :items="tonVerificationStateOptions" label="<?php echo esc_attr( __( 'Verification state' ) ); ?>" outlined dense></v-select>
                     </v-col>
                     <v-col cols="12" sm="6">
-                        <v-text-field v-model.trim="editorAsset.coin_id" label="<?php echo esc_attr( __( 'CoinGecko id (optional)' ) ); ?>" outlined dense></v-text-field>
+                        <v-select
+                            v-model="editorAsset.link_type"
+                            :items="tonLinkTypeOptions"
+                            item-text="text"
+                            item-value="value"
+                            label="<?php echo esc_attr( __( 'Card opens' ) ); ?>"
+                            hint="<?php echo esc_attr( __( 'Choose between the cryptocurrency page or a separate project catalog page' ) ); ?>"
+                            persistent-hint
+                            outlined
+                            dense
+                        ></v-select>
+                    </v-col>
+                    <v-col cols="12" sm="6" v-if="editorAsset.link_type === 'project'">
+                        <v-select v-model="editorAsset.project_category" :items="tonProjectCategoryOptions" label="<?php echo esc_attr( __( 'Project category' ) ); ?>" outlined dense clearable></v-select>
+                    </v-col>
+                    <v-col cols="12" sm="6">
+                        <v-text-field
+                            v-model.trim="editorAsset.coin_id"
+                            label="<?php echo esc_attr( __( 'CoinGecko id (optional)' ) ); ?>"
+                            :disabled="editorAsset.link_type === 'project'"
+                            outlined
+                            dense
+                        ></v-text-field>
                     </v-col>
                     <v-col cols="12" sm="6" class="d-flex align-center">
                         <v-switch v-model="editorAsset.featured" inset hide-details label="<?php echo esc_attr( __( 'Featured' ) ); ?>"></v-switch>

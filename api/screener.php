@@ -348,9 +348,24 @@ function tonbankcard_api_screener_ton_asset_map( array $assets ) {
             continue;
         }
 
-        $coin_id = (string) $asset['coin_id'];
-        if ( ! isset( $map[ $coin_id ] ) || tonbankcard_api_screener_ton_asset_priority( $asset ) > tonbankcard_api_screener_ton_asset_priority( $map[ $coin_id ] ) ) {
-            $map[ $coin_id ] = $asset;
+        $keys = [ (string) $asset['coin_id'] ];
+        if ( ! empty( $asset['id'] ) ) {
+            $keys[] = (string) $asset['id'];
+        }
+        if ( isset( $asset['aliases'] ) && is_array( $asset['aliases'] ) ) {
+            foreach ( $asset['aliases'] as $alias ) {
+                $alias = strtolower( trim( (string) $alias ) );
+                if ( '' !== $alias && preg_match( '/^[a-z0-9._-]+$/', $alias ) ) {
+                    $keys[] = $alias;
+                }
+            }
+        }
+
+        $priority = tonbankcard_api_screener_ton_asset_priority( $asset );
+        foreach ( array_unique( $keys ) as $key ) {
+            if ( ! isset( $map[ $key ] ) || $priority > tonbankcard_api_screener_ton_asset_priority( $map[ $key ] ) ) {
+                $map[ $key ] = $asset;
+            }
         }
     }
 

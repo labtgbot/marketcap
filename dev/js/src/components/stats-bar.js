@@ -9,7 +9,7 @@
         doge: 'dogecoin',
         dot: 'polkadot',
         eth: 'ethereum',
-        ton: 'toncoin',
+        ton: 'the-open-network',
         usdc: 'usd-coin',
         usdt: 'tether',
         xrp: 'ripple'
