@@ -5585,6 +5585,8 @@
                 this.coins = _.each(trending.coins, coin => {
                     coin.route = {name: 'currency', params: {id: coin.id}}
                 });
+            }).catch(error => {
+                console.warn('CoinGecko.searchTrending() failed', error);
             });
         }
     });
@@ -10267,6 +10269,8 @@
             CoinGecko.global().then(global => {
                 this.global = global;
                 this.fetchDerivedMarketCapPercentages();
+            }).catch(error => {
+                console.warn('CoinGecko.global() failed', error);
             });
         },
         methods: {

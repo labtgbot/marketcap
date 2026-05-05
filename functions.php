@@ -137,7 +137,7 @@ function tonbankcard_content_security_policy() {
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
         "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com",
         "img-src 'self' data: blob: https://assets.coingecko.com https://*.coingecko.com https://changenow.io https://*.changenow.io",
-        "connect-src 'self' https://api.coingecko.com https://pro-api.coingecko.com https://api.groq.com https://*.upstash.io https://tonapi.io https://*.tonapi.io https://*.tonkeeper.com",
+        "connect-src 'self' https://cdn.jsdelivr.net https://api.coingecko.com https://pro-api.coingecko.com https://api.groq.com https://*.upstash.io https://tonapi.io https://*.tonapi.io https://*.tonkeeper.com",
         "frame-src 'self' https://changenow.io https://*.changenow.io https://tonkeeper.com https://*.tonkeeper.com",
         "worker-src 'self'",
         "manifest-src 'self'",
