@@ -398,7 +398,8 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
         $groq_base_url      = tonbankcard_normalize_url( (string) tonbankcard_env( 'GROQ_BASE_URL', 'https://api.groq.com/openai/v1/' ) );
         $upstash_token      = (string) tonbankcard_env( 'UPSTASH_REDIS_REST_TOKEN', '' );
         $mysql_password     = (string) tonbankcard_env( 'MYSQL_PASSWORD', '' );
-        $changenow_link_id  = tonbankcard_runtime_admin_scalar( $admin_store, [ 'providers', 'changenow', 'link_id' ], (string) tonbankcard_env( 'CHANGENOW_LINK_ID', '' ) );
+        $changenow_link_id     = tonbankcard_runtime_admin_scalar( $admin_store, [ 'providers', 'changenow', 'link_id' ], (string) tonbankcard_env( 'CHANGENOW_LINK_ID', '' ) );
+        $changenow_listing_url = tonbankcard_runtime_admin_scalar( $admin_store, [ 'providers', 'changenow', 'listing_url' ], (string) tonbankcard_env( 'CHANGENOW_LISTING_URL', '' ) );
         $observability_log_level = strtolower( trim( (string) tonbankcard_env( 'TONBANKCARD_OBSERVABILITY_LOG_LEVEL', 'warning' ) ) );
         if ( ! in_array( $observability_log_level, [ 'debug', 'info', 'warning', 'warn', 'error', 'critical', 'off' ], TRUE ) ) {
             $observability_log_level = 'warning';
@@ -465,7 +466,8 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
                     'password_configured' => '' !== trim( $mysql_password ),
                 ],
                 'changenow' => [
-                    'link_id' => $changenow_link_id,
+                    'link_id'     => $changenow_link_id,
+                    'listing_url' => $changenow_listing_url,
                 ],
             ],
             'admin'         => [

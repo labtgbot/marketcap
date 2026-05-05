@@ -458,7 +458,8 @@ function tonbankcard_api_admin_default_state( array $runtime, array $config ) {
                 'bot_token'    => tonbankcard_api_admin_secret_metadata_from_config( ! empty( $runtime['telegram']['bot_token_configured'] ), 'env:TONBANKCARD_BOT_TOKEN' ),
             ],
             'changenow' => [
-                'link_id' => isset( $providers['changenow']['link_id'] ) ? (string) $providers['changenow']['link_id'] : '',
+                'link_id'     => isset( $providers['changenow']['link_id'] ) ? (string) $providers['changenow']['link_id'] : '',
+                'listing_url' => isset( $providers['changenow']['listing_url'] ) ? (string) $providers['changenow']['listing_url'] : '',
             ],
         ],
         'content'          => [
@@ -853,6 +854,9 @@ function tonbankcard_api_admin_normalize_provider_input( array $input, array $cu
         $providers['changenow'] = [];
         if ( isset( $input['changenow']['link_id'] ) ) {
             $providers['changenow']['link_id'] = tonbankcard_api_admin_safe_text( $input['changenow']['link_id'], 96 );
+        }
+        if ( isset( $input['changenow']['listing_url'] ) ) {
+            $providers['changenow']['listing_url'] = tonbankcard_api_admin_safe_text( $input['changenow']['listing_url'], 512 );
         }
     }
 

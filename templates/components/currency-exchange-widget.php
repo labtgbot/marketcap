@@ -26,6 +26,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
     <v-card-text>
         <div v-if="isReady" class="currency-exchange-widget-frame">
             <iframe
+                id="iframe-widget"
                 :src="iframeSrc"
                 :title="iframeTitle"
                 loading="lazy"
@@ -36,9 +37,24 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
         <v-alert v-else-if="widgetStatus === 'disabled'" type="info" outlined text dense class="mb-0">
             <?php echo esc_html( __( 'ChangeNOW exchange widget is disabled for this environment.' ) ); ?>
         </v-alert>
-        <v-alert v-else type="info" outlined text dense class="mb-0">
-            <?php echo esc_html( __( 'ChangeNOW does not list this asset for the embedded widget yet.' ) ); ?>
-        </v-alert>
+        <template v-else>
+            <v-alert type="info" outlined text dense class="mb-0">
+                <?php echo esc_html( __( 'ChangeNOW does not list this asset for the embedded widget yet.' ) ); ?>
+            </v-alert>
+            <div v-if="listingUrl" class="mt-3">
+                <v-btn
+                    :href="listingUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    color="primary"
+                    outlined
+                    small
+                >
+                    <v-icon left small>mdi-plus-circle-outline</v-icon>
+                    <?php echo esc_html( __( 'Request coin listing on ChangeNOW' ) ); ?>
+                </v-btn>
+            </div>
+        </template>
         <div class="currency-exchange-widget-disclaimer text-caption text--secondary mt-3">
             <?php echo esc_html( __( 'Third-party exchange availability, rates, fees, KYC rules, and execution are controlled by the provider.' ) ); ?>
         </div>

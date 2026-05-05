@@ -65,6 +65,9 @@
             isReady: function () {
                 return this.widgetStatus === 'ready';
             },
+            listingUrl: function () {
+                return _.trim(widgetOptions.listingUrl || '');
+            },
             assetLabel: function () {
                 return this.supportedAsset && this.supportedAsset.label
                     ? this.supportedAsset.label

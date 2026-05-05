@@ -71,9 +71,13 @@ $route_currency['converter'] = FALSE;
 |
 */
 $runtime_config = isset( $GLOBALS['runtime_config'] ) && is_array( $GLOBALS['runtime_config'] ) ? $GLOBALS['runtime_config'] : [];
-$changenow_link_id = '';
+$changenow_link_id    = '';
+$changenow_listing_url = '';
 if ( ! empty( $runtime_config['providers']['changenow']['link_id'] ) ) {
     $changenow_link_id = trim( (string) $runtime_config['providers']['changenow']['link_id'] );
+}
+if ( ! empty( $runtime_config['providers']['changenow']['listing_url'] ) ) {
+    $changenow_listing_url = trim( (string) $runtime_config['providers']['changenow']['listing_url'] );
 }
 
 $route_currency['exchange_widget'] = [
@@ -82,6 +86,7 @@ $route_currency['exchange_widget'] = [
     'widgetUrl'          => 'https://changenow.io/embeds/exchange-widget/v2/widget.html',
     'connectorScriptUrl' => 'https://changenow.io/embeds/exchange-widget/v2/stepper-connector.js',
     'linkId'             => '' === $changenow_link_id ? '3cc0024a18fd9d' : $changenow_link_id,
+    'listingUrl'         => $changenow_listing_url,
     'defaults'           => [
         'FAQ'             => 'true',
         'amount'          => '0.1',
