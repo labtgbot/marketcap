@@ -11,6 +11,8 @@
                 this.coins = _.each(trending.coins, coin => {
                     coin.route = {name: 'currency', params: {id: coin.id}}
                 });
+            }).catch(error => {
+                console.warn('CoinGecko.searchTrending() failed', error);
             });
         }
     });

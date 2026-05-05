@@ -434,6 +434,13 @@ function tonbankcard_api_ton_load_state( array $runtime, array $config ) {
         }
     }
 
+    $excluded_ids = tonbankcard_api_ton_admin_excluded_ids();
+    if ( ! empty( $excluded_ids ) ) {
+        foreach ( $excluded_ids as $excluded_id ) {
+            unset( $assets[ $excluded_id ] );
+        }
+    }
+
     uasort(
         $assets,
         function ( $left, $right ) {
@@ -486,6 +493,24 @@ function tonbankcard_api_ton_admin_assets() {
     }
 
     return array_values( $store['content']['ton_assets'] );
+}
+
+/**
+ * Returns admin-excluded TON asset IDs from the safe admin store.
+ *
+ * @return array
+ */
+function tonbankcard_api_ton_admin_excluded_ids() {
+    if ( ! function_exists( 'tonbankcard_runtime_admin_store' ) ) {
+        return [];
+    }
+
+    $store = tonbankcard_runtime_admin_store();
+    if ( empty( $store['content']['ton_excluded_asset_ids'] ) || ! is_array( $store['content']['ton_excluded_asset_ids'] ) ) {
+        return [];
+    }
+
+    return array_values( $store['content']['ton_excluded_asset_ids'] );
 }
 
 /**

@@ -317,6 +317,71 @@ if ( 'ton-asset' !== $found['route']['name'] || '/ton/asset/ton-portal-asset' !=
 @unlink( $store_path );
 PHP
 
+php_check 'admin exclusion list should suppress built-in default assets from the public catalog' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_ADMIN_TOKEN='ton-admin-secret' \
+        TONBANKCARD_ADMIN_STORE="$(mktemp)" \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$store_path = (string) getenv( 'TONBANKCARD_ADMIN_STORE' );
+@unlink( $store_path );
+
+// Exclude toncoin (built-in default) via admin content write.
+$payload = [
+    'content' => [
+        'ton_excluded_asset_ids' => [ 'toncoin' ],
+    ],
+];
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'PUT',
+        'path'    => '/api/admin/content',
+        'headers' => [
+            'authorization' => 'Bearer ton-admin-secret',
+            'content-type'  => 'application/json',
+            'x-request-id'  => 'ton-exclusion-write',
+        ],
+        'body'    => json_encode( $payload ),
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $api
+);
+if ( 200 !== $response['status'] ) {
+    fwrite( STDERR, 'Admin exclusion write failed: ' . $response['status'] . ' body ' . $response['body'] . "\n" );
+    exit( 1 );
+}
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'GET',
+        'path'    => '/api/ton/assets',
+        'headers' => [ 'x-request-id' => 'ton-exclusion-read' ],
+        'body'    => '',
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $api
+);
+$body = json_decode( $response['body'], TRUE );
+if ( 200 !== $response['status'] || ! is_array( $body['data']['assets'] ) ) {
+    fwrite( STDERR, "TON assets endpoint failed after exclusion write\n" );
+    exit( 1 );
+}
+foreach ( $body['data']['assets'] as $asset ) {
+    if ( 'toncoin' === $asset['id'] ) {
+        fwrite( STDERR, "Excluded default asset 'toncoin' still appears in the public TON catalog\n" );
+        exit( 1 );
+    }
+}
+@unlink( $store_path );
+PHP
+
 if [ "$failures" -gt 0 ]; then
     exit 1
 fi

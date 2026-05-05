@@ -107,6 +107,8 @@
             CoinGecko.global().then(global => {
                 this.global = global;
                 this.fetchDerivedMarketCapPercentages();
+            }).catch(error => {
+                console.warn('CoinGecko.global() failed', error);
             });
         },
         methods: {
