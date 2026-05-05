@@ -278,15 +278,11 @@ function tonbankcard_api_ton_default_assets() {
             'verification_state' => 'verified',
             'featured'           => TRUE,
             'priority'           => 930,
+            'link_type'          => 'currency',
             'tags'               => [ 'ton_ecosystem', 'native_ton', 'layer_1' ],
             'aliases'            => [ 'TON', 'The Open Network', 'Telegram Open Network' ],
             'list_ids'           => [ 'featured', 'trending' ],
             'description'        => 'Native asset of The Open Network and the anchor asset for TONBANKCARD market context.',
-            'route'              => [
-                'name'   => 'currency',
-                'params' => [ 'id' => 'toncoin' ],
-                'path'   => '/currency/toncoin',
-            ],
             'links'              => [
                 'web'      => '/currency/toncoin',
                 'telegram' => '/app/coin/toncoin',
@@ -301,6 +297,7 @@ function tonbankcard_api_ton_default_assets() {
             'verification_state' => 'verified',
             'featured'           => TRUE,
             'priority'           => 920,
+            'link_type'          => 'currency',
             'tags'               => [ 'ton_ecosystem', 'ton_asset', 'stablecoin', 'jetton' ],
             'aliases'            => [ 'USDT TON', 'USDT on TON', 'USDTTON', 'Tether TON' ],
             'contract_addresses' => [ 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs' ],
@@ -367,6 +364,8 @@ function tonbankcard_api_ton_default_assets() {
             'verification_state' => 'curated',
             'featured'           => TRUE,
             'priority'           => 700,
+            'link_type'          => 'project',
+            'project_category'   => 'wallet',
             'tags'               => [ 'ton_ecosystem', 'wallet' ],
             'aliases'            => [ 'TON wallet', 'Tonkeeper wallet' ],
             'list_ids'           => [ 'featured', 'wallets' ],
@@ -384,6 +383,8 @@ function tonbankcard_api_ton_default_assets() {
             'verification_state' => 'curated',
             'featured'           => FALSE,
             'priority'           => 660,
+            'link_type'          => 'project',
+            'project_category'   => 'infrastructure',
             'tags'               => [ 'ton_ecosystem', 'infrastructure', 'developer_tools' ],
             'aliases'            => [ 'TON API', 'TON developer API' ],
             'list_ids'           => [ 'infrastructure' ],
@@ -946,6 +947,8 @@ function tonbankcard_api_ton_normalize_asset( array $asset ) {
     $coin_id = tonbankcard_api_ton_safe_id( isset( $asset['coin_id'] ) ? $asset['coin_id'] : '' );
     $category = tonbankcard_api_ton_slug( isset( $asset['category'] ) ? $asset['category'] : 'jetton' );
     $state = tonbankcard_api_ton_verification_state( isset( $asset['verification_state'] ) ? $asset['verification_state'] : ( isset( $asset['state'] ) ? $asset['state'] : 'unverified' ) );
+    $link_type = tonbankcard_api_ton_link_type( isset( $asset['link_type'] ) ? $asset['link_type'] : '', $coin_id );
+    $project_category = tonbankcard_api_ton_slug( isset( $asset['project_category'] ) ? $asset['project_category'] : '' );
     $tags = tonbankcard_api_ton_unique_values(
         array_merge(
             [ 'ton_ecosystem', $category ],
@@ -965,6 +968,8 @@ function tonbankcard_api_ton_normalize_asset( array $asset ) {
         'featured'           => ! empty( $asset['featured'] ),
         'visible'            => ! array_key_exists( 'visible', $asset ) || ! empty( $asset['visible'] ),
         'priority'           => isset( $asset['priority'] ) ? max( 0, (int) $asset['priority'] ) : 0,
+        'link_type'          => $link_type,
+        'project_category'   => $project_category,
         'tags'               => $tags,
         'aliases'            => tonbankcard_api_ton_unique_values( tonbankcard_api_ton_values( isset( $asset['aliases'] ) ? $asset['aliases'] : [] ) ),
         'list_ids'           => tonbankcard_api_ton_unique_values( tonbankcard_api_ton_values( isset( $asset['list_ids'] ) ? $asset['list_ids'] : [] ) ),
@@ -974,6 +979,9 @@ function tonbankcard_api_ton_normalize_asset( array $asset ) {
 
     if ( '' === $normalized['coin_id'] ) {
         unset( $normalized['coin_id'] );
+    }
+    if ( '' === $normalized['project_category'] ) {
+        unset( $normalized['project_category'] );
     }
     if ( empty( $normalized['list_ids'] ) && ! empty( $normalized['featured'] ) ) {
         $normalized['list_ids'] = [ 'featured' ];
@@ -986,6 +994,24 @@ function tonbankcard_api_ton_normalize_asset( array $asset ) {
 }
 
 /**
+ * Normalizes the link target type chosen by curators.
+ *
+ * @param mixed  $value   Raw link_type value from the curation source.
+ * @param string $coin_id Resolved CoinGecko id, when present.
+ * @return string         Either 'currency' or 'project'.
+ */
+function tonbankcard_api_ton_link_type( $value, $coin_id ) {
+    $value = strtolower( trim( (string) $value ) );
+    if ( 'currency' === $value || 'coin' === $value || 'market' === $value ) {
+        return 'currency';
+    }
+    if ( 'project' === $value || 'asset' === $value || 'catalog' === $value ) {
+        return 'project';
+    }
+    return '' !== (string) $coin_id ? 'currency' : 'project';
+}
+
+/**
  * Returns a safe route for a normalized TON asset.
  *
  * @param array $raw
@@ -993,6 +1019,24 @@ function tonbankcard_api_ton_normalize_asset( array $asset ) {
  * @return array
  */
 function tonbankcard_api_ton_asset_route( array $raw, array $asset ) {
+    $link_type = isset( $asset['link_type'] ) ? (string) $asset['link_type'] : '';
+
+    if ( 'currency' === $link_type && ! empty( $asset['coin_id'] ) ) {
+        return [
+            'name'   => 'currency',
+            'params' => [ 'id' => $asset['coin_id'] ],
+            'path'   => '/currency/' . rawurlencode( $asset['coin_id'] ),
+        ];
+    }
+
+    if ( 'project' === $link_type && ! empty( $asset['id'] ) ) {
+        return [
+            'name'   => 'ton-asset',
+            'params' => [ 'id' => $asset['id'] ],
+            'path'   => '/ton/asset/' . rawurlencode( $asset['id'] ),
+        ];
+    }
+
     if ( isset( $raw['route'] ) && is_array( $raw['route'] ) && ! empty( $raw['route']['path'] ) ) {
         return $raw['route'];
     }

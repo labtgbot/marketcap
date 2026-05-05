@@ -9,6 +9,11 @@
     const adminApiBaseUrl = '/api/admin';
     const tonCategoryOptions = ['native', 'stablecoin', 'jetton', 'defi', 'wallet', 'infrastructure', 'community'];
     const tonVerificationStateOptions = ['verified', 'curated', 'unverified'];
+    const tonLinkTypeOptions = [
+        {value: 'currency', text: 'Cryptocurrency page'},
+        {value: 'project', text: 'Project catalog page'}
+    ];
+    const tonProjectCategoryOptions = ['defi', 'wallet', 'infrastructure', 'community', 'jetton', 'stablecoin', 'native'];
 
     const normalizeTag = value => {
         value = _.toString(value || '').toLowerCase().trim().replace(/[^a-z0-9._-]+/g, '_').replace(/^[._-]+|[._-]+$/g, '');
@@ -53,7 +58,9 @@
                     editorIndex: -1,
                     editorIsNew: false,
                     tonCategoryOptions: tonCategoryOptions.slice(),
-                    tonVerificationStateOptions: tonVerificationStateOptions.slice()
+                    tonVerificationStateOptions: tonVerificationStateOptions.slice(),
+                    tonLinkTypeOptions: tonLinkTypeOptions.slice(),
+                    tonProjectCategoryOptions: tonProjectCategoryOptions.slice()
                 };
             },
             created: function () {
@@ -237,9 +244,17 @@
                 },
                 decorateAssets: function (assets) {
                     return assets.map(asset => Object.assign({}, asset, {
-                        market: asset.coin_id ? (this.tonMarketMap[asset.coin_id] || null) : null,
+                        market: this.marketForAsset(asset),
                         categoryLabel: this.categoryTitle(asset.category)
                     }));
+                },
+                marketForAsset: function (asset) {
+                    if (!asset || !asset.coin_id) return null;
+                    const direct = this.tonMarketMap[asset.coin_id];
+                    if (direct) return direct;
+                    const symbol = _.toLower(asset.symbol || '');
+                    if (!symbol) return null;
+                    return _.find(this.tonMarketMap, currency => _.toLower(currency.symbol) === symbol) || null;
                 },
                 assetMatchesFilters: function (asset) {
                     if (this.tonFilters.category && this.tonFilters.category !== asset.category) return false;
@@ -291,10 +306,13 @@
                     return 'warning';
                 },
                 assetRoute: function (asset) {
-                    if (asset && asset.id) return {name: 'ton-asset', params: {id: asset.id}};
-                    if (asset && asset.route) return asset.route;
-                    if (asset && asset.coin_id) return {name: 'currency', params: {id: asset.coin_id}};
-                    return {name: 'ton', query: {category: asset ? asset.category : ''}};
+                    if (!asset) return {name: 'ton'};
+                    if (asset.link_type === 'currency' && asset.coin_id) return {name: 'currency', params: {id: asset.coin_id}};
+                    if (asset.link_type === 'project' && asset.id) return {name: 'ton-asset', params: {id: asset.id}};
+                    if (asset.id) return {name: 'ton-asset', params: {id: asset.id}};
+                    if (asset.route) return asset.route;
+                    if (asset.coin_id) return {name: 'currency', params: {id: asset.coin_id}};
+                    return {name: 'ton', query: {category: asset.category || ''}};
                 },
                 coinRoute: function (asset) {
                     if (asset && asset.coin_id) return {name: 'currency', params: {id: asset.coin_id}};
@@ -341,6 +359,7 @@
                 openEditor: function (asset, index) {
                     if (!this.canEditCuration) return;
                     const source = asset || {};
+                    const link_type = source.link_type || (source.coin_id ? 'currency' : 'project');
                     this.editorAsset = {
                         id: source.id || '',
                         coin_id: source.coin_id || '',
@@ -348,6 +367,8 @@
                         symbol: source.symbol || '',
                         category: source.category || 'jetton',
                         verification_state: source.verification_state || 'curated',
+                        link_type: link_type,
+                        project_category: source.project_category || (link_type === 'project' ? source.category || '' : ''),
                         description: source.description || '',
                         featured: !!source.featured,
                         tags: Array.isArray(source.tags) ? source.tags.slice() : ['ton_ecosystem'],
@@ -391,6 +412,7 @@
                         .then(content => {
                             const assets = Array.isArray(content.ton_assets) ? content.ton_assets.slice() : [];
                             const matchIndex = _.findIndex(assets, entry => entry && entry.id === draft.id);
+                            const link_type = draft.link_type === 'currency' ? 'currency' : 'project';
                             const payload = {
                                 id: draft.id,
                                 coin_id: draft.coin_id || '',
@@ -398,6 +420,8 @@
                                 symbol: draft.symbol || '',
                                 category: draft.category || 'jetton',
                                 verification_state: draft.verification_state || 'curated',
+                                link_type: link_type,
+                                project_category: link_type === 'project' ? (draft.project_category || draft.category || '') : '',
                                 description: draft.description || '',
                                 featured: !!draft.featured,
                                 tags: Array.isArray(draft.tags) ? draft.tags : [],

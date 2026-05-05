@@ -278,14 +278,50 @@ $frontend_options['ton']['apiBaseUrl'] = site_url( 'api/ton/assets' );
                         ></v-select>
                     </v-col>
                     <v-col cols="12" sm="6">
+                        <v-select
+                            v-model="editorAsset.link_type"
+                            :items="tonLinkTypeOptions"
+                            label="<?php echo esc_attr( __( 'Open link as' ) ); ?>"
+                            hint="<?php echo esc_attr( __( 'Choose between the cryptocurrency page or a separate project catalog page.' ) ); ?>"
+                            persistent-hint
+                            outlined
+                            dense
+                            class="ton-asset-editor-link-type"
+                        ></v-select>
+                    </v-col>
+                    <v-col cols="12" sm="6">
                         <v-text-field
                             v-model.trim="editorAsset.coin_id"
                             label="<?php echo esc_attr( __( 'CoinGecko id (optional)' ) ); ?>"
+                            :disabled="editorAsset.link_type === 'project'"
+                            hint="<?php echo esc_attr( __( 'Required when linking to the cryptocurrency page.' ) ); ?>"
+                            persistent-hint
                             outlined
                             dense
                         ></v-text-field>
                     </v-col>
-                    <v-col cols="12" sm="6" class="d-flex align-center">
+                    <v-col cols="12" sm="6">
+                        <v-select
+                            v-if="editorAsset.link_type === 'project'"
+                            v-model="editorAsset.project_category"
+                            :items="tonProjectCategoryOptions"
+                            label="<?php echo esc_attr( __( 'Project category' ) ); ?>"
+                            hint="<?php echo esc_attr( __( 'Surfaces a project-only catalog filter without a cryptocurrency.' ) ); ?>"
+                            persistent-hint
+                            outlined
+                            dense
+                            clearable
+                            class="ton-asset-editor-project-category"
+                        ></v-select>
+                        <v-switch
+                            v-else
+                            v-model="editorAsset.featured"
+                            inset
+                            hide-details
+                            label="<?php echo esc_attr( __( 'Featured' ) ); ?>"
+                        ></v-switch>
+                    </v-col>
+                    <v-col v-if="editorAsset.link_type === 'project'" cols="12" sm="6" class="d-flex align-center">
                         <v-switch
                             v-model="editorAsset.featured"
                             inset

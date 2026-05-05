@@ -12,6 +12,11 @@
     const adminApiBaseUrl = '/api/admin';
     const tonCategoryOptions = ['native', 'stablecoin', 'jetton', 'defi', 'wallet', 'infrastructure', 'community'];
     const tonVerificationStateOptions = ['verified', 'curated', 'unverified'];
+    const tonLinkTypeOptions = [
+        {value: 'currency', text: 'Cryptocurrency page'},
+        {value: 'project', text: 'Project catalog page'}
+    ];
+    const tonProjectCategoryOptions = ['defi', 'wallet', 'infrastructure', 'community', 'jetton', 'stablecoin', 'native'];
 
     const normalizeTag = value => {
         value = _.toString(value || '').toLowerCase().trim().replace(/[^a-z0-9._-]+/g, '_').replace(/^[._-]+|[._-]+$/g, '');
@@ -37,7 +42,9 @@
                     editorOpen: false,
                     editorAsset: null,
                     tonCategoryOptions: tonCategoryOptions.slice(),
-                    tonVerificationStateOptions: tonVerificationStateOptions.slice()
+                    tonVerificationStateOptions: tonVerificationStateOptions.slice(),
+                    tonLinkTypeOptions: tonLinkTypeOptions.slice(),
+                    tonProjectCategoryOptions: tonProjectCategoryOptions.slice()
                 };
             },
             created: function () {
@@ -204,6 +211,7 @@
                 openEditor: function () {
                     if (!this.canEditCuration || !this.asset) return;
                     const asset = this.asset;
+                    const link_type = asset.link_type || (asset.coin_id ? 'currency' : 'project');
                     this.editorAsset = {
                         id: asset.id,
                         coin_id: asset.coin_id || '',
@@ -211,6 +219,8 @@
                         symbol: asset.symbol || '',
                         category: asset.category || 'jetton',
                         verification_state: asset.verification_state || 'curated',
+                        link_type: link_type,
+                        project_category: asset.project_category || (link_type === 'project' ? asset.category || '' : ''),
                         description: asset.description || '',
                         featured: !!asset.featured,
                         tags: Array.isArray(asset.tags) ? asset.tags.slice() : ['ton_ecosystem'],
@@ -236,6 +246,7 @@
                         .then(content => {
                             const assets = Array.isArray(content.ton_assets) ? content.ton_assets.slice() : [];
                             const matchIndex = _.findIndex(assets, entry => entry && entry.id === draft.id);
+                            const link_type = draft.link_type === 'currency' ? 'currency' : 'project';
                             const payload = {
                                 id: draft.id,
                                 coin_id: draft.coin_id || '',
@@ -243,6 +254,8 @@
                                 symbol: draft.symbol || '',
                                 category: draft.category || 'jetton',
                                 verification_state: draft.verification_state || 'curated',
+                                link_type: link_type,
+                                project_category: link_type === 'project' ? (draft.project_category || draft.category || '') : '',
                                 description: draft.description || '',
                                 featured: !!draft.featured,
                                 tags: Array.isArray(draft.tags) ? draft.tags : [],
