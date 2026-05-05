@@ -292,10 +292,10 @@ if ( FALSE !== strpos( $response['body'], 'pro-secret-key' ) ) {
 }
 PHP
 
-php_check 'market gateway should infer Pro API routing from CoinGecko Pro key prefixes' \
+php_check 'market gateway should honour explicit Demo plan even when the API key has the CG- prefix shared by Demo and Pro keys' \
     env -i PATH="$PATH" \
         COINGECKO_API_PLAN=demo \
-        COINGECKO_API_KEY='CG-pro-secret-key' \
+        COINGECKO_API_KEY='CG-demo-secret-key' \
         php <<'PHP'
 <?php
 require 'constants.php';
@@ -304,20 +304,20 @@ require __DIR__ . '/api/router.php';
 
 $test_api = $api;
 $test_api['market_data']['transport'] = function ( $request ) {
-    if ( 'https://pro-api.coingecko.com/api/v3/global' !== $request['url'] ) {
-        fwrite( STDERR, 'Expected Pro API URL for CG-prefixed key, got: ' . $request['url'] . "\n" );
+    if ( 'https://api.coingecko.com/api/v3/global' !== $request['url'] ) {
+        fwrite( STDERR, 'Expected Demo API URL for explicit demo plan, got: ' . $request['url'] . "\n" );
         exit( 1 );
     }
-    if ( empty( $request['headers']['x-cg-pro-api-key'] ) || 'CG-pro-secret-key' !== $request['headers']['x-cg-pro-api-key'] ) {
-        fwrite( STDERR, "CG-prefixed key was not sent with the Pro API header\n" );
+    if ( empty( $request['headers']['x-cg-demo-api-key'] ) || 'CG-demo-secret-key' !== $request['headers']['x-cg-demo-api-key'] ) {
+        fwrite( STDERR, "CG-prefixed Demo key was not sent with the Demo API header\n" );
         exit( 1 );
     }
-    if ( isset( $request['headers']['x-cg-demo-api-key'] ) ) {
-        fwrite( STDERR, "CG-prefixed key should not be sent with the Demo API header\n" );
+    if ( isset( $request['headers']['x-cg-pro-api-key'] ) ) {
+        fwrite( STDERR, "Demo plan must not send the Pro API header\n" );
         exit( 1 );
     }
-    if ( 'pro' !== $request['plan'] ) {
-        fwrite( STDERR, 'Expected inferred Pro plan, got ' . $request['plan'] . "\n" );
+    if ( 'demo' !== $request['plan'] ) {
+        fwrite( STDERR, 'Expected demo plan, got ' . $request['plan'] . "\n" );
         exit( 1 );
     }
 
@@ -346,8 +346,8 @@ if ( 200 !== $response['status'] ) {
 }
 
 $payload = json_decode( $response['body'], TRUE );
-if ( ! is_array( $payload ) || 'pro' !== $payload['meta']['provider']['plan'] || empty( $payload['meta']['provider']['credentialed'] ) ) {
-    fwrite( STDERR, "Response did not expose safe inferred Pro provider metadata\n" );
+if ( ! is_array( $payload ) || 'demo' !== $payload['meta']['provider']['plan'] || empty( $payload['meta']['provider']['credentialed'] ) ) {
+    fwrite( STDERR, "Response did not expose safe Demo provider metadata for explicit demo plan\n" );
     exit( 1 );
 }
 PHP
