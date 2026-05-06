@@ -98,6 +98,8 @@ $frontend_options['markets']['tableHeaders'] = [
         'value' => 'name',
         'sortable' => TRUE,
         'align' => 'start',
+        'width' => 260,
+        'cellClass' => 'markets-name-col',
         'show' => TRUE,
     ],
     [
