@@ -94,6 +94,11 @@ assert_contains templates/routes/ton.php 'tonLinkTypeOptions' 'TON catalog edito
 assert_contains templates/routes/ton.php 'tonProjectCategoryOptions' 'TON catalog editor exposes the project category selector'
 assert_contains templates/routes/ton-asset.php 'tonLinkTypeOptions' 'TON per-asset editor exposes the link type selector'
 assert_contains templates/routes/ton-asset.php 'tonProjectCategoryOptions' 'TON per-asset editor exposes the project category selector'
+assert_contains dev/js/src/routes/ton.js "tonEcosystemCategoryId = 'ton-ecosystem'" 'TON catalog references the CoinGecko ton-ecosystem category id'
+assert_contains dev/js/src/routes/ton.js 'fetchTonEcosystemCategory' 'TON catalog auto-discovers CoinGecko ton-ecosystem coins'
+assert_contains dev/js/src/routes/ton.js 'synthesizeAssetFromMarket' 'TON catalog synthesizes assets from auto-discovered markets'
+assert_contains dev/js/src/routes/ton.js 'recomputeTonAssets' 'TON catalog merges curated and discovered assets without duplicates'
+assert_contains assets/js/app.js 'fetchTonEcosystemCategory' 'TON catalog auto-discovery is shipped in the generated bundle'
 
 php_check 'TON curation API should expose defaults, persist manual curation, and preserve verification states' \
     env -i PATH="$PATH" \
@@ -544,6 +549,97 @@ if ( 'currency' !== $toncoin['route']['name'] ) {
     fwrite( STDERR, "Toncoin default route does not target the cryptocurrency page\n" );
     exit( 1 );
 }
+PHP
+
+# Regression for issue #104: an admin override that omits coin_id must not strip
+# the default Toncoin's the-open-network coin_id, otherwise the asset card loses
+# its CoinGecko market data on the public /ton page.
+php_check 'admin override without coin_id should not erase default Toncoin market id' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_ADMIN_TOKEN='ton-admin-secret' \
+        TONBANKCARD_ADMIN_STORE="$(mktemp)" \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$store_path = (string) getenv( 'TONBANKCARD_ADMIN_STORE' );
+@unlink( $store_path );
+
+$payload = [
+    'content' => [
+        'ton_assets' => [
+            [
+                'id'                 => 'toncoin',
+                'name'               => 'Toncoin',
+                'symbol'             => 'TON',
+                'category'           => 'native',
+                'verification_state' => 'verified',
+                'tags'               => [ 'native', 'native_ton' ],
+                'list_ids'           => [ 'featured' ],
+                'featured'           => TRUE,
+                // Note: coin_id intentionally omitted to mimic an admin save that
+                // dropped the field — issue #104 reproduction scenario.
+            ],
+        ],
+    ],
+];
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'PUT',
+        'path'    => '/api/admin/content',
+        'headers' => [
+            'authorization' => 'Bearer ton-admin-secret',
+            'content-type'  => 'application/json',
+            'x-request-id'  => 'ton-issue-104-write',
+        ],
+        'body'    => json_encode( $payload ),
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $api
+);
+if ( 200 !== $response['status'] ) {
+    fwrite( STDERR, 'Admin issue #104 setup write failed: ' . $response['status'] . ' body ' . $response['body'] . "\n" );
+    exit( 1 );
+}
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'GET',
+        'path'    => '/api/ton/assets',
+        'headers' => [ 'x-request-id' => 'ton-issue-104-read' ],
+        'body'    => '',
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $api
+);
+$body = json_decode( $response['body'], TRUE );
+if ( 200 !== $response['status'] || empty( $body['data']['assets'] ) ) {
+    fwrite( STDERR, "TON catalog read failed for issue #104 regression\n" );
+    exit( 1 );
+}
+$toncoin = NULL;
+foreach ( $body['data']['assets'] as $asset ) {
+    if ( 'toncoin' === $asset['id'] ) $toncoin = $asset;
+}
+if ( ! $toncoin ) {
+    fwrite( STDERR, "Toncoin disappeared after admin override (issue #104 regression)\n" );
+    exit( 1 );
+}
+if ( empty( $toncoin['coin_id'] ) || 'the-open-network' !== $toncoin['coin_id'] ) {
+    fwrite( STDERR, "Issue #104 regression: admin override without coin_id stripped the-open-network from Toncoin\n" );
+    exit( 1 );
+}
+$market_ids = isset( $body['data']['market_coin_ids'] ) ? $body['data']['market_coin_ids'] : [];
+if ( ! in_array( 'the-open-network', $market_ids, TRUE ) ) {
+    fwrite( STDERR, "Issue #104 regression: the-open-network missing from market_coin_ids after admin override\n" );
+    exit( 1 );
+}
+@unlink( $store_path );
 PHP
 
 if [ "$failures" -gt 0 ]; then

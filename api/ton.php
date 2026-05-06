@@ -517,6 +517,12 @@ function tonbankcard_api_ton_admin_excluded_ids() {
 /**
  * Adds or replaces an asset in a normalized asset map.
  *
+ * When an asset with the same id already exists (typically a built-in default),
+ * incoming fields override existing ones — but a missing `coin_id` on the
+ * incoming asset does not wipe out a known coin_id from the prior entry.
+ * Without this, an admin-saved Toncoin without coin_id strips
+ * `the-open-network` and the card loses its CoinGecko market data.
+ *
  * @param array $assets
  * @param array $asset
  * @return void
@@ -524,6 +530,13 @@ function tonbankcard_api_ton_admin_excluded_ids() {
 function tonbankcard_api_ton_put_asset( array &$assets, array $asset ) {
     if ( empty( $asset['id'] ) || empty( $asset['name'] ) ) {
         return;
+    }
+
+    if ( isset( $assets[ $asset['id'] ] ) && empty( $asset['coin_id'] ) && ! empty( $assets[ $asset['id'] ]['coin_id'] ) ) {
+        $asset['coin_id'] = $assets[ $asset['id'] ]['coin_id'];
+        if ( empty( $asset['link_type'] ) || 'project' === $asset['link_type'] ) {
+            $asset['link_type'] = 'currency';
+        }
     }
 
     $assets[ $asset['id'] ] = $asset;
