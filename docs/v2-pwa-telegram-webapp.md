@@ -34,9 +34,13 @@ surfaces continue to render.
 
 The adapter wraps:
 
-- `ready`, `expand`, and `requestFullscreen` where supported.
-- `themeChanged`, `viewportChanged`, `safeAreaChanged`, and
-  `contentSafeAreaChanged` events.
+- `ready`, `expand`, `requestFullscreen`, `exitFullscreen` where supported.
+- `lockOrientation` and `unlockOrientation` (Bot API 7.8+) to stabilise the
+  viewport orientation when running in fullscreen.
+- `themeChanged`, `viewportChanged`, `safeAreaChanged`,
+  `contentSafeAreaChanged`, `fullscreenChanged`, and `fullscreenFailed` events.
+  `fullscreenFailed` triggers an `expand()` fallback so the Mini App is always
+  at maximum height even on clients that do not support fullscreen.
 - Native color synchronization through `setHeaderColor`,
   `setBackgroundColor`, and `setBottomBarColor`.
 - `BackButton` with Vue Router synchronization for in-app navigation.
@@ -52,6 +56,11 @@ The adapter maps Telegram viewport height, stable viewport height, fullscreen
 state, expanded state, safe-area inset, and content safe-area inset values into
 CSS custom properties on the root element. Existing V2 safe-area rules consume
 those variables alongside browser `env(safe-area-inset-*)` values.
+
+When fullscreen mode is active (the `tbc-telegram-fullscreen` class is present
+on the root element) the CSS constrains the app to exactly the reported viewport
+height and adds content-safe-area padding to the top bar, bottom navigation, and
+main content area so none of the UI is obscured by the Telegram chrome.
 
 ## Verification
 

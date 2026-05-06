@@ -89,6 +89,14 @@ html.tbc-telegram-webview #app-wrapper {
     min-height: var(--tbc-viewport-height);
 }
 
+html.tbc-telegram-fullscreen,
+html.tbc-telegram-fullscreen body,
+html.tbc-telegram-fullscreen #app-wrapper {
+    height: var(--tbc-viewport-height);
+    max-height: var(--tbc-viewport-height);
+    overflow: hidden;
+}
+
 html,
 body,
 #app-wrapper,
@@ -119,8 +127,16 @@ body {
     background-color: var(--tbc-tg-header-bg) !important;
 }
 
+html.tbc-telegram-fullscreen .tbc-app-bar {
+    padding-top: calc(var(--tbc-safe-area-top) + var(--tbc-content-safe-area-top));
+}
+
 .tbc-footer {
     padding-bottom: var(--tbc-safe-area-bottom);
+}
+
+html.tbc-telegram-fullscreen .tbc-footer {
+    padding-bottom: calc(var(--tbc-safe-area-bottom) + var(--tbc-content-safe-area-bottom));
 }
 
 .tbc-telegram-webview .v-main,
@@ -129,12 +145,24 @@ body {
     padding-left: var(--tbc-safe-area-left);
 }
 
+html.tbc-telegram-fullscreen .tbc-telegram-webview .v-main,
+html.tbc-telegram-fullscreen .tbc-safe-area-main {
+    padding-right: calc(var(--tbc-safe-area-right) + var(--tbc-content-safe-area-right));
+    padding-left: calc(var(--tbc-safe-area-left) + var(--tbc-content-safe-area-left));
+}
+
 .tbc-bottom-bar,
 .v-bottom-navigation {
     min-height: calc(var(--tbc-bottom-bar-height) + var(--tbc-safe-area-bottom));
     padding-bottom: var(--tbc-safe-area-bottom);
     background-color: var(--tbc-tg-bottom-bar-bg, var(--tbc-surface-panel)) !important;
     border-top: 1px solid var(--tbc-surface-border);
+}
+
+html.tbc-telegram-fullscreen .tbc-bottom-bar,
+html.tbc-telegram-fullscreen .v-bottom-navigation {
+    min-height: calc(var(--tbc-bottom-bar-height) + var(--tbc-safe-area-bottom) + var(--tbc-content-safe-area-bottom));
+    padding-bottom: calc(var(--tbc-safe-area-bottom) + var(--tbc-content-safe-area-bottom));
 }
 
 .v-card,
@@ -725,6 +753,10 @@ v-app {
 @media only screen and (max-width: 599px) {
     .tbc-has-bottom-bar .v-main {
         padding-bottom: calc(var(--tbc-bottom-bar-height) + var(--tbc-safe-area-bottom)) !important;
+    }
+
+    html.tbc-telegram-fullscreen .tbc-has-bottom-bar .v-main {
+        padding-bottom: calc(var(--tbc-bottom-bar-height) + var(--tbc-safe-area-bottom) + var(--tbc-content-safe-area-bottom)) !important;
     }
 
     .tbc-app-bar .v-toolbar__content {
