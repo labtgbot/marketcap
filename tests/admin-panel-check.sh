@@ -409,6 +409,11 @@ if ( ! function_exists( 'esc_html' ) ) {
         return htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' );
     }
 }
+if ( ! function_exists( '__' ) ) {
+    function __( string $text ) {
+        return $text;
+    }
+}
 ob_start();
 include GECKO_CLIENT_TEMPLATES_DIR . '/components/disclaimer-message.php';
 $disclaimer_html = ob_get_clean();

@@ -44,7 +44,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
                     <v-btn small class="my-2 mx-1" <?php link_attrs( $link, $link_attrs ); ?>>
                         <?php
                         if ( $link_has_text ) {
-                            echo esc_html( $link['text'] );
+                            echo esc_html( __( $link['text'] ) );
                         }
                         if ( $link_has_icon ) {
                             ?>
@@ -65,9 +65,16 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
              * See "COPYRIGHTS" in "config/footer.php"
              */
             if ( ! empty( $footer['copyrights'] ) ) {
+                $copyrights_text = $footer['copyrights'];
+                if ( 0 === strpos( $copyrights_text, '&copy; 2026 ' ) ) {
+                    $copyrights_remainder = substr( $copyrights_text, strlen( '&copy; 2026 ' ) );
+                    $copyrights_text      = '&copy; 2026 ' . esc_html( __( $copyrights_remainder ) );
+                } else {
+                    $copyrights_text = esc_html( $copyrights_text );
+                }
                 ?>
                 <v-col class="py-2 text-center" cols="12">
-                    <span class="caption"><?php echo esc_html( $footer['copyrights'] ); ?></span>
+                    <span class="caption"><?php echo $copyrights_text; ?></span>
                 </v-col>
                 <?php
             }

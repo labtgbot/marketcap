@@ -73,6 +73,7 @@ $gecko_client = [
     'version'               => GECKO_CLIENT_VERSION,
     'vuetifyOptions'        => vuetify_constructor_options(),
     'translation'           => $translation,
+    'lang'                  => function_exists( 'tonbankcard_active_language' ) ? tonbankcard_active_language() : 'en',
     'defaultVsCurrencyId'   => $coingecko['default_vs_currency'],
     'supportedVsCurrencies' => get_enabled_supported_vs_currencies(),
     'routerMode'            => 'history',

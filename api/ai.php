@@ -262,12 +262,19 @@ function tonbankcard_api_ai_validate_request_payload( array $payload ) {
         ];
     }
 
+    if ( isset( $payload['language'] ) && '' !== trim( (string) $payload['language'] ) ) {
+        $language = tonbankcard_normalize_language( (string) $payload['language'] );
+    } else {
+        $language = function_exists( 'tonbankcard_active_language' ) ? tonbankcard_active_language() : 'en';
+    }
+
     return [
         'ok'      => TRUE,
         'context' => [
             'insight_type'            => $type,
             'feature'                 => tonbankcard_api_ai_feature_for_insight_type( $type ),
             'subject'                 => $subject,
+            'language'                => $language,
             'market_data_age_seconds' => max( 0, (int) $payload['market_data_age_seconds'] ),
             'market_data_updated_at'  => isset( $payload['market_data_updated_at'] ) ? tonbankcard_api_ai_clean_text( (string) $payload['market_data_updated_at'], 80 ) : null,
             'market_data'             => tonbankcard_api_ai_sanitize_context( isset( $payload['market_data'] ) ? $payload['market_data'] : [] ),
@@ -310,6 +317,7 @@ function tonbankcard_api_ai_insight_cache_context( array $context, array $provid
         'prompt_version'   => isset( $provider['prompt_version'] ) ? $provider['prompt_version'] : 'v1',
         'model_id'         => isset( $provider['model_id'] ) ? $provider['model_id'] : '',
         'insight_type'     => $context['insight_type'],
+        'language'         => isset( $context['language'] ) ? $context['language'] : 'en',
         'subject_hash'     => hash( 'sha256', strtolower( $context['subject'] ) ),
         'market_data_hash' => hash( 'sha256', json_encode( isset( $context['market_data'] ) ? $context['market_data'] : [], JSON_UNESCAPED_SLASHES ) ),
     ];
@@ -1003,7 +1011,20 @@ function tonbankcard_api_ai_provider_request( array $context, array $provider, i
  * @return array
  */
 function tonbankcard_api_ai_prompt_messages( array $context, array $provider, int $attempt = 1 ) {
+    $language_names = [
+        'en' => 'English',
+        'ru' => 'Russian',
+        'fr' => 'French',
+        'ar' => 'Arabic',
+        'zh' => 'Simplified Chinese',
+    ];
+    $language = isset( $context['language'] ) && isset( $language_names[ $context['language'] ] )
+        ? $context['language']
+        : 'en';
+    $language_name = $language_names[ $language ];
+
     $system = 'You write concise factual crypto market context for TONBANKCARD. Return only structured JSON. Do not provide investment advice. Do not tell users to buy, sell, hold, short, long, use leverage, set stop losses, or size positions. Include not financial advice framing, cite market_data_age_seconds, and include uncertainty. Use neutral language when evidence is mixed.';
+    $system .= ' Write all natural-language fields (title, summary, drivers, risks, uncertainty) in ' . $language_name . '. Keep machine-readable fields (sentiment enum, numbers, booleans) as specified by the schema regardless of language.';
     if ( $attempt > 1 ) {
         $system .= ' Your previous response failed schema validation. Return ONLY a JSON object with these required fields: title (string), summary (string), sentiment (one of bullish|bearish|neutral|mixed|unknown), confidence (number between 0 and 1), drivers (array of strings, may be empty), risks (array of strings, may be empty), uncertainty (non-empty string), market_data_age_seconds (integer copied from input), not_financial_advice (must be true). Avoid the words buy, sell, hold, short, long, leverage, take profit, stop loss, position size, all in.';
     }

@@ -203,7 +203,7 @@ $frontend_options['markets']['order'] = 'market_cap_desc';
 
         <div class="ton-filter-bar ton-market-filter-bar mb-5">
             <div class="ton-filter-group">
-                <span class="text-caption text--secondary"><?php echo esc_html( 'TON filters' ); ?></span>
+                <span class="text-caption text--secondary"><?php echo esc_html( __( 'TON filters' ) ); ?></span>
                 <v-chip
                     v-for="chip in tonFilterChips"
                     :key="'market-ton-' + chip.tag"
@@ -218,12 +218,12 @@ $frontend_options['markets']['order'] = 'market_cap_desc';
                     <span v-text="chip.label"></span>
                 </v-chip>
                 <v-btn v-if="activeTonTag" small text :to="clearTonFilterRoute()">
-                    <?php echo esc_html( 'Clear' ); ?>
+                    <?php echo esc_html( __( 'Clear' ) ); ?>
                 </v-btn>
             </div>
             <v-alert v-if="tonFilterError" type="warning" dense text class="mb-0" v-text="tonFilterError"></v-alert>
             <div v-if="activeTonTag" class="text-caption text--secondary">
-                <?php echo esc_html( 'Showing' ); ?> <span v-text="activeTonFilterLabel"></span>
+                <?php echo esc_html( __( 'Showing' ) ); ?> <span v-text="activeTonFilterLabel"></span>
             </div>
         </div>
 

@@ -156,7 +156,7 @@ $frontend_options['screener']['tonTagOptions'] = [
             class="screener-filter-drawer"
         >
             <div class="screener-drawer-header">
-                <strong><?php echo esc_html( 'Filters' ); ?></strong>
+                <strong><?php echo esc_html( __( 'Filters' ) ); ?></strong>
                 <v-btn icon small :aria-label="'Close filters'" title="Close filters" @click="filterDrawer = false">
                     <v-icon>mdi-close</v-icon>
                 </v-btn>
@@ -181,11 +181,11 @@ $frontend_options['screener']['tonTagOptions'] = [
                 <div class="screener-filter-actions mt-4">
                     <v-btn color="primary" depressed @click="applyFilters">
                         <v-icon left>mdi-check</v-icon>
-                        <?php echo esc_html( 'Apply' ); ?>
+                        <?php echo esc_html( __( 'Apply' ) ); ?>
                     </v-btn>
                     <v-btn text @click="resetFilters">
                         <v-icon left>mdi-filter-remove-outline</v-icon>
-                        <?php echo esc_html( 'Reset' ); ?>
+                        <?php echo esc_html( __( 'Reset' ) ); ?>
                     </v-btn>
                 </div>
             </div>
@@ -194,10 +194,10 @@ $frontend_options['screener']['tonTagOptions'] = [
         <div class="screener-shell">
             <aside class="screener-filter-panel d-none d-md-block">
                 <div class="screener-panel-heading">
-                    <strong><?php echo esc_html( 'Filters' ); ?></strong>
+                    <strong><?php echo esc_html( __( 'Filters' ) ); ?></strong>
                     <v-btn small text :disabled="!hasActiveFilters" @click="resetFilters">
                         <v-icon left small>mdi-filter-remove-outline</v-icon>
-                        <?php echo esc_html( 'Reset' ); ?>
+                        <?php echo esc_html( __( 'Reset' ) ); ?>
                     </v-btn>
                 </div>
                 <div class="screener-filter-grid">
@@ -218,26 +218,26 @@ $frontend_options['screener']['tonTagOptions'] = [
                 </div>
                 <v-btn block color="primary" depressed class="mt-4" :loading="loading" @click="applyFilters">
                     <v-icon left>mdi-table-search</v-icon>
-                    <?php echo esc_html( 'Run Screen' ); ?>
+                    <?php echo esc_html( __( 'Run Screen' ) ); ?>
                 </v-btn>
             </aside>
 
             <div class="screener-main">
                 <div class="screener-summary-strip mb-3">
                     <div class="screener-stat">
-                        <span><?php echo esc_html( 'Matches' ); ?></span>
+                        <span><?php echo esc_html( __( 'Matches' ) ); ?></span>
                         <strong v-text="summary.result_count || 0"></strong>
                     </div>
                     <div class="screener-stat">
-                        <span><?php echo esc_html( 'Watched' ); ?></span>
+                        <span><?php echo esc_html( __( 'Watched' ) ); ?></span>
                         <strong v-text="summary.watched_count || 0"></strong>
                     </div>
                     <div class="screener-stat">
-                        <span><?php echo esc_html( 'TON' ); ?></span>
+                        <span><?php echo esc_html( __( 'TON' ) ); ?></span>
                         <strong v-text="summary.ton_count || 0"></strong>
                     </div>
                     <div class="screener-stat">
-                        <span><?php echo esc_html( 'Sentiment' ); ?></span>
+                        <span><?php echo esc_html( __( 'Sentiment' ) ); ?></span>
                         <strong v-text="sentimentSummary"></strong>
                     </div>
                 </div>
@@ -364,7 +364,7 @@ $frontend_options['screener']['tonTagOptions'] = [
                             <v-icon left x-small v-text="tonStateIcon(item.ton_asset)"></v-icon>
                             <span v-text="tonStateLabel(item.ton_asset)"></span>
                         </v-chip>
-                        <span v-else class="text-caption text--secondary"><?php echo esc_html( 'None' ); ?></span>
+                        <span v-else class="text-caption text--secondary"><?php echo esc_html( __( 'None' ) ); ?></span>
                     </template>
                     <template v-slot:no-data>
                         <span v-text="emptyFilterSummary"></span>
