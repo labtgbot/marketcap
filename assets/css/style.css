@@ -500,17 +500,15 @@ v-app {
     padding: 0 6px;
 }
 #currencies-table .markets-name-col {
-    max-width: 260px;
-    overflow: hidden;
+    max-width: 200px;
 }
-#currencies-table .markets-name-col .v-chip__content {
-    max-width: 240px;
-    overflow: hidden;
-}
-#currencies-table .markets-name-col .v-chip__content .font-weight-medium {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.markets-coin-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 196px;
+    text-decoration: none;
+    color: inherit;
 }
 #watchlist,
 #alerts,
