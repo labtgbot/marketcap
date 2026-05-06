@@ -7229,7 +7229,12 @@
                     return this.tonAssets.filter(asset => this.tonAssetMatchesTag(asset, this.activeTonTag));
                 },
                 activeTonCoinIds: function () {
-                    return _.uniq(this.activeTonAssets.map(asset => asset.coin_id).filter(Boolean));
+                    const ids = _.uniq(this.activeTonAssets.map(asset => asset.coin_id).filter(Boolean));
+                    // Always include Toncoin in ton_ecosystem even if its curated entry lost its coin_id.
+                    if (this.activeTonTag === 'ton_ecosystem' && !_.includes(ids, 'the-open-network')) {
+                        ids.push('the-open-network');
+                    }
+                    return ids;
                 },
                 activeTonFilterLabel: function () {
                     if (!this.activeTonTag) return '';
@@ -7294,6 +7299,14 @@
 
                     return CoinGecko.coinsMarkets(params)
                         .then(currencies => {
+                            // In ton_ecosystem filter, move Toncoin to first so it isn't
+                            // displaced by Tether's larger global market cap.
+                            if (this.activeTonTag === 'ton_ecosystem') {
+                                const tonIndex = _.findIndex(currencies, c => c.id === 'the-open-network');
+                                if (tonIndex > 0) {
+                                    currencies.splice(0, 0, currencies.splice(tonIndex, 1)[0]);
+                                }
+                            }
                             _.each(currencies, currency => {
                                 currency.route = {name: 'currency', params: {id: currency.id}};
                                 currency.tonAsset = this.tonAssetForCurrency(currency);
@@ -7808,6 +7821,7 @@
                     this.content.ton_assets.push({
                         local_id: 'ton-asset-' + Date.now(),
                         id: '',
+                        coin_id: '',
                         name: '',
                         symbol: '',
                         category: 'jetton',
