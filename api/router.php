@@ -268,6 +268,7 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
                             '/api/search/refresh',
                             '/api/ton',
                             '/api/ton/assets',
+                            '/api/ton/lookup',
                             '/api/share/resolve',
                             '/api/achievements/settings',
                             '/api/premium',

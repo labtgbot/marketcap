@@ -329,6 +329,30 @@ $frontend_options['ton']['apiBaseUrl'] = site_url( 'api/ton/assets' );
                             label="<?php echo esc_attr( __( 'Featured' ) ); ?>"
                         ></v-switch>
                     </v-col>
+                    <v-col cols="12" sm="6">
+                        <v-text-field
+                            v-model.number="editorAsset.priority"
+                            label="<?php echo esc_attr( __( 'Sort priority (higher = first)' ) ); ?>"
+                            type="number"
+                            min="0"
+                            max="1000"
+                            hint="<?php echo esc_attr( __( 'Top 10 assets have priority ≥ 700. Use 900+ for top positions.' ) ); ?>"
+                            persistent-hint
+                            outlined
+                            dense
+                            class="ton-asset-editor-priority"
+                        ></v-text-field>
+                    </v-col>
+                    <v-col cols="12" sm="6">
+                        <v-text-field
+                            v-model.trim="editorAsset.contract_address"
+                            label="<?php echo esc_attr( __( 'TON contract address (optional)' ) ); ?>"
+                            hint="<?php echo esc_attr( __( 'Jetton contract on the TON blockchain.' ) ); ?>"
+                            persistent-hint
+                            outlined
+                            dense
+                        ></v-text-field>
+                    </v-col>
                     <v-col cols="12">
                         <v-textarea
                             v-model.trim="editorAsset.description"
@@ -349,6 +373,35 @@ $frontend_options['ton']['apiBaseUrl'] = site_url( 'api/ton/assets' );
                             outlined
                             dense
                         ></v-combobox>
+                    </v-col>
+                    <v-col cols="12">
+                        <v-divider class="mb-3"></v-divider>
+                        <div class="text-caption text--secondary mb-2">
+                            <?php echo esc_html( __( 'Lookup from TON blockchain — fill name, symbol, and description automatically from a jetton contract.' ) ); ?>
+                        </div>
+                        <div class="d-flex align-start" style="gap:8px">
+                            <v-text-field
+                                v-model.trim="editorLookupContract"
+                                label="<?php echo esc_attr( __( 'Jetton contract address' ) ); ?>"
+                                outlined
+                                dense
+                                hide-details="auto"
+                                class="flex-grow-1 ton-asset-lookup-contract"
+                                :disabled="editorLookupLoading"
+                                @keyup.enter="lookupTonJetton"
+                            ></v-text-field>
+                            <v-btn
+                                color="secondary"
+                                depressed
+                                :loading="editorLookupLoading"
+                                @click="lookupTonJetton"
+                                class="ton-asset-lookup-btn"
+                            >
+                                <v-icon left>mdi-magnify</v-icon>
+                                <?php echo esc_html( __( 'Lookup' ) ); ?>
+                            </v-btn>
+                        </div>
+                        <v-alert v-if="editorLookupError" type="error" dense text class="mt-2">{{ editorLookupError }}</v-alert>
                     </v-col>
                 </v-row>
             </v-card-text>
