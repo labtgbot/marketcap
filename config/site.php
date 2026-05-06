@@ -166,7 +166,7 @@ $site['theme_color'] = '#0B1020';
 | $site['logo'] = 'assets/images/logo.png';
 |
 */
-$site['logo'] = 'assets/images/logo.png';
+$site['logo'] = 'assets/images/tonbankcard-logo.svg';
 
 
 /*
@@ -185,7 +185,7 @@ $site['logo'] = 'assets/images/logo.png';
 | $site['favicon'] = 'assets/images/favicon.ico';
 |
 */
-$site['favicon'] = 'assets/images/favicon.ico';
+$site['favicon'] = 'assets/images/tonbankcard-icon.svg';
 
 /*
 | -------------------------------------------------------------------------
