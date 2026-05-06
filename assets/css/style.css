@@ -358,7 +358,7 @@ v-app {
 .public-web-navigation-links .v-btn {
     padding: 0 8px;
 }
-.public-web-bottom-navigation .v-btn {
+.v-item-group.public-web-bottom-navigation .v-btn {
     min-width: 0;
     padding-right: 2px;
     padding-left: 2px;
@@ -371,6 +371,7 @@ v-app {
     overflow: hidden;
     font-size: 0.72rem;
     text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .gc-page-loader {
     height: 80vh;
