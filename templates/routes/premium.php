@@ -29,7 +29,7 @@ $frontend_options['premium']['title'] = __( 'Premium' );
                     </v-chip>
                     <v-chip small label class="mr-2 mb-2">
                         <v-icon small left>mdi-telegram</v-icon>
-                        Telegram Stars
+                        <?php echo esc_html( __( 'Telegram Stars' ) ); ?>
                     </v-chip>
                     <v-chip small label :color="checkoutEnabled ? 'success' : 'warning'" text-color="white" class="mb-2">
                         <v-icon small left>{{ checkoutEnabled ? 'mdi-check-circle-outline' : 'mdi-alert-circle-outline' }}</v-icon>
@@ -94,11 +94,11 @@ $frontend_options['premium']['title'] = __( 'Premium' );
                             @click="startCheckout(plan)"
                         >
                             <v-icon left>mdi-telegram</v-icon>
-                            Stars checkout
+                            <?php echo esc_html( __( 'Stars checkout' ) ); ?>
                         </v-btn>
                         <v-chip v-else small label>
                             <v-icon small left>mdi-check-circle-outline</v-icon>
-                            Included
+                            <?php echo esc_html( __( 'Included' ) ); ?>
                         </v-chip>
                     </v-card-actions>
                 </v-card>
@@ -108,24 +108,24 @@ $frontend_options['premium']['title'] = __( 'Premium' );
         <v-card class="premium-status-panel mt-5" outlined>
             <v-card-title class="text-subtitle-1 font-weight-bold">
                 <v-icon left color="primary">mdi-account-star-outline</v-icon>
-                Current entitlement
+                <?php echo esc_html( __( 'Current entitlement' ) ); ?>
             </v-card-title>
             <v-card-text>
                 <v-row dense>
                     <v-col cols="12" sm="6" md="3">
-                        <div class="text-caption text--secondary">Plan</div>
+                        <div class="text-caption text--secondary"><?php echo esc_html( __( 'Plan' ) ); ?></div>
                         <div class="font-weight-medium">{{ entitlement.plan_code || 'free' }}</div>
                     </v-col>
                     <v-col cols="12" sm="6" md="3">
-                        <div class="text-caption text--secondary">Status</div>
+                        <div class="text-caption text--secondary"><?php echo esc_html( __( 'Status' ) ); ?></div>
                         <div class="font-weight-medium">{{ entitlement.status || 'free' }}</div>
                     </v-col>
                     <v-col cols="12" sm="6" md="3">
-                        <div class="text-caption text--secondary">Renews or expires</div>
+                        <div class="text-caption text--secondary"><?php echo esc_html( __( 'Renews or expires' ) ); ?></div>
                         <div class="font-weight-medium">{{ entitlementExpiresLabel }}</div>
                     </v-col>
                     <v-col cols="12" sm="6" md="3">
-                        <div class="text-caption text--secondary">Priority refresh</div>
+                        <div class="text-caption text--secondary"><?php echo esc_html( __( 'Priority refresh' ) ); ?></div>
                         <div class="font-weight-medium">{{ priorityRefreshLabel }}</div>
                     </v-col>
                 </v-row>
@@ -139,12 +139,12 @@ $frontend_options['premium']['title'] = __( 'Premium' );
                     @click="cancelEntitlement"
                 >
                     <v-icon left>mdi-cancel</v-icon>
-                    Cancel renewal
+                    <?php echo esc_html( __( 'Cancel renewal' ) ); ?>
                 </v-btn>
                 <v-spacer></v-spacer>
                 <v-btn text color="primary" :to="{name:'screener', query:{advanced_range:'90d'}}">
                     <v-icon left>mdi-table-search</v-icon>
-                    Advanced ranges
+                    <?php echo esc_html( __( 'Advanced ranges' ) ); ?>
                 </v-btn>
             </v-card-actions>
         </v-card>
