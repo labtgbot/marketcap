@@ -282,6 +282,185 @@ if ( FALSE !== strpos( json_encode( $stored ), 'raw subject should not be stored
 @unlink( $store );
 PHP
 
+assert_contains api/ai.php 'tonbankcard_api_ai_execute_prompt_attempt' 'the AI provider per-attempt executor'
+assert_contains api/ai.php 'provider_retry_attempts' 'the AI provider retry knob'
+assert_contains dev/js/src/ai.js 'retryableReasons' 'the AI client retry reason allow list'
+assert_contains dev/js/src/ai.js 'isRetryableReason' 'the AI client retry classifier'
+assert_contains dev/js/src/components/ai-insight-card.js 'retryFetch' 'the AI insight card manual retry handler'
+assert_contains templates/components/ai-insight-card.php 'ai-insight-retry-button' 'the AI insight card retry button'
+assert_contains views/app-scripts.php "'retry'" 'the AI client retry config'
+assert_contains assets/js/app.js 'retryableReasons' 'the bundled AI client retry config'
+assert_contains assets/js/app.js 'retryFetch' 'the bundled AI insight card retry handler'
+
+php_check 'AI insight should retry once when the model returns a schema validation failure' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_FEATURE_AI=true \
+        GROQ_API_KEY='groq-secret-key' \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$test_api = $api;
+$attempts = 0;
+$test_api['ai']['transport'] = function () use ( &$attempts ) {
+    $attempts++;
+
+    if ( 1 === $attempts ) {
+        return [
+            'status'  => 200,
+            'headers' => [ 'content-type' => 'application/json' ],
+            'body'    => json_encode(
+                [
+                    'choices' => [
+                        [
+                            'message' => [
+                                'content' => json_encode(
+                                    [
+                                        'title'       => '',
+                                        'summary'     => '',
+                                        'sentiment'   => 'unknown',
+                                        'confidence'  => 0.5,
+                                        'uncertainty' => '',
+                                    ]
+                                ),
+                            ],
+                        ],
+                    ],
+                ]
+            ),
+        ];
+    }
+
+    return [
+        'status'  => 200,
+        'headers' => [ 'content-type' => 'application/json' ],
+        'body'    => json_encode(
+            [
+                'choices' => [
+                    [
+                        'message' => [
+                            'content' => json_encode(
+                                [
+                                    'title'                   => 'Toncoin context',
+                                    'summary'                 => 'Toncoin trades within a recent intraday range.',
+                                    'sentiment'               => 'neutral',
+                                    'confidence'              => 0.6,
+                                    'drivers'                 => [ 'Volume tracks the 24h average.' ],
+                                    'risks'                   => [ 'Liquidity can change quickly.' ],
+                                    'uncertainty'             => 'A narrow observation window may miss later moves.',
+                                    'market_data_age_seconds' => 12,
+                                    'not_financial_advice'    => TRUE,
+                                ]
+                            ),
+                        ],
+                    ],
+                ],
+                'usage' => [ 'prompt_tokens' => 50, 'completion_tokens' => 90, 'total_tokens' => 140 ],
+            ]
+        ),
+    ];
+};
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'POST',
+        'path'    => '/api/ai/insight',
+        'headers' => [ 'content-type' => 'application/json' ],
+        'body'    => json_encode(
+            [
+                'insight_type'            => 'coin_summary',
+                'subject'                 => 'Toncoin (TON)',
+                'market_data_age_seconds' => 12,
+                'market_data'             => [ 'asset' => [ 'id' => 'toncoin' ] ],
+            ]
+        ),
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $test_api
+);
+
+if ( 2 !== $attempts ) {
+    fwrite( STDERR, 'Expected 2 provider attempts, got ' . $attempts . "\n" );
+    exit( 1 );
+}
+
+$payload = json_decode( $response['body'], TRUE );
+if ( 200 !== $response['status'] || TRUE !== $payload['ok'] || 'available' !== $payload['data']['status'] ) {
+    fwrite( STDERR, "Retry path did not produce an available insight\n" . $response['body'] . "\n" );
+    exit( 1 );
+}
+if ( 'Toncoin context' !== $payload['data']['insight']['title'] ) {
+    fwrite( STDERR, "Retried insight missing expected title\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'AI insight should not retry past the configured ceiling on persistent schema failures' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_FEATURE_AI=true \
+        GROQ_API_KEY='groq-secret-key' \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$test_api = $api;
+$attempts = 0;
+$test_api['ai']['provider_retry_attempts'] = 2;
+$test_api['ai']['transport'] = function () use ( &$attempts ) {
+    $attempts++;
+    return [
+        'status'  => 200,
+        'headers' => [ 'content-type' => 'application/json' ],
+        'body'    => json_encode(
+            [
+                'choices' => [
+                    [
+                        'message' => [
+                            'content' => 'not json',
+                        ],
+                    ],
+                ],
+            ]
+        ),
+    ];
+};
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'POST',
+        'path'    => '/api/ai/insight',
+        'headers' => [ 'content-type' => 'application/json' ],
+        'body'    => json_encode(
+            [
+                'insight_type'            => 'coin_summary',
+                'subject'                 => 'Toncoin (TON)',
+                'market_data_age_seconds' => 12,
+                'market_data'             => [ 'asset' => [ 'id' => 'toncoin' ] ],
+            ]
+        ),
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $test_api
+);
+
+if ( 2 !== $attempts ) {
+    fwrite( STDERR, 'Expected exactly 2 attempts under the ceiling, got ' . $attempts . "\n" );
+    exit( 1 );
+}
+
+$payload = json_decode( $response['body'], TRUE );
+if ( 'insight unavailable' !== $payload['data']['status'] || 'schema_validation_failed' !== $payload['data']['reason'] ) {
+    fwrite( STDERR, "Persistent schema failure did not surface unavailable response\n" );
+    exit( 1 );
+}
+PHP
+
 if [ "$failures" -gt 0 ]; then
     exit 1
 fi
