@@ -95,7 +95,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
                 <v-bottom-navigation app grow class="public-web-bottom-navigation d-sm-none" color="primary">
                     <?php foreach ( $v2['mobile_navigation'] as $item ) : ?>
                         <v-btn <?php link_attrs( $item ); ?>>
-                            <span><?php echo esc_html( $item['text'] ); ?></span>
+                            <span><?php echo esc_html( __( $item['text'] ) ); ?></span>
                             <v-icon><?php echo esc_html( $item['icon'] ); ?></v-icon>
                         </v-btn>
                     <?php endforeach; ?>

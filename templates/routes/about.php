@@ -28,45 +28,45 @@ $frontend_options['about']['title'] = sprintf( '%s %s', __( 'About' ), $site['na
 
 $route_about['pillars'] = [
     [
-        'title' => 'Market pulse',
-        'text'  => 'Track prices, market cap, volume, trending assets, and TON ecosystem context from a public website surface that remains useful without a wallet connection.',
+        'title' => __( 'Market pulse' ),
+        'text'  => __( 'Track prices, market cap, volume, trending assets, and TON ecosystem context from a public website surface that remains useful without a wallet connection.' ),
     ],
     [
-        'title' => 'Telegram-first workflows',
-        'text'  => 'The V2 roadmap connects public market pages with Telegram Mini App journeys for watchlists, alerts, sharing, referrals, and support through the TONBANKCARD bot.',
+        'title' => __( 'Telegram-first workflows' ),
+        'text'  => __( 'The V2 roadmap connects public market pages with Telegram Mini App journeys for watchlists, alerts, sharing, referrals, and support through the TONBANKCARD bot.' ),
     ],
     [
-        'title' => 'Responsible intelligence',
-        'text'  => 'AI summaries, alerts, and swap widgets are planned as decision-support tools with source freshness, risk framing, and no investment-advice claims.',
+        'title' => __( 'Responsible intelligence' ),
+        'text'  => __( 'AI summaries, alerts, and swap widgets are planned as decision-support tools with source freshness, risk framing, and no investment-advice claims.' ),
     ],
 ];
 
 $route_about['localization'] = [
     [
-        'language' => 'English',
-        'status'   => 'Primary public copy for the website and Telegram Mini App.',
+        'language' => __( 'English' ),
+        'status'   => __( 'Primary public copy for the website and Telegram Mini App.' ),
     ],
     [
-        'language' => 'Russian',
-        'status'   => 'Placeholder copy track for Telegram RU community links and later localized product pages.',
+        'language' => __( 'Russian' ),
+        'status'   => __( 'Placeholder copy track for Telegram RU community links and later localized product pages.' ),
     ],
 ];
 
 $route_about['official_links'] = [
     [
-        'label' => 'Channel',
+        'label' => __( 'Channel' ),
         'url'   => 'https://t.me/tonbankcard',
     ],
     [
-        'label' => 'Channel RU',
+        'label' => __( 'Channel RU' ),
         'url'   => 'https://t.me/tonbankcard_ru',
     ],
     [
-        'label' => 'Chat',
+        'label' => __( 'Chat' ),
         'url'   => 'https://t.me/tonbankcard_chat',
     ],
     [
-        'label' => 'Chat RU',
+        'label' => __( 'Chat RU' ),
         'url'   => 'https://t.me/tonbankcard_chat_ru',
     ],
     [
@@ -91,10 +91,10 @@ $route_about['official_links'] = [
             <?php echo esc_html( $frontend_options['about']['title'] ); ?>
         </h2>
         <p>
-            <?php echo esc_html( 'TONBANKCARD Crypto Tracker is the public market-data and market pulse surface for TONBANKCARD V2. It keeps the useful market routes from the current tracker while moving the product toward TON ecosystem discovery, Telegram-native watchlists, alert delivery, shareable market context, and safe exchange-widget entry points.' ); ?>
+            <?php echo esc_html( __( 'TONBANKCARD Crypto Tracker is the public market-data and market pulse surface for TONBANKCARD V2. It keeps the useful market routes from the current tracker while moving the product toward TON ecosystem discovery, Telegram-native watchlists, alert delivery, shareable market context, and safe exchange-widget entry points.' ) ); ?>
         </p>
         <p>
-            <?php echo esc_html( 'The product is built for casual market viewers, TON users, active traders, Telegram group admins, and TONBANKCARD operators. Market data and generated summaries are informational only; users should verify sources and make independent financial decisions.' ); ?>
+            <?php echo esc_html( __( 'The product is built for casual market viewers, TON users, active traders, Telegram group admins, and TONBANKCARD operators. Market data and generated summaries are informational only; users should verify sources and make independent financial decisions.' ) ); ?>
         </p>
     </div>
 
@@ -109,19 +109,19 @@ $route_about['official_links'] = [
 
     <div id="about-trust" class="mt-10">
         <h3 class="text-h6 text-sm-h5 mb-4">
-            <?php echo esc_html( 'Trust and data boundaries' ); ?>
+            <?php echo esc_html( __( 'Trust and data boundaries' ) ); ?>
         </h3>
         <ul>
-            <li><?php echo esc_html( 'Coin and exchange data may be delayed, incomplete, revised, or unavailable when upstream providers fail.' ); ?></li>
-            <li><?php echo esc_html( 'AI summaries and alert explanations must stay factual, include risk context, and avoid buy, sell, hold, leverage, or position-sizing recommendations.' ); ?></li>
-            <li><?php echo esc_html( 'Swap widgets and external exchange links are third-party services. TONBANKCARD does not custody funds or execute trades from this website.' ); ?></li>
-            <li><?php echo esc_html( 'Telegram and future wallet-aware features must keep secrets server-side and expose only the minimum data needed for the selected workflow.' ); ?></li>
+            <li><?php echo esc_html( __( 'Coin and exchange data may be delayed, incomplete, revised, or unavailable when upstream providers fail.' ) ); ?></li>
+            <li><?php echo esc_html( __( 'AI summaries and alert explanations must stay factual, include risk context, and avoid buy, sell, hold, leverage, or position-sizing recommendations.' ) ); ?></li>
+            <li><?php echo esc_html( __( 'Swap widgets and external exchange links are third-party services. TONBANKCARD does not custody funds or execute trades from this website.' ) ); ?></li>
+            <li><?php echo esc_html( __( 'Telegram and future wallet-aware features must keep secrets server-side and expose only the minimum data needed for the selected workflow.' ) ); ?></li>
         </ul>
     </div>
 
     <div id="about-localization" class="mt-10">
         <h3 class="text-h6 text-sm-h5 mb-4">
-            <?php echo esc_html( 'Localization placeholders' ); ?>
+            <?php echo esc_html( __( 'Localization placeholders' ) ); ?>
         </h3>
         <v-row>
             <?php foreach ( $route_about['localization'] as $locale ) : ?>
@@ -135,7 +135,7 @@ $route_about['official_links'] = [
 
     <div id="about-official-links" class="mt-10">
         <h3 class="text-h6 text-sm-h5 mb-4">
-            <?php echo esc_html( 'Official channels' ); ?>
+            <?php echo esc_html( __( 'Official channels' ) ); ?>
         </h3>
         <v-row>
             <?php foreach ( $route_about['official_links'] as $link ) : ?>

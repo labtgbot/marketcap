@@ -75,7 +75,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
                 <v-list-group no-action color <?php attr( 'prepend-icon', $item['icon'], ! empty( $item['icon'] ) ); ?>>
                     <template v-slot:activator>
                         <v-list-item-content>
-                            <v-list-item-title><?php echo esc_html( $item['text'] ); ?></v-list-item-title>
+                            <v-list-item-title><?php echo esc_html( __( $item['text'] ) ); ?></v-list-item-title>
                         </v-list-item-content>
                     </template>
                 <?php
@@ -94,7 +94,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 
                     <?php if ( ! empty( $list_item['text'] ) ) : ?>
                         <v-list-item-content>
-                            <v-list-item-title><?php echo esc_html( $list_item['text'] ); ?></v-list-item-title>
+                            <v-list-item-title><?php echo esc_html( __( $list_item['text'] ) ); ?></v-list-item-title>
                         </v-list-item-content>
                     <?php endif; ?>
                 </v-list-item>

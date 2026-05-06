@@ -74,7 +74,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
             <div class="public-web-navigation-links d-none d-lg-flex align-center ml-4">
                 <?php foreach ( $v2['public_navigation'] as $item ) : ?>
                     <v-btn text small <?php link_attrs( $item ); ?>>
-                        <?php echo esc_html( $item['text'] ); ?>
+                        <?php echo esc_html( __( $item['text'] ) ); ?>
                     </v-btn>
                 <?php endforeach; ?>
             </div>

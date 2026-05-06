@@ -44,7 +44,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
                     <v-btn small class="my-2 mx-1" <?php link_attrs( $link, $link_attrs ); ?>>
                         <?php
                         if ( $link_has_text ) {
-                            echo esc_html( $link['text'] );
+                            echo esc_html( __( $link['text'] ) );
                         }
                         if ( $link_has_icon ) {
                             ?>
