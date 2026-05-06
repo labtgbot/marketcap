@@ -372,6 +372,7 @@
                     this.content.ton_assets.push({
                         local_id: 'ton-asset-' + Date.now(),
                         id: '',
+                        coin_id: '',
                         name: '',
                         symbol: '',
                         category: 'jetton',

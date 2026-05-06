@@ -415,12 +415,15 @@ $frontend_options['admin']['apiBaseUrl'] = site_url( 'api/admin' );
                                 <div class="admin-ton-body">
                                     <v-row dense>
                                         <v-col cols="12" sm="6">
-                                            <v-text-field v-model.trim="asset.id" label="<?php echo esc_attr( __( 'Coin id' ) ); ?>" outlined dense hide-details="auto" :disabled="!canWrite"></v-text-field>
+                                            <v-text-field v-model.trim="asset.id" label="<?php echo esc_attr( __( 'Internal ID' ) ); ?>" outlined dense hide-details="auto" :disabled="!canWrite"></v-text-field>
+                                        </v-col>
+                                        <v-col cols="12" sm="6">
+                                            <v-text-field v-model.trim="asset.coin_id" label="<?php echo esc_attr( __( 'CoinGecko Coin ID' ) ); ?>" outlined dense hide-details="auto" :disabled="!canWrite"></v-text-field>
                                         </v-col>
                                         <v-col cols="12" sm="6">
                                             <v-text-field v-model.trim="asset.symbol" label="<?php echo esc_attr( __( 'Symbol' ) ); ?>" outlined dense hide-details="auto" :disabled="!canWrite"></v-text-field>
                                         </v-col>
-                                        <v-col cols="12">
+                                        <v-col cols="12" sm="6">
                                             <v-text-field v-model.trim="asset.name" label="<?php echo esc_attr( __( 'Name' ) ); ?>" outlined dense hide-details="auto" :disabled="!canWrite"></v-text-field>
                                         </v-col>
                                         <v-col cols="12" sm="4">
