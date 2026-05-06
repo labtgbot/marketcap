@@ -38,6 +38,15 @@ if ( GECKO_CLIENT_DISPLAY_ERRORS ) {
 
 /*
 | -------------------------------------------------------------------------
+| FUNCTIONS
+| -------------------------------------------------------------------------
+| Loaded ahead of configuration so config files (e.g. translation.php)
+| can call shared helpers such as tonbankcard_active_language().
+*/
+require_once __DIR__ . '/functions.php';
+
+/*
+| -------------------------------------------------------------------------
 | CONFIGURATION
 | -------------------------------------------------------------------------
 */
@@ -97,10 +106,9 @@ require_once GECKO_CLIENT_CONFIG_DIR . '/performance.php';
 
 /*
 | -------------------------------------------------------------------------
-| FUNCTIONS
+| API ROUTER
 | -------------------------------------------------------------------------
 */
-require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/api/router.php';
 
 /*
@@ -114,6 +122,11 @@ $invalid_configs = array_merge(
     validate_site_configs(),
     validate_vuetify_configs()
 );
+// Locale switcher: persist a `tbc_lang` cookie and redirect back to the page
+// the user came from. Handled before JSON API dispatch so it is excluded from
+// the structured API surface.
+tonbankcard_handle_locale_set_request();
+
 // API requests return JSON errors instead of the HTML configuration screen.
 if ( tonbankcard_api_is_request() ) {
     tonbankcard_api_dispatch( $invalid_configs );

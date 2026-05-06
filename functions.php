@@ -1017,10 +1017,309 @@ function esc_html( $text ) {
  * @return string
  */
 function __( string $text ) {
-    if ( isset( $GLOBALS['translation'][ $text ] ) && is_string( $GLOBALS['translation'][ $text ] ) ) {
+    if ( isset( $GLOBALS['translation'][ $text ] ) && is_string( $GLOBALS['translation'][ $text ] ) && '' !== $GLOBALS['translation'][ $text ] ) {
         return $GLOBALS['translation'][ $text ];
     }
     return $text;
+}
+
+/**
+ * Returns the supported public languages keyed by ISO 639-1 code.
+ *
+ * The values are the language's endonym (native name) used in the
+ * language switcher UI.
+ *
+ * @return array<string,string>
+ */
+function tonbankcard_supported_languages() {
+    return [
+        'en' => 'English',
+        'ru' => 'Русский',
+        'fr' => 'Français',
+        'ar' => 'العربية',
+        'zh' => '中文',
+    ];
+}
+
+/**
+ * Reports whether a language is rendered right-to-left.
+ *
+ * @param string $language
+ * @return bool
+ */
+function tonbankcard_language_is_rtl( string $language ) {
+    return in_array( strtolower( $language ), [ 'ar', 'he', 'fa', 'ur' ], true );
+}
+
+/**
+ * Normalizes a raw language tag to a supported ISO 639-1 code.
+ *
+ * Accepts values like `en`, `EN`, `en-US`, `ru_RU`. Falls back to `en`
+ * when the input is empty or not in the supported list.
+ *
+ * @param mixed $language
+ * @param array<string,mixed>|null $supported Optional override of the supported map.
+ * @return string
+ */
+function tonbankcard_normalize_language( $language, $supported = null ) {
+    $code = strtolower( trim( (string) $language ) );
+    if ( '' === $code ) {
+        return 'en';
+    }
+
+    $code = str_replace( '_', '-', $code );
+    if ( false !== strpos( $code, '-' ) ) {
+        $code = substr( $code, 0, strpos( $code, '-' ) );
+    }
+
+    if ( null === $supported ) {
+        $supported = tonbankcard_supported_languages();
+    }
+
+    return isset( $supported[ $code ] ) ? $code : 'en';
+}
+
+/**
+ * Picks the best matching language from the browser `Accept-Language` header.
+ *
+ * Honours quality factors (`q=`) when present and falls back to the order
+ * of declared languages otherwise.
+ *
+ * @param string|null $header
+ * @param array<string,mixed>|null $supported
+ * @return string|null Returns null when no supported language matches.
+ */
+function tonbankcard_language_from_accept_header( $header, $supported = null ) {
+    if ( ! is_string( $header ) || '' === trim( $header ) ) {
+        return null;
+    }
+
+    if ( null === $supported ) {
+        $supported = tonbankcard_supported_languages();
+    }
+
+    $candidates = [];
+    foreach ( explode( ',', $header ) as $index => $part ) {
+        $part = trim( $part );
+        if ( '' === $part ) {
+            continue;
+        }
+
+        $quality = 1.0;
+        if ( false !== strpos( $part, ';' ) ) {
+            list( $tag, $params ) = array_pad( explode( ';', $part, 2 ), 2, '' );
+            $tag = trim( $tag );
+            if ( preg_match( '/q\s*=\s*([0-9.]+)/i', (string) $params, $matches ) ) {
+                $quality = (float) $matches[1];
+            }
+        } else {
+            $tag = $part;
+        }
+
+        if ( '' === $tag ) {
+            continue;
+        }
+
+        $code = tonbankcard_normalize_language( $tag, $supported );
+        // tonbankcard_normalize_language returns 'en' for unsupported codes.
+        // Re-check that the original tag actually maps to a supported entry.
+        $base = strtolower( str_replace( '_', '-', trim( $tag ) ) );
+        if ( false !== strpos( $base, '-' ) ) {
+            $base = substr( $base, 0, strpos( $base, '-' ) );
+        }
+        if ( ! isset( $supported[ $base ] ) ) {
+            continue;
+        }
+
+        // Stable sort by quality desc, then declared order asc.
+        $candidates[] = [ 'code' => $code, 'quality' => $quality, 'order' => $index ];
+    }
+
+    if ( empty( $candidates ) ) {
+        return null;
+    }
+
+    usort( $candidates, function ( $a, $b ) {
+        if ( $a['quality'] === $b['quality'] ) {
+            return $a['order'] - $b['order'];
+        }
+        return ( $a['quality'] < $b['quality'] ) ? 1 : -1;
+    } );
+
+    return $candidates[0]['code'];
+}
+
+/**
+ * Resolves the active language for the current request.
+ *
+ * Resolution order:
+ *  1. `lang` query parameter when it points to a supported language.
+ *  2. `tbc_lang` cookie.
+ *  3. Browser `Accept-Language` header.
+ *  4. Default `en`.
+ *
+ * The chosen language is cached on the function call so repeated invocations
+ * stay consistent during a single request.
+ *
+ * @param array<string,mixed>|null $translations Loaded dictionary map.
+ * @return string
+ */
+function tonbankcard_active_language( $translations = null ) {
+    static $cached = null;
+    if ( null !== $cached ) {
+        return $cached;
+    }
+
+    $supported = tonbankcard_supported_languages();
+    if ( is_array( $translations ) ) {
+        $supported = array_intersect_key( $supported, $translations );
+        if ( empty( $supported ) ) {
+            $supported = [ 'en' => 'English' ];
+        }
+    }
+
+    if ( ! empty( $_GET['lang'] ) ) {
+        $code = tonbankcard_normalize_language( $_GET['lang'], $supported );
+        if ( isset( $supported[ $code ] ) ) {
+            $cached = $code;
+            return $cached;
+        }
+    }
+
+    if ( ! empty( $_COOKIE['tbc_lang'] ) ) {
+        $code = tonbankcard_normalize_language( $_COOKIE['tbc_lang'], $supported );
+        if ( isset( $supported[ $code ] ) ) {
+            $cached = $code;
+            return $cached;
+        }
+    }
+
+    $accept = isset( $_SERVER['HTTP_ACCEPT_LANGUAGE'] ) ? (string) $_SERVER['HTTP_ACCEPT_LANGUAGE'] : '';
+    $accepted = tonbankcard_language_from_accept_header( $accept, $supported );
+    if ( null !== $accepted ) {
+        $cached = $accepted;
+        return $cached;
+    }
+
+    $cached = 'en';
+    return $cached;
+}
+
+/**
+ * Persists the visitor's language preference in a long-lived cookie.
+ *
+ * @param string $language
+ * @return string The normalized language that was saved.
+ */
+function tonbankcard_set_language_cookie( string $language ) {
+    $code = tonbankcard_normalize_language( $language );
+
+    if ( ! headers_sent() ) {
+        $params = [
+            'expires'  => time() + 60 * 60 * 24 * 365,
+            'path'     => '/',
+            'samesite' => 'Lax',
+        ];
+
+        if ( ! empty( $_SERVER['HTTPS'] ) && 'off' !== strtolower( (string) $_SERVER['HTTPS'] ) ) {
+            $params['secure'] = true;
+        }
+
+        setcookie( 'tbc_lang', $code, $params );
+    }
+
+    $_COOKIE['tbc_lang'] = $code;
+
+    return $code;
+}
+
+/**
+ * Handles the public locale-set endpoint at `/api/locale/set`.
+ *
+ * The request must come from the same origin (its `Referer` host must match
+ * the current `Host`), and the `next` parameter or `Referer` is used as the
+ * post-redirect target. Both are constrained to relative paths on the same
+ * origin to prevent open-redirect abuse. The endpoint persists the chosen
+ * language in the `tbc_lang` cookie and exits.
+ *
+ * @return void
+ */
+function tonbankcard_handle_locale_set_request() {
+    $request_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) $_SERVER['REQUEST_URI'] : '/';
+    $path = parse_url( $request_uri, PHP_URL_PATH );
+    if ( '/api/locale/set' !== $path ) {
+        return;
+    }
+
+    $language = isset( $_GET['lang'] ) ? (string) $_GET['lang'] : '';
+    if ( '' !== $language ) {
+        tonbankcard_set_language_cookie( $language );
+    }
+
+    $next = '/';
+    if ( isset( $_GET['next'] ) && is_string( $_GET['next'] ) && '' !== $_GET['next'] ) {
+        $candidate = tonbankcard_safe_redirect_path( $_GET['next'] );
+        if ( null !== $candidate ) {
+            $next = $candidate;
+        }
+    } elseif ( isset( $_SERVER['HTTP_REFERER'] ) && is_string( $_SERVER['HTTP_REFERER'] ) ) {
+        $candidate = tonbankcard_safe_redirect_path( $_SERVER['HTTP_REFERER'] );
+        if ( null !== $candidate ) {
+            $next = $candidate;
+        }
+    }
+
+    if ( ! headers_sent() ) {
+        header( 'Cache-Control: no-store' );
+        header( 'Location: ' . $next, true, 302 );
+    }
+    exit;
+}
+
+/**
+ * Validates a redirect target so it can only point back at the current host
+ * as a relative path. Returns the path-with-query on success or null when the
+ * target is unsafe.
+ *
+ * @param string $target
+ * @return string|null
+ */
+function tonbankcard_safe_redirect_path( string $target ) {
+    $target = trim( $target );
+    if ( '' === $target ) {
+        return null;
+    }
+
+    // Plain relative path: must start with `/` but not `//` (protocol-relative).
+    if ( '/' === $target[0] && ( strlen( $target ) < 2 || '/' !== $target[1] ) ) {
+        return $target;
+    }
+
+    $parts = parse_url( $target );
+    if ( false === $parts || empty( $parts['host'] ) ) {
+        return null;
+    }
+
+    $expected = isset( $_SERVER['HTTP_HOST'] ) ? strtolower( (string) $_SERVER['HTTP_HOST'] ) : '';
+    if ( '' === $expected ) {
+        return null;
+    }
+
+    $candidate = strtolower( $parts['host'] );
+    if ( ! empty( $parts['port'] ) ) {
+        $candidate .= ':' . (int) $parts['port'];
+    }
+
+    // Accept either a bare host match or host:port match against HTTP_HOST.
+    if ( $candidate !== $expected && $candidate !== strtok( $expected, ':' ) ) {
+        return null;
+    }
+
+    $path = isset( $parts['path'] ) && '' !== $parts['path'] ? $parts['path'] : '/';
+    if ( ! empty( $parts['query'] ) ) {
+        $path .= '?' . $parts['query'];
+    }
+    return $path;
 }
 
 /**
