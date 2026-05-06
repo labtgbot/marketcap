@@ -90,7 +90,7 @@ $frontend_options['markets']['tableHeaders'] = [
         'value' => 'market_cap_rank',
         'sortable' => TRUE,
         'align' => 'start',
-        'width' => 80,
+        'width' => 60,
         'show' => TRUE, // always hide in xs (600px)
     ],
     [
@@ -98,7 +98,7 @@ $frontend_options['markets']['tableHeaders'] = [
         'value' => 'name',
         'sortable' => TRUE,
         'align' => 'start',
-        'width' => 200,
+        'width' => 170,
         'cellClass' => 'markets-name-col',
         'show' => TRUE,
     ],
@@ -107,7 +107,7 @@ $frontend_options['markets']['tableHeaders'] = [
         'value' => 'watchlist',
         'sortable' => FALSE,
         'align' => 'center',
-        'width' => 72,
+        'width' => 56,
         'show' => TRUE,
     ],
     [
@@ -164,7 +164,7 @@ $frontend_options['markets']['tableHeaders'] = [
         'value' => 'last_7d',
         'sortable' => FALSE,
         'align' => 'center',
-        'width' => 120,
+        'width' => 100,
         'show' => TRUE,
     ],
 ];

@@ -479,6 +479,12 @@ v-app {
 }
 #currencies-table tbody td {
     white-space: nowrap;
+    font-size: 0.78rem;
+}
+#currencies-table > .v-data-table__wrapper > table > thead > tr > th,
+#currencies-table > .v-data-table__wrapper > table > tbody > tr > td {
+    padding-right: 10px;
+    padding-left: 10px;
 }
 #currencies-table .name-xs {
     white-space: normal;
@@ -500,13 +506,13 @@ v-app {
     padding: 0 6px;
 }
 #currencies-table .markets-name-col {
-    max-width: 200px;
+    max-width: 170px;
 }
 .markets-coin-cell {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    max-width: 196px;
+    max-width: 166px;
     text-decoration: none;
     color: inherit;
 }
