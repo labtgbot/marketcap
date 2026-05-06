@@ -98,7 +98,7 @@ $frontend_options['markets']['tableHeaders'] = [
         'value' => 'name',
         'sortable' => TRUE,
         'align' => 'start',
-        'width' => 260,
+        'width' => 200,
         'cellClass' => 'markets-name-col',
         'show' => TRUE,
     ],
@@ -164,7 +164,7 @@ $frontend_options['markets']['tableHeaders'] = [
         'value' => 'last_7d',
         'sortable' => FALSE,
         'align' => 'center',
-        'width' => 250,
+        'width' => 120,
         'show' => TRUE,
     ],
 ];
@@ -261,25 +261,27 @@ $frontend_options['markets']['order'] = 'market_cap_desc';
                         </div>
                     </div>
                 </router-link>
-                <v-chip :ripple="false" color="transparent" :to="item.route" class="d-none d-sm-inline-flex">
-                    <v-avatar left v-if="item.image" color="white">
+                <router-link :to="item.route" class="markets-coin-cell d-none d-sm-inline-flex">
+                    <v-avatar v-if="item.image" color="white" size="28">
                         <v-img :src="item.image" :alt="item.name" :title="item.name"></v-img>
                     </v-avatar>
-                    <span class="font-weight-medium">
-                        {{ item.name }}
-                        <span class="text--secondary text-uppercase" v-text="item.symbol"></span>
+                    <div class="min-width-0">
+                        <div class="font-weight-medium text-truncate">
+                            {{ item.name }}
+                            <span class="text--secondary text-uppercase" v-text="item.symbol"></span>
+                        </div>
                         <v-chip
                             v-if="item.tonAsset"
                             x-small
                             label
-                            class="ton-verification-chip ml-2"
+                            class="ton-verification-chip"
                             :class="'ton-verification-chip--' + item.tonAsset.verification_state"
                             :color="tonStateColor(item.tonAsset)"
                             text-color="white"
                             v-text="tonStateLabel(item.tonAsset)"
                         ></v-chip>
-                    </span>
-                </v-chip>
+                    </div>
+                </router-link>
             </template>
             <template v-slot:item.watchlist="{ item }">
                 <v-btn
