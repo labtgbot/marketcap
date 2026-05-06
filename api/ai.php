@@ -730,13 +730,72 @@ function tonbankcard_api_ai_unavailable_response( string $reason, array $provide
 /**
  * Executes an AI prompt through the configured provider transport.
  *
+ * Retries once on transient schema validation failures so that brief LLM
+ * output drift does not turn into a permanently empty insight card.
+ *
  * @param array $context
  * @param array $provider
  * @param array $config
  * @return array
  */
 function tonbankcard_api_ai_execute_prompt( array $context, array $provider, array $config ) {
-    $request = tonbankcard_api_ai_provider_request( $context, $provider );
+    $max_attempts = isset( $config['ai']['provider_retry_attempts'] )
+        ? max( 1, (int) $config['ai']['provider_retry_attempts'] )
+        : 2;
+    $retryable_reasons = [ 'schema_validation_failed', 'provider_invalid_json' ];
+
+    $aggregate_requests = 0;
+    $aggregate_failures = 0;
+    $last = null;
+
+    for ( $attempt = 1; $attempt <= $max_attempts; $attempt++ ) {
+        $last = tonbankcard_api_ai_execute_prompt_attempt( $context, $provider, $config, $attempt );
+
+        $cost = isset( $last['cost'] ) && is_array( $last['cost'] ) ? $last['cost'] : [];
+        $aggregate_requests += isset( $cost['requests'] ) ? (int) $cost['requests'] : 0;
+        $aggregate_failures += isset( $cost['provider_failures'] ) ? (int) $cost['provider_failures'] : 0;
+
+        if ( ! empty( $last['ok'] ) ) {
+            $last['cost'] = tonbankcard_api_ai_cost_counters(
+                isset( $last['provider_payload'] ) && is_array( $last['provider_payload'] ) ? $last['provider_payload'] : [],
+                [ 'requests' => $aggregate_requests, 'provider_failures' => $aggregate_failures ]
+            );
+            unset( $last['provider_payload'] );
+            return $last;
+        }
+
+        $reason = isset( $last['reason'] ) ? (string) $last['reason'] : 'provider_unavailable';
+        if ( ! in_array( $reason, $retryable_reasons, TRUE ) ) {
+            break;
+        }
+    }
+
+    if ( is_array( $last ) ) {
+        $last['cost'] = tonbankcard_api_ai_cost_counters(
+            isset( $last['provider_payload'] ) && is_array( $last['provider_payload'] ) ? $last['provider_payload'] : [],
+            [ 'requests' => $aggregate_requests, 'provider_failures' => max( $aggregate_failures, 1 ) ]
+        );
+        unset( $last['provider_payload'] );
+    }
+
+    return is_array( $last ) ? $last : [
+        'ok'     => FALSE,
+        'reason' => 'provider_unavailable',
+        'cost'   => tonbankcard_api_ai_cost_counters( [], [ 'requests' => 1, 'provider_failures' => 1 ] ),
+    ];
+}
+
+/**
+ * Executes a single AI prompt attempt.
+ *
+ * @param array $context
+ * @param array $provider
+ * @param array $config
+ * @param int $attempt
+ * @return array
+ */
+function tonbankcard_api_ai_execute_prompt_attempt( array $context, array $provider, array $config, int $attempt ) {
+    $request = tonbankcard_api_ai_provider_request( $context, $provider, $attempt );
 
     if ( isset( $config['ai']['transport'] ) && is_callable( $config['ai']['transport'] ) ) {
         $response = call_user_func( $config['ai']['transport'], $request );
@@ -800,25 +859,28 @@ function tonbankcard_api_ai_execute_prompt( array $context, array $provider, arr
     $model_payload = json_decode( $content, TRUE );
     if ( '' === $content || ! is_array( $model_payload ) ) {
         return [
-            'ok'     => FALSE,
-            'reason' => 'schema_validation_failed',
-            'cost'   => tonbankcard_api_ai_cost_counters( $provider_payload, [ 'requests' => 1, 'provider_failures' => 1 ] ),
+            'ok'              => FALSE,
+            'reason'          => 'schema_validation_failed',
+            'cost'            => tonbankcard_api_ai_cost_counters( $provider_payload, [ 'requests' => 1, 'provider_failures' => 1 ] ),
+            'provider_payload' => $provider_payload,
         ];
     }
 
     $validation = tonbankcard_api_ai_validate_provider_output( $model_payload, $context );
     if ( empty( $validation['ok'] ) ) {
         return [
-            'ok'     => FALSE,
-            'reason' => 'schema_validation_failed',
-            'cost'   => tonbankcard_api_ai_cost_counters( $provider_payload, [ 'requests' => 1, 'provider_failures' => 1 ] ),
+            'ok'              => FALSE,
+            'reason'          => 'schema_validation_failed',
+            'cost'            => tonbankcard_api_ai_cost_counters( $provider_payload, [ 'requests' => 1, 'provider_failures' => 1 ] ),
+            'provider_payload' => $provider_payload,
         ];
     }
 
     return [
-        'ok'      => TRUE,
-        'insight' => $validation['insight'],
-        'cost'    => tonbankcard_api_ai_cost_counters( $provider_payload, [ 'requests' => 1, 'provider_failures' => 0 ] ),
+        'ok'              => TRUE,
+        'insight'         => $validation['insight'],
+        'cost'            => tonbankcard_api_ai_cost_counters( $provider_payload, [ 'requests' => 1, 'provider_failures' => 0 ] ),
+        'provider_payload' => $provider_payload,
     ];
 }
 
@@ -827,13 +889,14 @@ function tonbankcard_api_ai_execute_prompt( array $context, array $provider, arr
  *
  * @param array $context
  * @param array $provider
+ * @param int $attempt
  * @return array
  */
-function tonbankcard_api_ai_provider_request( array $context, array $provider ) {
+function tonbankcard_api_ai_provider_request( array $context, array $provider, int $attempt = 1 ) {
     $body = [
         'model'                 => $provider['model_id'],
-        'messages'              => tonbankcard_api_ai_prompt_messages( $context, $provider ),
-        'temperature'           => 0.2,
+        'messages'              => tonbankcard_api_ai_prompt_messages( $context, $provider, $attempt ),
+        'temperature'           => $attempt > 1 ? 0.0 : 0.2,
         'max_completion_tokens' => 650,
         'response_format'       => [
             'type' => 'json_object',
@@ -862,13 +925,19 @@ function tonbankcard_api_ai_provider_request( array $context, array $provider ) 
  *
  * @param array $context
  * @param array $provider
+ * @param int $attempt
  * @return array
  */
-function tonbankcard_api_ai_prompt_messages( array $context, array $provider ) {
+function tonbankcard_api_ai_prompt_messages( array $context, array $provider, int $attempt = 1 ) {
+    $system = 'You write concise factual crypto market context for TONBANKCARD. Return only structured JSON. Do not provide investment advice. Do not tell users to buy, sell, hold, short, long, use leverage, set stop losses, or size positions. Include not financial advice framing, cite market_data_age_seconds, and include uncertainty. Use neutral language when evidence is mixed.';
+    if ( $attempt > 1 ) {
+        $system .= ' Your previous response failed schema validation. Return ONLY a JSON object with these required fields: title (string), summary (string), sentiment (one of bullish|bearish|neutral|mixed|unknown), confidence (number between 0 and 1), drivers (array of strings, may be empty), risks (array of strings, may be empty), uncertainty (non-empty string), market_data_age_seconds (integer copied from input), not_financial_advice (must be true). Avoid the words buy, sell, hold, short, long, leverage, take profit, stop loss, position size, all in.';
+    }
+
     return [
         [
             'role'    => 'system',
-            'content' => 'You write concise factual crypto market context for TONBANKCARD. Return only structured JSON. Do not provide investment advice. Do not tell users to buy, sell, hold, short, long, use leverage, set stop losses, or size positions. Include not financial advice framing, cite market_data_age_seconds, and include uncertainty. Use neutral language when evidence is mixed.',
+            'content' => $system,
         ],
         [
             'role'    => 'user',
