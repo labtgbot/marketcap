@@ -293,6 +293,38 @@ function tonbankcard_api_ai_feature_for_insight_type( string $type ) {
 }
 
 /**
+ * Builds cache metadata for an AI insight request.
+ *
+ * @param array $context
+ * @param array $provider
+ * @param array $runtime
+ * @param array $config
+ * @return array
+ */
+function tonbankcard_api_ai_insight_cache_context( array $context, array $provider, array $runtime, array $config ) {
+    $cache_settings = tonbankcard_api_cache_settings( $config );
+    $redis = tonbankcard_api_redis_settings( $runtime, $config );
+    $ttl = isset( $cache_settings['ttls']['ai_summaries'] ) ? max( 0, (int) $cache_settings['ttls']['ai_summaries'] ) : 21600;
+
+    $parts = [
+        'prompt_version'   => isset( $provider['prompt_version'] ) ? $provider['prompt_version'] : 'v1',
+        'model_id'         => isset( $provider['model_id'] ) ? $provider['model_id'] : '',
+        'insight_type'     => $context['insight_type'],
+        'subject_hash'     => hash( 'sha256', strtolower( $context['subject'] ) ),
+        'market_data_hash' => hash( 'sha256', json_encode( isset( $context['market_data'] ) ? $context['market_data'] : [], JSON_UNESCAPED_SLASHES ) ),
+    ];
+    $key = tonbankcard_api_redis_key( $runtime, $config, 'ai_insight', $parts );
+
+    return [
+        'enabled'           => ! empty( $cache_settings['enabled'] ) && ! empty( $redis['enabled'] ) && $ttl > 0,
+        'ttl_seconds'       => $ttl,
+        'stale_ttl_seconds' => isset( $cache_settings['stale_ttl_seconds'] ) ? (int) $cache_settings['stale_ttl_seconds'] : 0,
+        'key'               => $key,
+        'key_hash'          => hash( 'sha256', $key ),
+    ];
+}
+
+/**
  * Builds an insight response or a graceful unavailable fallback.
  *
  * @param array $context
@@ -316,6 +348,28 @@ function tonbankcard_api_ai_insight_response( array $context, array $runtime, ar
         return tonbankcard_api_ai_unavailable_response( 'feature_disabled', $provider, $request_id, $headers );
     }
 
+    $cache_context = tonbankcard_api_ai_insight_cache_context( $context, $provider, $runtime, $config );
+    if ( ! empty( $cache_context['enabled'] ) ) {
+        $cached = tonbankcard_api_cache_get( $runtime, $config, $cache_context['key'] );
+        if ( isset( $cached['state'] ) && in_array( $cached['state'], [ 'hit', 'stale' ], TRUE ) && isset( $cached['entry']['data'] ) && is_array( $cached['entry']['data'] ) ) {
+            return tonbankcard_api_success_response(
+                $cached['entry']['data'],
+                $request_id,
+                $headers,
+                200,
+                [
+                    'provider' => tonbankcard_api_ai_provider_meta( $provider ),
+                    'cost'     => tonbankcard_api_ai_cost_counters( [], [] ),
+                    'cache'    => [
+                        'cache_status'      => $cached['state'],
+                        'cache_key_hash'    => $cache_context['key_hash'],
+                        'cache_ttl_seconds' => $cache_context['ttl_seconds'],
+                    ],
+                ]
+            );
+        }
+    }
+
     $execution = tonbankcard_api_ai_execute_prompt( $context, $provider, $config );
     if ( empty( $execution['ok'] ) ) {
         return tonbankcard_api_ai_unavailable_response(
@@ -327,13 +381,34 @@ function tonbankcard_api_ai_insight_response( array $context, array $runtime, ar
         );
     }
 
+    $response_data = [
+        'status'         => 'available',
+        'insight'        => $execution['insight'],
+        'provider'       => tonbankcard_api_ai_provider_meta( $provider ),
+        'prompt_version' => $provider['prompt_version'],
+    ];
+
+    if ( ! empty( $cache_context['enabled'] ) ) {
+        tonbankcard_api_cache_set(
+            $runtime,
+            $config,
+            $cache_context['key'],
+            $response_data,
+            [
+                'status'         => 200,
+                'path'           => '/api/ai/insight',
+                'insight_type'   => $context['insight_type'],
+                'prompt_version' => $provider['prompt_version'],
+                'model_id'       => $provider['model_id'],
+            ],
+            $cache_context['ttl_seconds'],
+            $cache_context['stale_ttl_seconds'],
+            time()
+        );
+    }
+
     return tonbankcard_api_success_response(
-        [
-            'status'         => 'available',
-            'insight'        => $execution['insight'],
-            'provider'       => tonbankcard_api_ai_provider_meta( $provider ),
-            'prompt_version' => $provider['prompt_version'],
-        ],
+        $response_data,
         $request_id,
         $headers,
         200,
@@ -897,7 +972,7 @@ function tonbankcard_api_ai_provider_request( array $context, array $provider, i
         'model'                 => $provider['model_id'],
         'messages'              => tonbankcard_api_ai_prompt_messages( $context, $provider, $attempt ),
         'temperature'           => $attempt > 1 ? 0.0 : 0.2,
-        'max_completion_tokens' => 650,
+        'max_completion_tokens' => 1024,
         'response_format'       => [
             'type' => 'json_object',
         ],
@@ -911,7 +986,6 @@ function tonbankcard_api_ai_provider_request( array $context, array $provider, i
             'Content-Type'  => 'application/json',
             'Authorization' => 'Bearer ' . $provider['api_key'],
             'User-Agent'    => 'TONBANKCARD-AIProvider/' . GECKO_CLIENT_VERSION,
-            'Groq-Beta'     => 'inference-metrics',
         ],
         'body'            => json_encode( $body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ),
         'timeout_seconds' => $provider['timeout_seconds'],

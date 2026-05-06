@@ -178,6 +178,53 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 
             <?php
             /*
+             * LANGUAGE SWITCHER
+             *
+             * Renders a server-driven list of supported languages. Selecting a
+             * language sets the `tbc_lang` cookie via /api/locale/set and reloads
+             * the page so server-rendered strings re-translate.
+             */
+            $tbc_active_language     = isset( $GLOBALS['tonbankcard_active_language'] ) ? $GLOBALS['tonbankcard_active_language'] : 'en';
+            $tbc_supported_languages = function_exists( 'tonbankcard_supported_languages' ) ? tonbankcard_supported_languages() : [ 'en' => 'English' ];
+            ?>
+            <v-menu offset-y top class="public-web-language-menu">
+                <template v-slot:activator="{ on, attrs }">
+                    <v-list-item v-bind="attrs" v-on="on" class="public-web-language-trigger" data-testid="language-switcher-trigger">
+                        <v-list-item-icon>
+                            <v-icon>mdi-translate</v-icon>
+                        </v-list-item-icon>
+                        <v-list-item-content>
+                            <v-list-item-title>
+                                <?php echo esc_html( __( 'Language' ) ); ?>
+                            </v-list-item-title>
+                            <v-list-item-subtitle>
+                                <?php echo esc_html( $tbc_supported_languages[ $tbc_active_language ] ?? $tbc_supported_languages['en'] ); ?>
+                            </v-list-item-subtitle>
+                        </v-list-item-content>
+                    </v-list-item>
+                </template>
+                <v-list dense class="public-web-language-list">
+                    <?php foreach ( $tbc_supported_languages as $tbc_code => $tbc_label ) : ?>
+                        <v-list-item
+                            href="<?php echo esc_url( site_url( 'api/locale/set?lang=' . $tbc_code ) ); ?>"
+                            <?php if ( $tbc_code === $tbc_active_language ) echo 'class="v-list-item--active"'; ?>
+                            data-testid="language-switcher-option"
+                            data-language="<?php echo esc_attr( $tbc_code ); ?>"
+                            hreflang="<?php echo esc_attr( $tbc_code ); ?>"
+                        >
+                            <v-list-item-icon>
+                                <v-icon><?php echo $tbc_code === $tbc_active_language ? 'mdi-check' : 'mdi-circle-outline'; ?></v-icon>
+                            </v-list-item-icon>
+                            <v-list-item-content>
+                                <v-list-item-title><?php echo esc_html( $tbc_label ); ?></v-list-item-title>
+                            </v-list-item-content>
+                        </v-list-item>
+                    <?php endforeach; ?>
+                </v-list>
+            </v-menu>
+
+            <?php
+            /*
              * THEME TOGGLE ITEM
              */
             ?>

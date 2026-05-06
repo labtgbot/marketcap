@@ -372,16 +372,32 @@
                     this.content.ton_assets.push({
                         local_id: 'ton-asset-' + Date.now(),
                         id: '',
+                        coin_id: '',
                         name: '',
                         symbol: '',
                         category: 'jetton',
                         verification_state: 'curated',
-                        tags: ['ton_ecosystem']
+                        tags: ['ton_ecosystem'],
+                        priority: 0
                     });
                 },
                 removeTonAsset: function (index) {
                     if (!this.canWrite) return;
                     this.content.ton_assets.splice(index, 1);
+                },
+                moveTonAssetUp: function (index) {
+                    if (!this.canWrite || index <= 0) return;
+                    const assets = this.content.ton_assets;
+                    const temp = assets[index - 1];
+                    this.$set(assets, index - 1, assets[index]);
+                    this.$set(assets, index, temp);
+                },
+                moveTonAssetDown: function (index) {
+                    if (!this.canWrite || index >= this.content.ton_assets.length - 1) return;
+                    const assets = this.content.ton_assets;
+                    const temp = assets[index + 1];
+                    this.$set(assets, index + 1, assets[index]);
+                    this.$set(assets, index, temp);
                 },
                 secretStatus: function (metadata) {
                     if (_.get(metadata, 'configured')) return 'configured';

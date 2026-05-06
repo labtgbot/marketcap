@@ -29,6 +29,7 @@ function tonbankcard_api_ton_routes() {
     return [
         '/api/ton',
         '/api/ton/assets',
+        '/api/ton/lookup',
     ];
 }
 
@@ -60,6 +61,16 @@ function tonbankcard_api_ton_handle( array $request, array $runtime, array $conf
             200,
             tonbankcard_api_ton_meta( tonbankcard_api_ton_load_state( $runtime, $config ), [], 0 )
         );
+    }
+
+    if ( '/api/ton/lookup' === $path ) {
+        if ( 'GET' !== $request['method'] ) {
+            return tonbankcard_api_method_not_allowed_response( [ 'GET', 'OPTIONS' ], $request_id, $headers );
+        }
+
+        $query  = isset( $request['query'] ) && is_array( $request['query'] ) ? $request['query'] : [];
+        $result = tonbankcard_api_ton_lookup_jetton( $query, $request_id, $headers );
+        return $result;
     }
 
     if ( '/api/ton/assets' !== $path ) {
@@ -442,6 +453,15 @@ function tonbankcard_api_ton_load_state( array $runtime, array $config ) {
         }
     }
 
+    // Derive excluded coin_ids so the client can filter auto-discovered assets.
+    $excluded_coin_ids = [];
+    foreach ( $excluded_ids as $ex_id ) {
+        // Discovered assets have ids like "coin-<coin_id>".
+        if ( 0 === strpos( $ex_id, 'coin-' ) ) {
+            $excluded_coin_ids[] = substr( $ex_id, 5 );
+        }
+    }
+
     uasort(
         $assets,
         function ( $left, $right ) {
@@ -474,7 +494,9 @@ function tonbankcard_api_ton_load_state( array $runtime, array $config ) {
         'warnings'           => $warnings,
         'categories'         => $categories,
         'lists'              => $lists,
-        'assets'             => array_values( $assets ),
+        'assets'              => array_values( $assets ),
+        'excluded_asset_ids'  => $excluded_ids,
+        'excluded_coin_ids'   => array_values( $excluded_coin_ids ),
     ];
 }
 
@@ -567,6 +589,130 @@ function tonbankcard_api_ton_read_store( array $settings, array &$warnings ) {
     }
 
     return $decoded;
+}
+
+/**
+ * Looks up a TON jetton by contract address using the public TON API.
+ *
+ * Returns a success response with name, symbol, decimals, and description
+ * pre-filled from the jetton metadata, or an error response if the lookup fails.
+ *
+ * @param array  $query
+ * @param string $request_id
+ * @param array  $headers
+ * @return array
+ */
+function tonbankcard_api_ton_lookup_jetton( array $query, string $request_id, array $headers ) {
+    $contract = trim( (string) ( isset( $query['contract'] ) ? $query['contract'] : '' ) );
+    if ( '' === $contract ) {
+        return tonbankcard_api_error_response(
+            400,
+            'ton_lookup_missing_contract',
+            'Provide a contract address via the contract query parameter.',
+            [ 'example' => '/api/ton/lookup?contract=EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs' ],
+            $request_id,
+            $headers
+        );
+    }
+
+    // Basic sanity-check: TON contract addresses are base64url or hex strings.
+    if ( ! preg_match( '/^[A-Za-z0-9_:+\/=-]{20,80}$/', $contract ) ) {
+        return tonbankcard_api_error_response(
+            400,
+            'ton_lookup_invalid_contract',
+            'The contract address format is not recognized.',
+            [ 'contract' => $contract ],
+            $request_id,
+            $headers
+        );
+    }
+
+    $url     = 'https://tonapi.io/v2/jettons/' . rawurlencode( $contract );
+    $context = stream_context_create( [
+        'http' => [
+            'method'          => 'GET',
+            'timeout'         => 8,
+            'follow_location' => 1,
+            'header'          => "Accept: application/json\r\nUser-Agent: TONBANKCARD/2\r\n",
+        ],
+        'ssl'  => [ 'verify_peer' => TRUE ],
+    ] );
+
+    $raw = @file_get_contents( $url, FALSE, $context );
+    if ( FALSE === $raw || '' === trim( $raw ) ) {
+        return tonbankcard_api_error_response(
+            502,
+            'ton_lookup_upstream_unavailable',
+            'The TON API did not respond. Try again later.',
+            [ 'contract' => $contract ],
+            $request_id,
+            $headers
+        );
+    }
+
+    $data = json_decode( $raw, TRUE );
+    if ( JSON_ERROR_NONE !== json_last_error() || ! is_array( $data ) ) {
+        return tonbankcard_api_error_response(
+            502,
+            'ton_lookup_upstream_invalid',
+            'The TON API returned an unexpected response.',
+            [ 'contract' => $contract ],
+            $request_id,
+            $headers
+        );
+    }
+
+    if ( ! empty( $data['error'] ) ) {
+        return tonbankcard_api_error_response(
+            404,
+            'ton_lookup_not_found',
+            'Jetton not found on the TON network.',
+            [ 'contract' => $contract, 'detail' => (string) $data['error'] ],
+            $request_id,
+            $headers
+        );
+    }
+
+    $meta        = isset( $data['metadata'] ) && is_array( $data['metadata'] ) ? $data['metadata'] : [];
+    $name        = trim( (string) ( isset( $meta['name'] ) ? $meta['name'] : ( isset( $data['name'] ) ? $data['name'] : '' ) ) );
+    $symbol      = strtoupper( trim( (string) ( isset( $meta['symbol'] ) ? $meta['symbol'] : ( isset( $data['symbol'] ) ? $data['symbol'] : '' ) ) ) );
+    $decimals    = isset( $data['decimals'] ) ? (int) $data['decimals'] : ( isset( $meta['decimals'] ) ? (int) $meta['decimals'] : 9 );
+    $description = trim( (string) ( isset( $meta['description'] ) ? $meta['description'] : '' ) );
+    $image       = trim( (string) ( isset( $meta['image'] ) ? $meta['image'] : ( isset( $meta['image_data'] ) ? $meta['image_data'] : '' ) ) );
+    $total_supply = isset( $data['total_supply'] ) ? (string) $data['total_supply'] : '';
+    $admin_addr  = isset( $data['admin'] ) && is_array( $data['admin'] ) && isset( $data['admin']['address'] )
+        ? trim( (string) $data['admin']['address'] ) : '';
+
+    if ( '' === $name && '' === $symbol ) {
+        return tonbankcard_api_error_response(
+            404,
+            'ton_lookup_incomplete',
+            'Jetton metadata is incomplete or not yet indexed.',
+            [ 'contract' => $contract ],
+            $request_id,
+            $headers
+        );
+    }
+
+    $slug_base = '' !== $name ? $name : $symbol;
+    $suggested_id = tonbankcard_api_ton_slug( $slug_base );
+
+    return tonbankcard_api_success_response(
+        [
+            'contract'     => $contract,
+            'suggested_id' => $suggested_id,
+            'name'         => $name,
+            'symbol'       => $symbol,
+            'decimals'     => $decimals,
+            'description'  => $description,
+            'image'        => $image,
+            'total_supply' => $total_supply,
+            'admin_address' => $admin_addr,
+            'source'       => 'tonapi',
+        ],
+        $request_id,
+        $headers
+    );
 }
 
 /**
@@ -781,17 +927,19 @@ function tonbankcard_api_ton_asset_matches_filters( array $asset, array $filters
  */
 function tonbankcard_api_ton_payload( array $state, array $assets, array $filters ) {
     return [
-        'version'        => isset( $state['version'] ) ? (int) $state['version'] : 1,
-        'source'         => isset( $state['source'] ) ? $state['source'] : 'tonbankcard-ton-curation',
-        'source_type'    => isset( $state['source_type'] ) ? $state['source_type'] : 'default',
-        'built_at'       => isset( $state['built_at'] ) ? $state['built_at'] : gmdate( 'c' ),
-        'updated_at'     => isset( $state['updated_at'] ) ? $state['updated_at'] : null,
-        'filters'        => $filters,
-        'asset_count'    => count( $assets ),
-        'market_coin_ids' => tonbankcard_api_ton_market_coin_ids( $assets ),
-        'categories'     => isset( $state['categories'] ) && is_array( $state['categories'] ) ? $state['categories'] : [],
-        'lists'          => isset( $state['lists'] ) && is_array( $state['lists'] ) ? $state['lists'] : [],
-        'assets'         => array_values( $assets ),
+        'version'             => isset( $state['version'] ) ? (int) $state['version'] : 1,
+        'source'              => isset( $state['source'] ) ? $state['source'] : 'tonbankcard-ton-curation',
+        'source_type'         => isset( $state['source_type'] ) ? $state['source_type'] : 'default',
+        'built_at'            => isset( $state['built_at'] ) ? $state['built_at'] : gmdate( 'c' ),
+        'updated_at'          => isset( $state['updated_at'] ) ? $state['updated_at'] : null,
+        'filters'             => $filters,
+        'asset_count'         => count( $assets ),
+        'market_coin_ids'     => tonbankcard_api_ton_market_coin_ids( $assets ),
+        'categories'          => isset( $state['categories'] ) && is_array( $state['categories'] ) ? $state['categories'] : [],
+        'lists'               => isset( $state['lists'] ) && is_array( $state['lists'] ) ? $state['lists'] : [],
+        'assets'              => array_values( $assets ),
+        'excluded_asset_ids'  => isset( $state['excluded_asset_ids'] ) && is_array( $state['excluded_asset_ids'] ) ? $state['excluded_asset_ids'] : [],
+        'excluded_coin_ids'   => isset( $state['excluded_coin_ids'] ) && is_array( $state['excluded_coin_ids'] ) ? $state['excluded_coin_ids'] : [],
     ];
 }
 
