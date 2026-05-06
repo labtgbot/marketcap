@@ -233,4 +233,39 @@ return [
     'Cancel renewal'                => 'Cancel renewal',
     'Advanced ranges'               => 'Advanced ranges',
     'Refresh'                       => 'Refresh',
+
+    /*
+    | -------------------------------------------------------------------------
+    | Market pulse, share buttons, and homepage labels
+    | -------------------------------------------------------------------------
+    */
+    'Share'                         => 'Share',
+    'TON view'                      => 'TON view',
+    'Full table'                    => 'Full table',
+    'Assets'                        => 'Assets',
+    'BTC dominance'                 => 'BTC dominance',
+    'Disclaimer'                    => 'Disclaimer',
+    'TONBANKCARD Crypto Tracker provides market data, AI summaries, alerts, and swap widgets for informational purposes only. Prices, liquidity, generated summaries, and alert triggers may be delayed, incomplete, or wrong. Nothing on this website is investment, financial, legal, tax, or trading advice, and TONBANKCARD does not recommend buying, selling, holding, borrowing, lending, swapping, or staking any asset.' => 'TONBANKCARD Crypto Tracker provides market data, AI summaries, alerts, and swap widgets for informational purposes only. Prices, liquidity, generated summaries, and alert triggers may be delayed, incomplete, or wrong. Nothing on this website is investment, financial, legal, tax, or trading advice, and TONBANKCARD does not recommend buying, selling, holding, borrowing, lending, swapping, or staking any asset.',
+    'Upstream market data is unavailable. Try again after the provider recovers.' => 'Upstream market data is unavailable. Try again after the provider recovers.',
+    'Some market pulse sections could not refresh. Available sections remain visible.' => 'Some market pulse sections could not refresh. Available sections remain visible.',
+    'Market data is stale. Use the freshness label before acting on prices.' => 'Market data is stale. Use the freshness label before acting on prices.',
+    'No market data is available right now.' => 'No market data is available right now.',
+    'TON ecosystem pulse'           => 'TON ecosystem pulse',
+    'TON assets will appear here when market data is available.' => 'TON assets will appear here when market data is available.',
+    'Top gainers'                   => 'Top gainers',
+    'Top losers'                    => 'Top losers',
+    'No positive movers are available.' => 'No positive movers are available.',
+    'No negative movers are available.' => 'No negative movers are available.',
+    'Trending coins'                => 'Trending coins',
+    'Trending coins are loading or temporarily unavailable.' => 'Trending coins are loading or temporarily unavailable.',
+    'Watchlist preview'             => 'Watchlist preview',
+    'No watched coins yet.'         => 'No watched coins yet.',
+    'Open watchlist'                => 'Open watchlist',
+    'AI market summary'             => 'AI market summary',
+    'AI insight unavailable'        => 'AI insight unavailable',
+    'Market data remains available.' => 'Market data remains available.',
+    'Search coins, exchanges, TON assets...' => 'Search coins, exchanges, TON assets...',
+    'Search coins, exchanges, TON assets, categories, and quick actions' => 'Search coins, exchanges, TON assets, categories, and quick actions',
+    'Not financial advice'          => 'Not financial advice',
+    'TONBANKCARD Crypto Tracker. Market data and third-party widgets are provided for informational use only.' => 'TONBANKCARD Crypto Tracker. Market data and third-party widgets are provided for informational use only.',
 ];

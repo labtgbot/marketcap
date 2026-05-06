@@ -232,4 +232,39 @@ return [
     'Cancel renewal'                => '取消续订',
     'Advanced ranges'               => '高级范围',
     'Refresh'                       => '刷新',
+
+    /*
+    | -------------------------------------------------------------------------
+    | Market pulse, share buttons, and homepage labels
+    | -------------------------------------------------------------------------
+    */
+    'Share'                         => '分享',
+    'TON view'                      => 'TON 视图',
+    'Full table'                    => '完整表格',
+    'Assets'                        => '资产',
+    'BTC dominance'                 => 'BTC 占比',
+    'Disclaimer'                    => '免责声明',
+    'TONBANKCARD Crypto Tracker provides market data, AI summaries, alerts, and swap widgets for informational purposes only. Prices, liquidity, generated summaries, and alert triggers may be delayed, incomplete, or wrong. Nothing on this website is investment, financial, legal, tax, or trading advice, and TONBANKCARD does not recommend buying, selling, holding, borrowing, lending, swapping, or staking any asset.' => 'TONBANKCARD Crypto Tracker 提供的市场数据、AI 摘要、提醒和兑换小工具仅供参考。价格、流动性、生成的摘要和提醒触发条件可能存在延迟、不完整或错误。本网站上的任何内容均不构成投资、财务、法律、税务或交易建议，TONBANKCARD 不建议买入、卖出、持有、借入、出借、兑换或质押任何资产。',
+    'Upstream market data is unavailable. Try again after the provider recovers.' => '上游市场数据不可用，请在提供方恢复后重试。',
+    'Some market pulse sections could not refresh. Available sections remain visible.' => '部分市场脉搏板块未能刷新，可用板块仍可查看。',
+    'Market data is stale. Use the freshness label before acting on prices.' => '市场数据已过期，请先查看新鲜度标签再依据价格操作。',
+    'No market data is available right now.' => '当前暂无市场数据。',
+    'TON ecosystem pulse'           => 'TON 生态脉搏',
+    'TON assets will appear here when market data is available.' => '当市场数据可用时，TON 资产将显示在此处。',
+    'Top gainers'                   => '涨幅榜首',
+    'Top losers'                    => '跌幅榜首',
+    'No positive movers are available.' => '暂无上涨标的。',
+    'No negative movers are available.' => '暂无下跌标的。',
+    'Trending coins'                => '热门币种',
+    'Trending coins are loading or temporarily unavailable.' => '热门币种正在加载或暂时不可用。',
+    'Watchlist preview'             => '自选预览',
+    'No watched coins yet.'         => '暂未添加自选币种。',
+    'Open watchlist'                => '打开自选',
+    'AI market summary'             => 'AI 市场摘要',
+    'AI insight unavailable'        => 'AI 洞察不可用',
+    'Market data remains available.' => '市场数据仍可获取。',
+    'Search coins, exchanges, TON assets...' => '搜索币种、交易所、TON 资产...',
+    'Search coins, exchanges, TON assets, categories, and quick actions' => '搜索币种、交易所、TON 资产、分类与快捷操作',
+    'Not financial advice'          => '不构成财务建议',
+    'TONBANKCARD Crypto Tracker. Market data and third-party widgets are provided for informational use only.' => 'TONBANKCARD Crypto Tracker。市场数据及第三方小工具仅供参考。',
 ];

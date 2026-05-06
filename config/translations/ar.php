@@ -234,4 +234,39 @@ return [
     'Cancel renewal'                => 'إلغاء التجديد',
     'Advanced ranges'               => 'نطاقات متقدمة',
     'Refresh'                       => 'تحديث',
+
+    /*
+    | -------------------------------------------------------------------------
+    | Market pulse, share buttons, and homepage labels
+    | -------------------------------------------------------------------------
+    */
+    'Share'                         => 'مشاركة',
+    'TON view'                      => 'عرض TON',
+    'Full table'                    => 'الجدول الكامل',
+    'Assets'                        => 'الأصول',
+    'BTC dominance'                 => 'هيمنة BTC',
+    'Disclaimer'                    => 'إخلاء مسؤولية',
+    'TONBANKCARD Crypto Tracker provides market data, AI summaries, alerts, and swap widgets for informational purposes only. Prices, liquidity, generated summaries, and alert triggers may be delayed, incomplete, or wrong. Nothing on this website is investment, financial, legal, tax, or trading advice, and TONBANKCARD does not recommend buying, selling, holding, borrowing, lending, swapping, or staking any asset.' => 'يقدّم TONBANKCARD Crypto Tracker بيانات السوق وملخصات الذكاء الاصطناعي والتنبيهات وأدوات المبادلة لأغراض إعلامية فقط. قد تكون الأسعار والسيولة والملخصات المُولَّدة ومحفّزات التنبيه متأخرة أو ناقصة أو خاطئة. لا شيء في هذا الموقع يُعدّ نصيحة استثمارية أو مالية أو قانونية أو ضريبية أو تداولية، ولا يوصي TONBANKCARD بشراء أو بيع أو الاحتفاظ أو الاقتراض أو الإقراض أو المبادلة أو ستيكنغ أي أصل.',
+    'Upstream market data is unavailable. Try again after the provider recovers.' => 'بيانات السوق من المزود غير متاحة. أعد المحاولة بعد استعادة المزود.',
+    'Some market pulse sections could not refresh. Available sections remain visible.' => 'تعذّر تحديث بعض أقسام نبض السوق. تبقى الأقسام المتاحة ظاهرة.',
+    'Market data is stale. Use the freshness label before acting on prices.' => 'بيانات السوق قديمة. استخدم وسم الحداثة قبل التصرف بناءً على الأسعار.',
+    'No market data is available right now.' => 'لا توجد بيانات سوق متاحة الآن.',
+    'TON ecosystem pulse'           => 'نبض نظام TON',
+    'TON assets will appear here when market data is available.' => 'ستظهر أصول TON هنا عندما تتوفر بيانات السوق.',
+    'Top gainers'                   => 'الأعلى ربحًا',
+    'Top losers'                    => 'الأعلى خسارة',
+    'No positive movers are available.' => 'لا تتوفر تحركات إيجابية.',
+    'No negative movers are available.' => 'لا تتوفر تحركات سلبية.',
+    'Trending coins'                => 'العملات الرائجة',
+    'Trending coins are loading or temporarily unavailable.' => 'العملات الرائجة قيد التحميل أو غير متاحة مؤقتًا.',
+    'Watchlist preview'             => 'معاينة قائمة المتابعة',
+    'No watched coins yet.'         => 'لا توجد عملات في قائمة المتابعة بعد.',
+    'Open watchlist'                => 'فتح قائمة المتابعة',
+    'AI market summary'             => 'ملخص السوق بالذكاء الاصطناعي',
+    'AI insight unavailable'        => 'تحليل الذكاء الاصطناعي غير متاح',
+    'Market data remains available.' => 'لا تزال بيانات السوق متوفرة.',
+    'Search coins, exchanges, TON assets...' => 'ابحث عن عملات ومنصات وأصول TON...',
+    'Search coins, exchanges, TON assets, categories, and quick actions' => 'ابحث عن عملات ومنصات وأصول TON وفئات وإجراءات سريعة',
+    'Not financial advice'          => 'ليست نصيحة مالية',
+    'TONBANKCARD Crypto Tracker. Market data and third-party widgets are provided for informational use only.' => 'TONBANKCARD Crypto Tracker. تُقدَّم بيانات السوق وأدوات الجهات الخارجية لأغراض إعلامية فقط.',
 ];

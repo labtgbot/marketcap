@@ -232,4 +232,39 @@ return [
     'Cancel renewal'                => 'Отменить продление',
     'Advanced ranges'               => 'Расширенные диапазоны',
     'Refresh'                       => 'Обновить',
+
+    /*
+    | -------------------------------------------------------------------------
+    | Market pulse, share buttons, and homepage labels
+    | -------------------------------------------------------------------------
+    */
+    'Share'                         => 'Поделиться',
+    'TON view'                      => 'TON-вид',
+    'Full table'                    => 'Полная таблица',
+    'Assets'                        => 'Активы',
+    'BTC dominance'                 => 'Доминирование BTC',
+    'Disclaimer'                    => 'Отказ от ответственности',
+    'TONBANKCARD Crypto Tracker provides market data, AI summaries, alerts, and swap widgets for informational purposes only. Prices, liquidity, generated summaries, and alert triggers may be delayed, incomplete, or wrong. Nothing on this website is investment, financial, legal, tax, or trading advice, and TONBANKCARD does not recommend buying, selling, holding, borrowing, lending, swapping, or staking any asset.' => 'TONBANKCARD Crypto Tracker предоставляет рыночные данные, AI-сводки, оповещения и виджеты обмена исключительно в информационных целях. Цены, ликвидность, генерируемые сводки и триггеры оповещений могут быть задержаны, неполны или ошибочны. Ничто на этом сайте не является инвестиционной, финансовой, юридической, налоговой или торговой консультацией, и TONBANKCARD не рекомендует покупать, продавать, держать, занимать, давать в долг, обменивать или стейкать какие-либо активы.',
+    'Upstream market data is unavailable. Try again after the provider recovers.' => 'Рыночные данные провайдера недоступны. Попробуйте снова после восстановления провайдера.',
+    'Some market pulse sections could not refresh. Available sections remain visible.' => 'Некоторые разделы пульса рынка не удалось обновить. Доступные разделы остаются видимыми.',
+    'Market data is stale. Use the freshness label before acting on prices.' => 'Рыночные данные устарели. Сверяйтесь с меткой свежести, прежде чем действовать по ценам.',
+    'No market data is available right now.' => 'Рыночные данные сейчас недоступны.',
+    'TON ecosystem pulse'           => 'Пульс экосистемы TON',
+    'TON assets will appear here when market data is available.' => 'Активы TON появятся здесь, когда станут доступны рыночные данные.',
+    'Top gainers'                   => 'Лидеры роста',
+    'Top losers'                    => 'Лидеры падения',
+    'No positive movers are available.' => 'Растущие активы недоступны.',
+    'No negative movers are available.' => 'Падающие активы недоступны.',
+    'Trending coins'                => 'Трендовые монеты',
+    'Trending coins are loading or temporarily unavailable.' => 'Трендовые монеты загружаются или временно недоступны.',
+    'Watchlist preview'             => 'Обзор избранного',
+    'No watched coins yet.'         => 'Пока нет монет в избранном.',
+    'Open watchlist'                => 'Открыть избранное',
+    'AI market summary'             => 'AI-обзор рынка',
+    'AI insight unavailable'        => 'AI-обзор недоступен',
+    'Market data remains available.' => 'Рыночные данные остаются доступны.',
+    'Search coins, exchanges, TON assets...' => 'Искать монеты, биржи, TON-активы...',
+    'Search coins, exchanges, TON assets, categories, and quick actions' => 'Поиск монет, бирж, TON-активов, категорий и быстрых действий',
+    'Not financial advice'          => 'Не финансовая консультация',
+    'TONBANKCARD Crypto Tracker. Market data and third-party widgets are provided for informational use only.' => 'TONBANKCARD Crypto Tracker. Рыночные данные и виджеты сторонних сервисов предоставляются исключительно в информационных целях.',
 ];

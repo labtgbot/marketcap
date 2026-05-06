@@ -232,4 +232,39 @@ return [
     'Cancel renewal'                => 'Annuler le renouvellement',
     'Advanced ranges'               => 'Plages avancées',
     'Refresh'                       => 'Actualiser',
+
+    /*
+    | -------------------------------------------------------------------------
+    | Market pulse, share buttons, and homepage labels
+    | -------------------------------------------------------------------------
+    */
+    'Share'                         => 'Partager',
+    'TON view'                      => 'Vue TON',
+    'Full table'                    => 'Tableau complet',
+    'Assets'                        => 'Actifs',
+    'BTC dominance'                 => 'Dominance BTC',
+    'Disclaimer'                    => 'Avertissement',
+    'TONBANKCARD Crypto Tracker provides market data, AI summaries, alerts, and swap widgets for informational purposes only. Prices, liquidity, generated summaries, and alert triggers may be delayed, incomplete, or wrong. Nothing on this website is investment, financial, legal, tax, or trading advice, and TONBANKCARD does not recommend buying, selling, holding, borrowing, lending, swapping, or staking any asset.' => 'TONBANKCARD Crypto Tracker fournit des données de marché, des résumés IA, des alertes et des widgets de swap à titre informatif uniquement. Les prix, la liquidité, les résumés générés et les déclencheurs d\'alerte peuvent être retardés, incomplets ou erronés. Rien sur ce site ne constitue un conseil en investissement, financier, juridique, fiscal ou de trading, et TONBANKCARD ne recommande pas l\'achat, la vente, la détention, l\'emprunt, le prêt, l\'échange ni le staking d\'aucun actif.',
+    'Upstream market data is unavailable. Try again after the provider recovers.' => 'Les données de marché du fournisseur sont indisponibles. Réessayez une fois le fournisseur rétabli.',
+    'Some market pulse sections could not refresh. Available sections remain visible.' => 'Certaines sections du pouls du marché n\'ont pas pu s\'actualiser. Les sections disponibles restent visibles.',
+    'Market data is stale. Use the freshness label before acting on prices.' => 'Les données de marché sont obsolètes. Consultez l\'étiquette de fraîcheur avant d\'agir sur les prix.',
+    'No market data is available right now.' => 'Aucune donnée de marché n\'est disponible pour le moment.',
+    'TON ecosystem pulse'           => 'Pouls de l\'écosystème TON',
+    'TON assets will appear here when market data is available.' => 'Les actifs TON apparaîtront ici lorsque les données de marché seront disponibles.',
+    'Top gainers'                   => 'Plus fortes hausses',
+    'Top losers'                    => 'Plus fortes baisses',
+    'No positive movers are available.' => 'Aucun actif en hausse disponible.',
+    'No negative movers are available.' => 'Aucun actif en baisse disponible.',
+    'Trending coins'                => 'Cryptos tendance',
+    'Trending coins are loading or temporarily unavailable.' => 'Les cryptos tendance sont en cours de chargement ou temporairement indisponibles.',
+    'Watchlist preview'             => 'Aperçu de la liste de suivi',
+    'No watched coins yet.'         => 'Aucune crypto suivie pour le moment.',
+    'Open watchlist'                => 'Ouvrir la liste de suivi',
+    'AI market summary'             => 'Résumé IA du marché',
+    'AI insight unavailable'        => 'Aperçu IA indisponible',
+    'Market data remains available.' => 'Les données de marché restent disponibles.',
+    'Search coins, exchanges, TON assets...' => 'Rechercher cryptos, plateformes, actifs TON...',
+    'Search coins, exchanges, TON assets, categories, and quick actions' => 'Rechercher cryptos, plateformes, actifs TON, catégories et actions rapides',
+    'Not financial advice'          => 'Pas un conseil financier',
+    'TONBANKCARD Crypto Tracker. Market data and third-party widgets are provided for informational use only.' => 'TONBANKCARD Crypto Tracker. Les données de marché et les widgets tiers sont fournis à titre informatif uniquement.',
 ];
