@@ -388,15 +388,26 @@ $frontend_options['admin']['apiBaseUrl'] = site_url( 'api/admin' );
                     </v-btn>
                 </v-card-title>
                 <v-card-text>
+                    <v-alert type="info" outlined dense class="mb-4">
+                        <?php echo esc_html( __( 'Priority controls display order. Assets with higher priority appear first. Use 900+ for top positions (top 10 use 700–930).' ) ); ?>
+                    </v-alert>
                     <v-alert v-if="!content.ton_assets.length" type="info" outlined dense>
                         <?php echo esc_html( __( 'No curated TON assets.' ) ); ?>
                     </v-alert>
                     <v-row dense>
                         <v-col cols="12" lg="6" v-for="(asset, index) in content.ton_assets" :key="asset.local_id || index">
-                            <div class="admin-ton-card">
+                            <div class="admin-ton-card" :class="{'admin-ton-card--top10': (asset.priority || 0) >= 700}">
                                 <div class="admin-ton-header text-subtitle-2 font-weight-bold">
+                                    <v-icon v-if="(asset.priority || 0) >= 700" small color="warning" class="mr-1">mdi-star</v-icon>
                                     {{ asset.name || 'TON asset' }}
+                                    <span class="text-caption text--secondary ml-1" v-if="asset.priority">({{ asset.priority }})</span>
                                     <v-spacer></v-spacer>
+                                    <v-btn icon small :disabled="!canWrite || index === 0" @click="moveTonAssetUp(index)" title="<?php echo esc_attr( __( 'Move up' ) ); ?>">
+                                        <v-icon small>mdi-arrow-up</v-icon>
+                                    </v-btn>
+                                    <v-btn icon small :disabled="!canWrite || index === content.ton_assets.length - 1" @click="moveTonAssetDown(index)" title="<?php echo esc_attr( __( 'Move down' ) ); ?>">
+                                        <v-icon small>mdi-arrow-down</v-icon>
+                                    </v-btn>
                                     <v-btn icon small color="secondary" :disabled="!canWrite" @click="removeTonAsset(index)">
                                         <v-icon>mdi-delete-outline</v-icon>
                                     </v-btn>
@@ -412,11 +423,14 @@ $frontend_options['admin']['apiBaseUrl'] = site_url( 'api/admin' );
                                         <v-col cols="12">
                                             <v-text-field v-model.trim="asset.name" label="<?php echo esc_attr( __( 'Name' ) ); ?>" outlined dense hide-details="auto" :disabled="!canWrite"></v-text-field>
                                         </v-col>
-                                        <v-col cols="12" sm="6">
+                                        <v-col cols="12" sm="4">
                                             <v-select v-model="asset.category" :items="tonCategories" label="<?php echo esc_attr( __( 'Category' ) ); ?>" outlined dense hide-details="auto" :disabled="!canWrite"></v-select>
                                         </v-col>
-                                        <v-col cols="12" sm="6">
+                                        <v-col cols="12" sm="4">
                                             <v-select v-model="asset.verification_state" :items="tonVerificationStates" label="<?php echo esc_attr( __( 'Verification' ) ); ?>" outlined dense hide-details="auto" :disabled="!canWrite"></v-select>
+                                        </v-col>
+                                        <v-col cols="12" sm="4">
+                                            <v-text-field v-model.number="asset.priority" label="<?php echo esc_attr( __( 'Priority' ) ); ?>" type="number" min="0" max="1000" outlined dense hide-details="auto" :disabled="!canWrite" class="admin-ton-priority-field"></v-text-field>
                                         </v-col>
                                         <v-col cols="12">
                                             <v-combobox v-model="asset.tags" label="<?php echo esc_attr( __( 'Tags' ) ); ?>" outlined dense hide-details="auto" multiple small-chips deletable-chips :disabled="!canWrite"></v-combobox>

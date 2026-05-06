@@ -100,6 +100,28 @@ assert_contains dev/js/src/routes/ton.js 'synthesizeAssetFromMarket' 'TON catalo
 assert_contains dev/js/src/routes/ton.js 'recomputeTonAssets' 'TON catalog merges curated and discovered assets without duplicates'
 assert_contains assets/js/app.js 'fetchTonEcosystemCategory' 'TON catalog auto-discovery is shipped in the generated bundle'
 
+# Issue #113: server-side exclusion list exposed to client for discovered-asset filtering
+assert_contains dev/js/src/routes/ton.js 'excludedAssetIds' 'TON catalog stores excluded asset ids from API response'
+assert_contains dev/js/src/routes/ton.js 'excludedCoinIds' 'TON catalog stores excluded coin ids from API response'
+assert_contains api/ton.php 'excluded_coin_ids' 'TON API exposes excluded_coin_ids derived from excluded asset ids'
+
+# Issue #113: duplicate guard in editor save
+assert_contains dev/js/src/routes/ton.js 'duplicateByCoinId' 'TON catalog editor blocks duplicate coin_id on save'
+
+# Issue #113: TON blockchain jetton lookup via TON API
+assert_contains api/ton.php 'tonbankcard_api_ton_lookup_jetton' 'TON API exposes the jetton lookup handler'
+assert_contains api/ton.php "'/api/ton/lookup'" 'TON API registers the /api/ton/lookup route'
+assert_contains dev/js/src/routes/ton.js 'lookupTonJetton' 'TON catalog editor exposes jetton lookup from TON blockchain'
+assert_contains templates/routes/ton.php 'editorLookupContract' 'TON catalog editor template exposes the contract address lookup field'
+assert_contains assets/js/app.js 'lookupTonJetton' 'TON jetton lookup is shipped in the generated bundle'
+
+# Issue #113: priority field for top-10 asset sorting
+assert_contains dev/js/src/routes/ton.js 'priority' 'TON catalog editor supports the priority field'
+assert_contains templates/routes/ton.php 'priority' 'TON catalog editor template exposes the priority field'
+assert_contains templates/routes/admin.php 'moveTonAssetUp' 'Admin panel TON assets section exposes move-up reorder control'
+assert_contains dev/js/src/routes/admin.js 'moveTonAssetUp' 'Admin JS exposes moveTonAssetUp method for TON asset reordering'
+assert_contains dev/js/src/routes/admin.js 'moveTonAssetDown' 'Admin JS exposes moveTonAssetDown method for TON asset reordering'
+
 php_check 'TON curation API should expose defaults, persist manual curation, and preserve verification states' \
     env -i PATH="$PATH" \
         TONBANKCARD_TON_CURATION_FILE="$(mktemp)" \

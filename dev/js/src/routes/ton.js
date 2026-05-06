@@ -92,6 +92,11 @@
                     editorAsset: null,
                     editorIndex: -1,
                     editorIsNew: false,
+                    editorLookupContract: '',
+                    editorLookupLoading: false,
+                    editorLookupError: '',
+                    excludedAssetIds: [],
+                    excludedCoinIds: [],
                     tonCategoryOptions: tonCategoryOptions.slice(),
                     tonVerificationStateOptions: tonVerificationStateOptions.slice(),
                     tonLinkTypeOptions: tonLinkTypeOptions.slice(),
@@ -231,6 +236,8 @@
                             this.tonCategories = _.get(payload, 'categories', {});
                             this.tonLists = _.get(payload, 'lists', {});
                             this.tonMeta = response.data && response.data.meta ? response.data.meta : null;
+                            this.excludedAssetIds = _.get(payload, 'excluded_asset_ids', []);
+                            this.excludedCoinIds = _.get(payload, 'excluded_coin_ids', []);
                             this.recomputeTonAssets();
                             return this.fetchTonMarkets()
                                 .then(() => this.fetchTonEcosystemCategory());
@@ -301,11 +308,18 @@
                         if (asset.id) curatedById[asset.id] = true;
                         if (asset.coin_id) curatedByCoinId[asset.coin_id] = true;
                     });
+                    // Build exclusion sets from admin-managed exclusion lists so that
+                    // deletions of auto-discovered coins are respected client-side.
+                    const excludedIdSet = new Set(this.excludedAssetIds || []);
+                    const excludedCoinIdSet = new Set(this.excludedCoinIds || []);
+
                     const merged = (this.curatedAssets || []).slice();
                     (this.discoveredAssets || []).forEach(asset => {
                         if (!asset) return;
                         if (asset.coin_id && curatedByCoinId[asset.coin_id]) return;
                         if (asset.id && curatedById[asset.id]) return;
+                        if (asset.id && excludedIdSet.has(asset.id)) return;
+                        if (asset.coin_id && excludedCoinIdSet.has(asset.coin_id)) return;
                         merged.push(asset);
                     });
                     this.tonAssets = merged;
@@ -484,11 +498,15 @@
                         project_category: source.project_category || (link_type === 'project' ? source.category || '' : ''),
                         description: source.description || '',
                         featured: !!source.featured,
+                        priority: typeof source.priority === 'number' ? source.priority : 0,
+                        contract_address: (Array.isArray(source.contract_addresses) && source.contract_addresses.length) ? source.contract_addresses[0] : '',
                         tags: Array.isArray(source.tags) ? source.tags.slice() : ['ton_ecosystem'],
                         list_ids: Array.isArray(source.list_ids) ? source.list_ids.slice() : []
                     };
                     this.editorIndex = (typeof index === 'number') ? index : -1;
                     this.editorIsNew = !source.id;
+                    this.editorLookupContract = '';
+                    this.editorLookupError = '';
                     this.editorOpen = true;
                 },
                 openCreator: function () {
@@ -501,6 +519,8 @@
                     this.editorAsset = null;
                     this.editorIndex = -1;
                     this.editorIsNew = false;
+                    this.editorLookupContract = '';
+                    this.editorLookupError = '';
                 },
                 fetchAdminContent: function () {
                     return this.adminClient().get('/config')
@@ -519,6 +539,21 @@
                         this.adminNoticeType = 'error';
                         return;
                     }
+                    // Duplicate guard: warn if a different curated asset already has the same id or coin_id.
+                    const duplicateById = (this.curatedAssets || []).find(a => a && a.id === draft.id && a.id !== (this.editorIsNew ? '' : draft.id));
+                    const duplicateByCoinId = draft.coin_id && (this.curatedAssets || []).find(
+                        a => a && a.coin_id && a.coin_id === draft.coin_id && a.id !== draft.id
+                    );
+                    if (this.editorIsNew && duplicateById) {
+                        this.adminNotice = 'An asset with id "' + draft.id + '" already exists in the catalog.';
+                        this.adminNoticeType = 'error';
+                        return;
+                    }
+                    if (duplicateByCoinId) {
+                        this.adminNotice = 'CoinGecko id "' + draft.coin_id + '" is already used by "' + (duplicateByCoinId.name || duplicateByCoinId.id) + '".';
+                        this.adminNoticeType = 'error';
+                        return;
+                    }
                     this.adminSaving = true;
                     this.adminNotice = '';
                     return this.fetchAdminContent()
@@ -526,6 +561,7 @@
                             const assets = Array.isArray(content.ton_assets) ? content.ton_assets.slice() : [];
                             const matchIndex = _.findIndex(assets, entry => entry && entry.id === draft.id);
                             const link_type = draft.link_type === 'currency' ? 'currency' : 'project';
+                            const contract_addresses = draft.contract_address ? [draft.contract_address] : [];
                             const payload = {
                                 id: draft.id,
                                 coin_id: draft.coin_id || '',
@@ -537,6 +573,8 @@
                                 project_category: link_type === 'project' ? (draft.project_category || draft.category || '') : '',
                                 description: draft.description || '',
                                 featured: !!draft.featured,
+                                priority: typeof draft.priority === 'number' ? draft.priority : 0,
+                                contract_addresses: contract_addresses,
                                 tags: Array.isArray(draft.tags) ? draft.tags : [],
                                 list_ids: Array.isArray(draft.list_ids) ? draft.list_ids : []
                             };
@@ -545,8 +583,11 @@
                             } else {
                                 assets.push(payload);
                             }
+                            // When promoting a discovered asset, remove it from the exclusion list.
+                            const excluded = (Array.isArray(content.ton_excluded_asset_ids) ? content.ton_excluded_asset_ids : [])
+                                .filter(id => id !== draft.id && id !== ('coin-' + draft.coin_id));
                             return this.adminClient().put('/content', {
-                                content: _.assign({}, content, {ton_assets: assets})
+                                content: _.assign({}, content, {ton_assets: assets, ton_excluded_asset_ids: excluded})
                             });
                         })
                         .then(() => {
@@ -560,6 +601,34 @@
                             this.adminNoticeType = 'error';
                         })
                         .finally(() => this.adminSaving = false);
+                },
+                lookupTonJetton: function () {
+                    if (!this.editorAsset) return;
+                    const contract = (this.editorLookupContract || '').trim();
+                    if (!contract) {
+                        this.editorLookupError = 'Enter a TON contract address.';
+                        return;
+                    }
+                    this.editorLookupLoading = true;
+                    this.editorLookupError = '';
+                    axios.get('/api/ton/lookup', {params: {contract: contract}})
+                        .then(response => {
+                            const data = _.get(response, 'data.data') || {};
+                            if (data.name) this.editorAsset.name = data.name;
+                            if (data.symbol) this.editorAsset.symbol = data.symbol;
+                            if (data.description) this.editorAsset.description = data.description;
+                            if (data.suggested_id && !this.editorAsset.id) this.editorAsset.id = data.suggested_id;
+                            if (data.contract) this.editorAsset.contract_address = data.contract;
+                            if (!_.includes(this.editorAsset.tags || [], 'jetton')) {
+                                this.editorAsset.tags = _.uniq((this.editorAsset.tags || []).concat(['ton_ecosystem', 'jetton']));
+                            }
+                            this.editorLookupError = '';
+                        })
+                        .catch(error => {
+                            const msg = _.get(error, 'response.data.error.message') || 'TON lookup failed. Check the contract address.';
+                            this.editorLookupError = msg;
+                        })
+                        .finally(() => this.editorLookupLoading = false);
                 },
                 deleteAsset: function (asset) {
                     if (!this.canEditCuration || !asset || !asset.id) return;
