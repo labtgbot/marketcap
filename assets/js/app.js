@@ -9211,7 +9211,11 @@
                         .finally(() => this.loadingCuration = false);
                 },
                 fetchTonMarkets: function () {
-                    const ids = _.uniq(this.tonAssets.map(asset => asset.coin_id).filter(Boolean));
+                    // Always request the-open-network so Toncoin keeps market data even
+                    // when its curated entry is missing coin_id (admin override regression).
+                    const ids = _.uniq(
+                        this.tonAssets.map(asset => asset.coin_id).filter(Boolean).concat(['the-open-network'])
+                    );
                     if (!ids.length) {
                         this.tonMarketMap = {};
                         this.marketMeta = null;
@@ -9253,9 +9257,14 @@
                     }));
                 },
                 marketForAsset: function (asset) {
-                    if (!asset || !asset.coin_id) return null;
-                    const direct = this.tonMarketMap[asset.coin_id];
-                    if (direct) return direct;
+                    if (!asset) return null;
+                    if (asset.coin_id) {
+                        const direct = this.tonMarketMap[asset.coin_id];
+                        if (direct) return direct;
+                    }
+                    if (asset.id === 'toncoin' && this.tonMarketMap['the-open-network']) {
+                        return this.tonMarketMap['the-open-network'];
+                    }
                     const symbol = _.toLower(asset.symbol || '');
                     if (!symbol) return null;
                     return _.find(this.tonMarketMap, currency => _.toLower(currency.symbol) === symbol) || null;
