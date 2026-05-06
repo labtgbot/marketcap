@@ -143,6 +143,10 @@ $test_api['ai']['transport'] = function ( $request ) {
         fwrite( STDERR, "Groq API key was not sent server-side\n" );
         exit( 1 );
     }
+    if ( array_key_exists( 'Groq-Beta', $request['headers'] ) ) {
+        fwrite( STDERR, "Groq-Beta header must not be sent: it causes 400 errors from the Groq API\n" );
+        exit( 1 );
+    }
 
     $body = json_decode( $request['body'], TRUE );
     if ( 'llama-3.3-70b-versatile' !== $body['model'] ) {
@@ -151,6 +155,10 @@ $test_api['ai']['transport'] = function ( $request ) {
     }
     if ( empty( $body['response_format']['type'] ) || 'json_object' !== $body['response_format']['type'] ) {
         fwrite( STDERR, "AI request did not ask the provider for JSON output\n" );
+        exit( 1 );
+    }
+    if ( ! isset( $body['max_completion_tokens'] ) || $body['max_completion_tokens'] < 1024 ) {
+        fwrite( STDERR, "max_completion_tokens must be at least 1024 to prevent JSON truncation that causes schema retries\n" );
         exit( 1 );
     }
     $prompt = json_encode( $body['messages'] );
@@ -438,6 +446,107 @@ if ( 'configured' !== $groq['status'] || 'llama-3.3-70b-versatile' !== $groq['mo
 }
 if ( empty( $groq['cost_counters']['tracked'] ) || empty( $groq['rate_limit']['max_requests'] ) ) {
     fwrite( STDERR, "AI health check is missing cost counter or rate-limit metadata\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'AI insight cache hit should return a stored insight without calling the provider' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_FEATURE_AI=true \
+        GROQ_API_KEY='groq-secret-key' \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$provider_called = 0;
+
+$test_api = $api;
+$test_api['ai']['transport'] = function ( $request ) use ( &$provider_called ) {
+    $provider_called++;
+    return [
+        'status'  => 200,
+        'headers' => [ 'content-type' => 'application/json' ],
+        'body'    => json_encode(
+            [
+                'choices' => [
+                    [
+                        'message' => [
+                            'content' => json_encode(
+                                [
+                                    'title'                   => 'Cached TON context',
+                                    'summary'                 => 'TON data is unchanged.',
+                                    'sentiment'               => 'neutral',
+                                    'confidence'              => 0.55,
+                                    'drivers'                 => [],
+                                    'risks'                   => [],
+                                    'uncertainty'             => 'Narrow snapshot.',
+                                    'market_data_age_seconds' => 30,
+                                    'not_financial_advice'    => TRUE,
+                                ]
+                            ),
+                        ],
+                    ],
+                ],
+                'usage' => [ 'prompt_tokens' => 80, 'completion_tokens' => 30, 'total_tokens' => 110 ],
+            ]
+        ),
+    ];
+};
+
+$cached_entries = [];
+$test_api['redis']['transport'] = function ( $command ) use ( &$cached_entries ) {
+    $cmd = $command[0];
+    $key = isset( $command[1] ) ? $command[1] : '';
+    if ( 'SET' === $cmd ) {
+        $cached_entries[ $key ] = isset( $command[2] ) ? $command[2] : '';
+        return [ 'result' => 'OK' ];
+    }
+    if ( 'GET' === $cmd ) {
+        return [ 'result' => isset( $cached_entries[ $key ] ) ? $cached_entries[ $key ] : null ];
+    }
+    return [ 'result' => null ];
+};
+$test_api['cache']['enabled'] = true;
+$test_api['redis']['enabled'] = true;
+$test_api['redis']['rest_url'] = 'https://redis.example.com';
+$test_api['redis']['rest_token'] = 'test-token';
+
+$payload = json_encode(
+    [
+        'insight_type'            => 'market_summary',
+        'subject'                 => 'TON market',
+        'market_data_age_seconds' => 30,
+        'market_data'             => [ 'price_change_percentage_24h' => 0.5 ],
+    ]
+);
+
+$first = tonbankcard_api_handle(
+    [ 'method' => 'POST', 'path' => '/api/ai/insight', 'headers' => [ 'content-type' => 'application/json' ], 'body' => $payload ],
+    [],
+    $GLOBALS['runtime_config'],
+    $test_api
+);
+
+$second = tonbankcard_api_handle(
+    [ 'method' => 'POST', 'path' => '/api/ai/insight', 'headers' => [ 'content-type' => 'application/json' ], 'body' => $payload ],
+    [],
+    $GLOBALS['runtime_config'],
+    $test_api
+);
+
+if ( 200 !== $first['status'] || 200 !== $second['status'] ) {
+    fwrite( STDERR, "Both insight requests should return 200\n" );
+    exit( 1 );
+}
+if ( 1 !== $provider_called ) {
+    fwrite( STDERR, "Provider should be called exactly once; cache should serve the second request (got $provider_called calls)\n" );
+    exit( 1 );
+}
+$second_payload = json_decode( $second['body'], TRUE );
+if ( 'available' !== $second_payload['data']['status'] ) {
+    fwrite( STDERR, "Cache hit should return available insight status\n" );
     exit( 1 );
 }
 PHP
