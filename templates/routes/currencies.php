@@ -96,7 +96,7 @@ $frontend_options['currencies']['tonApiBaseUrl'] = site_url( 'api/ton/assets' );
                         <span class="text-caption text-uppercase text--secondary" v-text="stat.label"></span>
                         <v-icon color="primary" small v-text="stat.icon"></v-icon>
                     </div>
-                    <div class="market-pulse-stat-value text-h6 font-weight-bold" v-text="stat.value || 'Loading'"></div>
+                    <div class="market-pulse-stat-value text-h6 font-weight-bold" v-text="stat.value || '<?php echo esc_attr( __( 'Loading' ) ); ?>'"></div>
                 </v-sheet>
             </v-col>
         </v-row>
@@ -307,7 +307,7 @@ $frontend_options['currencies']['tonApiBaseUrl'] = site_url( 'api/ton/assets' );
                             <?php echo esc_html( __( 'No watched coins yet.' ) ); ?>
                         </div>
                         <v-btn small outlined color="primary" :to="{name:'watchlist'}">
-                            <?php echo esc_html( __( 'Open Watchlist' ) ); ?>
+                            <?php echo esc_html( __( 'Open watchlist' ) ); ?>
                         </v-btn>
                     </v-card-text>
                 </v-card>

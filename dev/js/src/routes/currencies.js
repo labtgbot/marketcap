@@ -93,22 +93,22 @@
                 globalStats: function () {
                     return [
                         {
-                            label: 'Market cap',
+                            label: GeckoClient.__('Market cap'),
                             icon: 'mdi-finance',
                             value: this.$root.marketCapFormat(_.get(this.global, ['total_market_cap', this.$root.vsCurrencyId], null))
                         },
                         {
-                            label: '24h volume',
+                            label: GeckoClient.__('24h volume'),
                             icon: 'mdi-chart-bar',
                             value: this.$root.volumeFormat(_.get(this.global, ['total_volume', this.$root.vsCurrencyId], null))
                         },
                         {
-                            label: 'Assets',
+                            label: GeckoClient.__('Assets'),
                             icon: 'mdi-database',
                             value: this.$root.bigNumberFormat(_.get(this.global, 'active_cryptocurrencies', null))
                         },
                         {
-                            label: 'BTC dominance',
+                            label: GeckoClient.__('BTC dominance'),
                             icon: 'mdi-bitcoin',
                             value: this.$root.dominanceFormat(_.get(this.global, ['market_cap_percentage', 'btc'], null))
                         }

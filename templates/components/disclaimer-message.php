@@ -21,7 +21,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 | DESCRIPTION: Disclaimer title.
 |
 */
-$component_disclaimer_message['title'] = 'Disclaimer';
+$component_disclaimer_message['title'] = __( 'Disclaimer' );
 
 /*
 | -------------------------------------------------------------------------
@@ -32,7 +32,7 @@ $component_disclaimer_message['title'] = 'Disclaimer';
 | DESCRIPTION: Disclaimer text.
 |
 */
-$component_disclaimer_message['text'] = 'TONBANKCARD Crypto Tracker provides market data, AI summaries, alerts, and swap widgets for informational purposes only. Prices, liquidity, generated summaries, and alert triggers may be delayed, incomplete, or wrong. Nothing on this website is investment, financial, legal, tax, or trading advice, and TONBANKCARD does not recommend buying, selling, holding, borrowing, lending, swapping, or staking any asset.';
+$component_disclaimer_message['text'] = __( 'TONBANKCARD Crypto Tracker provides market data, AI summaries, alerts, and swap widgets for informational purposes only. Prices, liquidity, generated summaries, and alert triggers may be delayed, incomplete, or wrong. Nothing on this website is investment, financial, legal, tax, or trading advice, and TONBANKCARD does not recommend buying, selling, holding, borrowing, lending, swapping, or staking any asset.' );
 
 if ( function_exists( 'tonbankcard_runtime_admin_store' ) ) {
     $component_disclaimer_admin_store = tonbankcard_runtime_admin_store();
