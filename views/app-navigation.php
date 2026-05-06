@@ -192,6 +192,50 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
                 </v-list-item-content>
             </v-list-item>
 
+            <?php
+            /*
+             * LANGUAGE SELECTOR
+             */
+            if ( ! empty( $site['supported_languages'] ) && count( $site['supported_languages'] ) > 1 ) :
+            ?>
+            <v-dialog v-model="languageDialogModel" scrollable max-width="400px">
+                <template v-slot:activator="{ on, attrs }">
+                    <v-list-item v-bind="attrs" v-on="on">
+                        <v-list-item-icon>
+                            <v-icon>mdi-translate</v-icon>
+                        </v-list-item-icon>
+                        <v-list-item-content>
+                            <v-list-item-title>
+                                <?php echo esc_html( __( 'Language' ) ); ?> — <?php echo esc_html( $site['supported_languages'][ $site['active_lang'] ]['label'] ?? $site['active_lang'] ); ?>
+                            </v-list-item-title>
+                        </v-list-item-content>
+                    </v-list-item>
+                </template>
+                <template v-slot:default="languageDialog">
+                    <v-card>
+                        <v-card-title>
+                            <?php echo esc_html( __( 'Language' ) ); ?>
+                        </v-card-title>
+                        <v-divider></v-divider>
+                        <v-card-text style="height: 300px;">
+                            <v-radio-group v-model="activeLang" column>
+                                <?php foreach ( $site['supported_languages'] as $code => $lang_config ) : ?>
+                                <v-radio
+                                    label="<?php echo esc_attr( $lang_config['label'] ); ?>"
+                                    value="<?php echo esc_attr( $code ); ?>"
+                                ></v-radio>
+                                <?php endforeach; ?>
+                            </v-radio-group>
+                        </v-card-text>
+                        <v-divider></v-divider>
+                        <v-card-actions>
+                            <v-btn text @click="languageDialogModel=false"><?php echo esc_html( __( 'Close' ) ); ?></v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </template>
+            </v-dialog>
+            <?php endif; ?>
+
         </v-list-group>
 
     </v-list>

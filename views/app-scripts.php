@@ -73,6 +73,10 @@ $gecko_client = [
     'version'               => GECKO_CLIENT_VERSION,
     'vuetifyOptions'        => vuetify_constructor_options(),
     'translation'           => $translation,
+    'i18n'                  => [
+        'activeLang'         => $site['active_lang'],
+        'supportedLanguages' => $site['supported_languages'] ?? [],
+    ],
     'defaultVsCurrencyId'   => $coingecko['default_vs_currency'],
     'supportedVsCurrencies' => get_enabled_supported_vs_currencies(),
     'routerMode'            => 'history',

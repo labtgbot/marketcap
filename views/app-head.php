@@ -33,7 +33,11 @@ $public_image_url = empty( $public_meta['image'] ) ? '' : get_file_url_for_displ
     <link rel="alternate" hreflang="x-default" href="<?php echo esc_url( $public_meta['canonical_url'] ); ?>" />
     <meta property="og:type" content="<?php echo esc_attr( $public_meta['og_type'] ); ?>" />
     <meta property="og:url" content="<?php echo esc_url( $public_meta['canonical_url'] ); ?>" />
-    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale" content="<?php
+        $og_locales = [ 'en' => 'en_US', 'ru' => 'ru_RU', 'fr' => 'fr_FR', 'ar' => 'ar_SA', 'zh' => 'zh_CN' ];
+        $active_lang = ! empty( $site['active_lang'] ) ? $site['active_lang'] : 'en';
+        echo esc_attr( $og_locales[ $active_lang ] ?? 'en_US' );
+    ?>" />
 
     <?php
 

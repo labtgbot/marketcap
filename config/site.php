@@ -80,6 +80,30 @@ $site['lang'] = 'en';
 
 /*
 | -------------------------------------------------------------------------
+| SUPPORTED LANGUAGES
+| -------------------------------------------------------------------------
+|
+| TYPE: array
+|
+| DESCRIPTION:
+| List of languages available for the site's UI language switcher.
+| Each entry maps a language code to its display label and RTL flag.
+| The active language is auto-detected from the user's browser or cookie,
+| and can be manually overridden via the language switcher in Settings.
+|
+| 'rtl'  - Set TRUE for right-to-left languages such as Arabic, Hebrew, Farsi.
+|
+*/
+$site['supported_languages'] = [
+    'en' => [ 'label' => 'English',  'rtl' => false ],
+    'ru' => [ 'label' => 'Русский',  'rtl' => false ],
+    'fr' => [ 'label' => 'Français', 'rtl' => false ],
+    'ar' => [ 'label' => 'العربية',  'rtl' => true  ],
+    'zh' => [ 'label' => '中文',     'rtl' => false ],
+];
+
+/*
+| -------------------------------------------------------------------------
 | RIGHT-TO-LEFT
 | -------------------------------------------------------------------------
 |

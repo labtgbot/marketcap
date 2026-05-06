@@ -105,6 +105,38 @@ require_once __DIR__ . '/api/router.php';
 
 /*
 | -------------------------------------------------------------------------
+| LANGUAGE DETECTION AND OVERRIDE
+| -------------------------------------------------------------------------
+|
+| Detect the active UI language from:
+|   1. The "tbc_lang" cookie (set when user manually switches language)
+|   2. The browser's Accept-Language header (auto-detect on first visit)
+|   3. Default: English ('en')
+|
+| When a non-English language is active, merge its translations over the
+| base English array so any missing keys fall back to English.
+|
+*/
+if ( ! empty( $site['supported_languages'] ) && is_array( $site['supported_languages'] ) ) {
+    $active_lang = tonbankcard_detect_language( $site['supported_languages'], 'en' );
+    if ( 'en' !== $active_lang ) {
+        $lang_file = GECKO_CLIENT_CONFIG_DIR . '/languages/' . $active_lang . '.php';
+        if ( file_exists( $lang_file ) ) {
+            $orig_translation = $translation;
+            require $lang_file;
+            $translation = array_merge( $orig_translation, $translation );
+            unset( $orig_translation );
+        }
+    }
+    $site['lang']        = $active_lang;
+    $site['rtl']         = ! empty( $site['supported_languages'][ $active_lang ]['rtl'] );
+    $site['active_lang'] = $active_lang;
+} else {
+    $site['active_lang'] = $site['lang'];
+}
+
+/*
+| -------------------------------------------------------------------------
 | VALIDATE CONFIGURATION
 | -------------------------------------------------------------------------
 */

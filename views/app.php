@@ -20,7 +20,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 
 ?>
 <!DOCTYPE html>
-<html lang="<?php echo empty( $site['lang'] ) ? 'en' : esc_attr( $site['lang'] ); ?>">
+<html lang="<?php echo empty( $site['lang'] ) ? 'en' : esc_attr( $site['lang'] ); ?>"<?php if ( ! empty( $site['rtl'] ) ) echo ' dir="rtl"'; ?>>
 <?php require_once GECKO_CLIENT_VIEWS_DIR . '/app-head.php'; ?>
 <body>
 <div id="app-wrapper">

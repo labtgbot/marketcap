@@ -10494,6 +10494,10 @@
     };
 
 
+    const i18n = GeckoClient.i18n || {};
+    const activeLangInit = i18n.activeLang || 'en';
+    const supportedLanguages = i18n.supportedLanguages || {};
+
     const vm = new Vue({
         el: '#app-wrapper',
         vuetify: new Vuetify(vuetifyOptions),
@@ -10509,6 +10513,9 @@
                 vsCurrency: {},
                 theme: initialTheme,
                 darkTheme: initialTheme === 'dark',
+                activeLang: activeLangInit,
+                supportedLanguages: supportedLanguages,
+                languageDialogModel: false,
                 isMobileUserAgent: utils.isMobileUserAgent(),
                 hasDownloaded: false,
                 global: null,
@@ -10549,6 +10556,14 @@
                 GeckoClient.setDocumentThemeClass(this.theme);
                 this.applyTelegramVuetifyTheme();
                 preferences.theme(this.theme);
+            },
+            activeLang: function (lang) {
+                if (lang === activeLangInit) return;
+                // Persist choice in a cookie readable by PHP, then reload so all
+                // server-rendered translations reflect the new language.
+                const maxAge = 365 * 24 * 60 * 60;
+                document.cookie = 'tbc_lang=' + encodeURIComponent(lang) + '; max-age=' + maxAge + '; path=/; SameSite=Lax';
+                window.location.reload();
             },
         },
         computed: {

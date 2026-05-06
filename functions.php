@@ -1024,6 +1024,38 @@ function __( string $text ) {
 }
 
 /**
+ * Detects the preferred language from cookie, Accept-Language header, or default.
+ *
+ * @param array $supported_langs Associative array of lang_code => config
+ * @param string $default Default language code
+ * @return string
+ */
+function tonbankcard_detect_language( array $supported_langs, string $default = 'en' ) {
+    $supported_codes = array_keys( $supported_langs );
+
+    // 1. Check cookie set by user
+    $cookie_lang = isset( $_COOKIE['tbc_lang'] ) ? preg_replace( '/[^a-z]/', '', strtolower( $_COOKIE['tbc_lang'] ) ) : '';
+    if ( $cookie_lang && in_array( $cookie_lang, $supported_codes, true ) ) {
+        return $cookie_lang;
+    }
+
+    // 2. Auto-detect from Accept-Language header
+    $accept = isset( $_SERVER['HTTP_ACCEPT_LANGUAGE'] ) ? $_SERVER['HTTP_ACCEPT_LANGUAGE'] : '';
+    if ( $accept ) {
+        // Parse "en-US,en;q=0.9,ru;q=0.8" into ordered list of primary subtags
+        preg_match_all( '/([a-z]{2,3})(?:-[A-Za-z]{2,4})?(?:;q=[\d.]+)?/i', $accept, $matches );
+        foreach ( $matches[1] as $lang ) {
+            $lang = strtolower( $lang );
+            if ( in_array( $lang, $supported_codes, true ) ) {
+                return $lang;
+            }
+        }
+    }
+
+    return $default;
+}
+
+/**
  * @since 1.0.0
  * Prints HTML attribute
  *
