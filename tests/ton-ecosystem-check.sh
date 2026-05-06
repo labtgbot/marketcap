@@ -94,6 +94,11 @@ assert_contains templates/routes/ton.php 'tonLinkTypeOptions' 'TON catalog edito
 assert_contains templates/routes/ton.php 'tonProjectCategoryOptions' 'TON catalog editor exposes the project category selector'
 assert_contains templates/routes/ton-asset.php 'tonLinkTypeOptions' 'TON per-asset editor exposes the link type selector'
 assert_contains templates/routes/ton-asset.php 'tonProjectCategoryOptions' 'TON per-asset editor exposes the project category selector'
+assert_contains dev/js/src/routes/ton.js "tonEcosystemCategoryId = 'ton-ecosystem'" 'TON catalog references the CoinGecko ton-ecosystem category id'
+assert_contains dev/js/src/routes/ton.js 'fetchTonEcosystemCategory' 'TON catalog auto-discovers CoinGecko ton-ecosystem coins'
+assert_contains dev/js/src/routes/ton.js 'synthesizeAssetFromMarket' 'TON catalog synthesizes assets from auto-discovered markets'
+assert_contains dev/js/src/routes/ton.js 'recomputeTonAssets' 'TON catalog merges curated and discovered assets without duplicates'
+assert_contains assets/js/app.js 'fetchTonEcosystemCategory' 'TON catalog auto-discovery is shipped in the generated bundle'
 
 php_check 'TON curation API should expose defaults, persist manual curation, and preserve verification states' \
     env -i PATH="$PATH" \

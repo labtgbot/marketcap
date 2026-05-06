@@ -9119,6 +9119,37 @@
         return _.toString(value || '').toLowerCase().trim().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
     };
 
+    // CoinGecko category id used to auto-discover TON ecosystem coins.
+    // See https://www.coingecko.com/en/categories/ton-ecosystem
+    const tonEcosystemCategoryId = 'ton-ecosystem';
+
+    const synthesizeAssetFromMarket = market => {
+        if (!market || !market.id) return null;
+        const coinId = String(market.id);
+        return {
+            id: 'coin-' + coinId,
+            coin_id: coinId,
+            name: market.name || _.startCase(coinId),
+            symbol: _.toUpper(market.symbol || ''),
+            category: 'jetton',
+            verification_state: 'curated',
+            verified: false,
+            curated: true,
+            featured: false,
+            visible: true,
+            priority: 0,
+            link_type: 'currency',
+            tags: ['ton_ecosystem', 'coingecko_ton_ecosystem'],
+            aliases: [],
+            list_ids: [],
+            contract_addresses: [],
+            description: '',
+            source: 'coingecko_category',
+            route: {name: 'currency', params: {id: coinId}, path: '/currency/' + encodeURIComponent(coinId)},
+            links: {web: '/currency/' + encodeURIComponent(coinId), telegram: '/app/coin/' + encodeURIComponent(coinId)}
+        };
+    };
+
     GeckoClient.router.addRoute({
         name: 'ton',
         path: route.path,
@@ -9127,6 +9158,8 @@
             data: function () {
                 return {
                     tonAssets: [],
+                    curatedAssets: [],
+                    discoveredAssets: [],
                     tonCategories: {},
                     tonLists: {},
                     tonMeta: null,
@@ -9134,8 +9167,10 @@
                     tonMarketMap: {},
                     loadingCuration: false,
                     loadingTonMarkets: false,
+                    loadingDiscovery: false,
                     curationError: '',
                     marketError: '',
+                    discoveryError: '',
                     tonFilters: {
                         tag: '',
                         category: '',
@@ -9167,7 +9202,8 @@
             },
             watch: {
                 '$root.vsCurrencyId': function () {
-                    this.fetchTonMarkets();
+                    this.fetchTonMarkets()
+                        .then(() => this.fetchTonEcosystemCategory());
                 },
                 '$route.query': function () {
                     this.syncFiltersFromRoute();
@@ -9286,13 +9322,17 @@
                     return axios.get(this.tonEndpoint())
                         .then(response => {
                             const payload = response.data && response.data.ok === true ? response.data.data : response.data;
-                            this.tonAssets = _.get(payload, 'assets', []);
+                            this.curatedAssets = _.get(payload, 'assets', []);
                             this.tonCategories = _.get(payload, 'categories', {});
                             this.tonLists = _.get(payload, 'lists', {});
                             this.tonMeta = response.data && response.data.meta ? response.data.meta : null;
-                            return this.fetchTonMarkets();
+                            this.recomputeTonAssets();
+                            return this.fetchTonMarkets()
+                                .then(() => this.fetchTonEcosystemCategory());
                         })
                         .catch(() => {
+                            this.curatedAssets = [];
+                            this.discoveredAssets = [];
                             this.tonAssets = [];
                             this.tonCategories = {};
                             this.tonLists = {};
@@ -9300,6 +9340,70 @@
                             this.curationError = 'TON curation feed unavailable';
                         })
                         .finally(() => this.loadingCuration = false);
+                },
+                fetchTonEcosystemCategory: function () {
+                    // Auto-discover all coins CoinGecko classifies under the
+                    // ton-ecosystem category so the /ton page reflects the same
+                    // coverage as https://www.coingecko.com/en/categories/ton-ecosystem.
+                    this.loadingDiscovery = true;
+                    this.discoveryError = '';
+
+                    const params = {
+                        category: tonEcosystemCategoryId,
+                        per_page: 250,
+                        page: 1,
+                        order: 'market_cap_desc',
+                        vs_currency: this.$root.vsCurrencyId,
+                        price_change_percentage: '24h,7d,30d',
+                        sparkline: false
+                    };
+
+                    return CoinGecko.coinsMarkets(params)
+                        .then(currencies => {
+                            const list = Array.isArray(currencies) ? currencies : [];
+                            const curatedCoinIds = new Set(
+                                this.curatedAssets.map(asset => asset.coin_id).filter(Boolean)
+                            );
+                            const discoveredMap = {};
+                            const discovered = [];
+                            list.forEach(market => {
+                                if (!market || !market.id) return;
+                                discoveredMap[market.id] = market;
+                                if (curatedCoinIds.has(market.id)) return;
+                                const synthesized = synthesizeAssetFromMarket(market);
+                                if (synthesized) discovered.push(synthesized);
+                            });
+                            this.discoveredAssets = discovered;
+                            // Merge discovered markets so existing cards get prices too.
+                            this.tonMarketMap = _.assign({}, this.tonMarketMap, discoveredMap);
+                            this.recomputeTonAssets();
+                            return discovered;
+                        })
+                        .catch(() => {
+                            this.discoveredAssets = [];
+                            this.discoveryError = 'TON ecosystem auto-discovery unavailable';
+                            this.recomputeTonAssets();
+                            return [];
+                        })
+                        .finally(() => this.loadingDiscovery = false);
+                },
+                recomputeTonAssets: function () {
+                    // Curated entries take precedence; discovered entries fill gaps.
+                    const curatedById = {};
+                    const curatedByCoinId = {};
+                    (this.curatedAssets || []).forEach(asset => {
+                        if (!asset) return;
+                        if (asset.id) curatedById[asset.id] = true;
+                        if (asset.coin_id) curatedByCoinId[asset.coin_id] = true;
+                    });
+                    const merged = (this.curatedAssets || []).slice();
+                    (this.discoveredAssets || []).forEach(asset => {
+                        if (!asset) return;
+                        if (asset.coin_id && curatedByCoinId[asset.coin_id]) return;
+                        if (asset.id && curatedById[asset.id]) return;
+                        merged.push(asset);
+                    });
+                    this.tonAssets = merged;
                 },
                 fetchTonMarkets: function () {
                     // Always request the-open-network so Toncoin keeps market data even
