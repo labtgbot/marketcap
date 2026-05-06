@@ -33,7 +33,9 @@
                 loading: false,
                 result: null,
                 feedbackState: '',
-                feedbackSubmitting: false
+                feedbackSubmitting: false,
+                attempts: 0,
+                fetchToken: 0
             };
         },
         computed: {
@@ -52,12 +54,21 @@
                     provider_not_configured: 'Provider not configured',
                     provider_unavailable: 'Provider unavailable',
                     provider_timeout: 'Provider timeout',
+                    provider_rate_limited: 'Provider rate limited',
+                    provider_invalid_json: 'Provider returned invalid response',
                     feature_disabled: 'Feature disabled',
                     schema_validation_failed: 'Safety validation blocked output',
-                    unsafe_output_blocked: 'Safety validation blocked output'
+                    unsafe_output_blocked: 'Safety validation blocked output',
+                    missing_context: 'Insight context unavailable',
+                    client_unavailable: 'Network unavailable'
                 };
                 const reason = this.result && this.result.reason ? this.result.reason : '';
                 return labels[reason] || (reason ? _.startCase(reason) : 'Insight unavailable');
+            },
+            canRetry: function () {
+                if (this.loading || !this.canRequest || !GeckoClient.ai) return false;
+                if (!this.result || this.result.status === 'available') return false;
+                return GeckoClient.ai.isRetryableReason(this.result.reason);
             },
             feedbackOptions: function () {
                 return feedbackOptions;
@@ -101,11 +112,20 @@
                 }
 
                 const context = Object.assign({}, this.context, {card_title: this.title});
+                const token = ++this.fetchToken;
                 this.loading = true;
+                this.attempts = 1;
 
-                GeckoClient.ai.insight(context)
+                GeckoClient.ai.insight(context, {
+                    onRetry: payload => {
+                        if (token !== this.fetchToken) return;
+                        this.attempts = (payload && payload.attempt ? payload.attempt : this.attempts) + 1;
+                    }
+                })
                     .then(result => {
+                        if (token !== this.fetchToken) return;
                         result = result || {};
+                        if (result.attempts) this.attempts = result.attempts;
                         if (result.insight) {
                             result.insight.provider = result.provider || null;
                             result.insight.prompt_version = result.prompt_version || null;
@@ -114,12 +134,20 @@
                         this.result = result;
                     })
                     .catch(() => {
+                        if (token !== this.fetchToken) return;
                         this.result = {
                             status: 'insight unavailable',
                             reason: 'client_unavailable'
                         };
                     })
-                    .finally(() => this.loading = false);
+                    .finally(() => {
+                        if (token !== this.fetchToken) return;
+                        this.loading = false;
+                    });
+            },
+            retryFetch: function () {
+                if (!this.canRetry) return;
+                this.fetchInsight();
             },
             confidenceLabel: function (confidence) {
                 const value = Math.max(0, Math.min(1, parseFloat(confidence) || 0));

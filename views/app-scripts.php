@@ -173,6 +173,19 @@ $gecko_client['aiConfig'] = [
     'apiBaseUrl'    => site_url( 'api/ai' ),
     'feedbackTypes' => [ 'helpful', 'stale', 'wrong', 'unsafe' ],
     'timeoutMs'     => 12000,
+    'retry'         => [
+        'maxAttempts'      => 3,
+        'baseDelayMs'      => 600,
+        'maxDelayMs'       => 4000,
+        'retryableReasons' => [
+            'provider_unavailable',
+            'provider_timeout',
+            'provider_rate_limited',
+            'provider_invalid_json',
+            'schema_validation_failed',
+            'client_unavailable',
+        ],
+    ],
 ];
 // Custom Links
 $gecko_client['links'] = [

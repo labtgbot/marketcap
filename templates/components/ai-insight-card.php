@@ -74,6 +74,18 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
                 <?php echo esc_html( __( 'Market data remains available.' ) ); ?>
             </div>
             <div class="text-caption mt-2" v-if="result" v-text="unavailableReason"></div>
+            <v-btn
+                v-if="canRetry"
+                small
+                outlined
+                color="primary"
+                class="mt-3 ai-insight-retry-button"
+                :loading="loading"
+                @click="retryFetch"
+            >
+                <v-icon left small>mdi-refresh</v-icon>
+                <?php echo esc_html( __( 'Try again' ) ); ?>
+            </v-btn>
         </div>
     </v-card-text>
 
