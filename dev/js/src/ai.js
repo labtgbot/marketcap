@@ -130,7 +130,8 @@
         }
 
         const body = Object.assign({}, payload, {
-            market_data_age_seconds: Math.max(0, parseInt(payload.market_data_age_seconds || 0, 10))
+            market_data_age_seconds: Math.max(0, parseInt(payload.market_data_age_seconds || 0, 10)),
+            language: payload.language || GeckoClient.lang || 'en'
         });
 
         const opts = _.assign({attempt: 1}, options || {});
