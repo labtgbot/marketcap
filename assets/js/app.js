@@ -765,6 +765,15 @@
         requestFullscreen: function () {
             this.callWebApp('requestFullscreen');
         },
+        exitFullscreen: function () {
+            this.callWebApp('exitFullscreen');
+        },
+        lockOrientation: function () {
+            this.callWebApp('lockOrientation');
+        },
+        unlockOrientation: function () {
+            this.callWebApp('unlockOrientation');
+        },
         configureMainButton: function (params) {
             this.mainButton.setParams(params).show();
             return this.mainButton;
@@ -926,10 +935,13 @@
             this.onEvent('viewportChanged', () => this.syncViewport());
             this.onEvent('safeAreaChanged', () => this.syncViewport());
             this.onEvent('contentSafeAreaChanged', () => this.syncViewport());
+            this.onEvent('fullscreenChanged', () => this.syncViewport());
+            this.onEvent('fullscreenFailed', () => this.expand());
 
             this.ready();
             this.expand();
             this.requestFullscreen();
+            this.lockOrientation();
 
             return this;
         }
