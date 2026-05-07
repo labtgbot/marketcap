@@ -269,4 +269,106 @@ return [
     'Search coins, exchanges, TON assets, categories, and quick actions' => 'ابحث عن عملات ومنصات وأصول TON وفئات وإجراءات سريعة',
     'Not financial advice'          => 'ليست نصيحة مالية',
     'TONBANKCARD Crypto Tracker. Market data and third-party widgets are provided for informational use only.' => 'TONBANKCARD Crypto Tracker. تُقدَّم بيانات السوق وأدوات الجهات الخارجية لأغراض إعلامية فقط.',
+
+    // Cookies dialog
+    'TONBANKCARD Uses Cookies'        => 'TONBANKCARD يستخدم ملفات الارتباط',
+    'TONBANKCARD Crypto Tracker uses necessary cookies and local storage for preferences such as theme, display currency, consent state, and future watchlist or alert settings. Analytics cookies are used only when enabled for the current deployment.' => 'يستخدم TONBANKCARD Crypto Tracker ملفات الارتباط الضرورية والتخزين المحلي للتفضيلات مثل السمة وعملة العرض وحالة الموافقة وإعدادات قائمة المتابعة والتنبيهات المستقبلية. تُستخدم ملفات ارتباط التحليلات فقط عند تفعيلها في النشر الحالي.',
+    'Accept'                          => 'قبول',
+
+    // Market pulse inline labels
+    'assets'                          => 'أصل',
+
+    // TON ecosystem catalog labels
+    'Back to TON catalog'             => 'العودة إلى كتالوج TON',
+    'No description has been recorded for this asset yet.' => 'لم يتم تسجيل أي وصف لهذا الأصل حتى الآن.',
+    'View market'                     => 'عرض السوق',
+    'Browse category'                 => 'تصفح الفئة',
+    'Edit asset'                      => 'تعديل الأصل',
+    'Remove'                          => 'إزالة',
+    'This TON asset is not in the catalog yet.' => 'هذا الأصل TON ليس في الكتالوج بعد.',
+    'Curated Toncoin, jettons, stablecoins, DeFi venues, wallets, and infrastructure for TONBANKCARD market context.' => 'Toncoin والجيتونات والعملات المستقرة ومنصات DeFi والمحافظ والبنية التحتية المختارة لسياق سوق TONBANKCARD.',
+    'Verified'                        => 'موثق',
+    'Review'                          => 'قيد المراجعة',
+    'Categories'                      => 'الفئات',
+    'Lists'                           => 'القوائم',
+    'Tags'                            => 'الوسوم',
+    'Verification'                    => 'التحقق',
+    'Curated TON assets'              => 'أصول TON المختارة',
+    'Updated:'                        => 'محدَّث:',
+    'Featured'                        => 'مميز',
+    'Edit'                            => 'تعديل',
+    'No TON assets match the active filters.' => 'لا توجد أصول TON تطابق الفلاتر النشطة.',
+    'TON ecosystem'                   => 'منظومة TON',
+    'TON stablecoins'                 => 'العملات المستقرة TON',
+    'Jettons'                         => 'الجيتونات',
+    'TON DeFi'                        => 'TON DeFi',
+    'Review queue'                    => 'طابور المراجعة',
+    'Last 7d'                         => 'آخر 7 أيام',
+    '7d %'                            => '٧ أيام %',
+    '30d %'                           => '٣٠ يومًا %',
+
+    // Screener labels
+    'Watch'                           => 'متابعة',
+    '7d'                              => '7ي',
+    '30d'                             => '30ي',
+    'All categories'                  => 'جميع الفئات',
+    'Stablecoins'                     => 'العملات المستقرة',
+    'Layer 1'                         => 'الطبقة 1',
+    'Exchange tokens'                 => 'رموز البورصات',
+    'Gaming'                          => 'الألعاب',
+    'Any exchange'                    => 'أي بورصة',
+    'Wallets'                         => 'المحافظ',
+    'Open filters'                    => 'فتح الفلاتر',
+    'Refresh screener'                => 'تحديث الفلتر',
+    'Close filters'                   => 'إغلاق الفلاتر',
+    'Category'                        => 'الفئة',
+    'TON tag'                         => 'وسم TON',
+    'Market cap min'                  => 'الحد الأدنى للقيمة السوقية',
+    'Market cap max'                  => 'الحد الأقصى للقيمة السوقية',
+    'Volume min'                      => 'الحجم الأدنى',
+    'Volume max'                      => 'الحجم الأقصى',
+    'Rank max'                        => 'الترتيب الأقصى',
+    '24h min %'                       => 'أدنى 24 ساعة %',
+    '7d min %'                        => 'أدنى 7 أيام %',
+    '30d min %'                       => 'أدنى 30 يومًا %',
+    'Sentiment min'                   => 'الحد الأدنى للمشاعر',
+    'Sentiment max'                   => 'الحد الأقصى للمشاعر',
+    'Saved presets'                   => 'الإعدادات المحفوظة',
+    'Preset name'                     => 'اسم الإعداد المسبق',
+    'Save preset'                     => 'حفظ الإعداد',
+    'Delete preset'                   => 'حذف الإعداد',
+
+    // Wallet profile
+    'Connect a TON wallet through TON Connect for wallet-aware context. Private keys and seed phrases stay in your wallet.' => 'قم بتوصيل محفظة TON عبر TON Connect للحصول على سياق مدرك للمحفظة. تبقى المفاتيح الخاصة وعبارات الاسترداد في محفظتك.',
+    'No wallet connected'             => 'لا توجد محفظة متصلة',
+
+    // Watchlist
+    'Sort ascending'                  => 'ترتيب تصاعدي',
+    'Sort descending'                 => 'ترتيب تنازلي',
+
+    // Alerts
+    'Delivery enabled'                => 'التسليم مفعّل',
+    'Delivery flag off'               => 'التسليم معطّل',
+    'Edit alert'                      => 'تعديل التنبيه',
+    'New alert'                       => 'تنبيه جديد',
+    'Active'                          => 'نشط',
+    'Paused'                          => 'موقوف',
+    'Reset alert form'                => 'إعادة تعيين نموذج التنبيه',
+
+    // Achievements
+    'badges'                          => 'شارات',
+    'day streak'                      => 'يوم متواصل',
+    'Opted in'                        => 'مفعّل',
+    'Opt-in'                          => 'تفعيل',
+
+    // AI insight card
+    'Share insight'                   => 'مشاركة التحليل',
+    'Data freshness unavailable'      => 'حداثة البيانات غير متاحة',
+
+    // Premium
+    'Checkout enabled'                => 'الدفع مفعّل',
+    'Checkout flag off'               => 'الدفع معطّل',
+    'Monthly subscription'            => 'اشتراك شهري',
+    'Starter plan'                    => 'الخطة الأساسية',
+    '/ month'                         => '/ شهر',
 ];

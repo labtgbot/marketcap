@@ -268,4 +268,106 @@ return [
     'Search coins, exchanges, TON assets, categories, and quick actions' => 'Search coins, exchanges, TON assets, categories, and quick actions',
     'Not financial advice'          => 'Not financial advice',
     'TONBANKCARD Crypto Tracker. Market data and third-party widgets are provided for informational use only.' => 'TONBANKCARD Crypto Tracker. Market data and third-party widgets are provided for informational use only.',
+
+    // Cookies dialog
+    'TONBANKCARD Uses Cookies'        => 'TONBANKCARD Uses Cookies',
+    'TONBANKCARD Crypto Tracker uses necessary cookies and local storage for preferences such as theme, display currency, consent state, and future watchlist or alert settings. Analytics cookies are used only when enabled for the current deployment.' => 'TONBANKCARD Crypto Tracker uses necessary cookies and local storage for preferences such as theme, display currency, consent state, and future watchlist or alert settings. Analytics cookies are used only when enabled for the current deployment.',
+    'Accept'                          => 'Accept',
+
+    // Market pulse inline labels
+    'assets'                          => 'assets',
+
+    // TON ecosystem catalog labels
+    'Back to TON catalog'             => 'Back to TON catalog',
+    'No description has been recorded for this asset yet.' => 'No description has been recorded for this asset yet.',
+    'View market'                     => 'View market',
+    'Browse category'                 => 'Browse category',
+    'Edit asset'                      => 'Edit asset',
+    'Remove'                          => 'Remove',
+    'This TON asset is not in the catalog yet.' => 'This TON asset is not in the catalog yet.',
+    'Curated Toncoin, jettons, stablecoins, DeFi venues, wallets, and infrastructure for TONBANKCARD market context.' => 'Curated Toncoin, jettons, stablecoins, DeFi venues, wallets, and infrastructure for TONBANKCARD market context.',
+    'Verified'                        => 'Verified',
+    'Review'                          => 'Review',
+    'Categories'                      => 'Categories',
+    'Lists'                           => 'Lists',
+    'Tags'                            => 'Tags',
+    'Verification'                    => 'Verification',
+    'Curated TON assets'              => 'Curated TON assets',
+    'Updated:'                        => 'Updated:',
+    'Featured'                        => 'Featured',
+    'Edit'                            => 'Edit',
+    'No TON assets match the active filters.' => 'No TON assets match the active filters.',
+    'TON ecosystem'                   => 'TON ecosystem',
+    'TON stablecoins'                 => 'TON stablecoins',
+    'Jettons'                         => 'Jettons',
+    'TON DeFi'                        => 'TON DeFi',
+    'Review queue'                    => 'Review queue',
+    'Last 7d'                         => 'Last 7d',
+    '7d %'                            => '7d %',
+    '30d %'                           => '30d %',
+
+    // Screener labels
+    'Watch'                           => 'Watch',
+    '7d'                              => '7d',
+    '30d'                             => '30d',
+    'All categories'                  => 'All categories',
+    'Stablecoins'                     => 'Stablecoins',
+    'Layer 1'                         => 'Layer 1',
+    'Exchange tokens'                 => 'Exchange tokens',
+    'Gaming'                          => 'Gaming',
+    'Any exchange'                    => 'Any exchange',
+    'Wallets'                         => 'Wallets',
+    'Open filters'                    => 'Open filters',
+    'Refresh screener'                => 'Refresh screener',
+    'Close filters'                   => 'Close filters',
+    'Category'                        => 'Category',
+    'TON tag'                         => 'TON tag',
+    'Market cap min'                  => 'Market cap min',
+    'Market cap max'                  => 'Market cap max',
+    'Volume min'                      => 'Volume min',
+    'Volume max'                      => 'Volume max',
+    'Rank max'                        => 'Rank max',
+    '24h min %'                       => '24h min %',
+    '7d min %'                        => '7d min %',
+    '30d min %'                       => '30d min %',
+    'Sentiment min'                   => 'Sentiment min',
+    'Sentiment max'                   => 'Sentiment max',
+    'Saved presets'                   => 'Saved presets',
+    'Preset name'                     => 'Preset name',
+    'Save preset'                     => 'Save preset',
+    'Delete preset'                   => 'Delete preset',
+
+    // Wallet profile
+    'Connect a TON wallet through TON Connect for wallet-aware context. Private keys and seed phrases stay in your wallet.' => 'Connect a TON wallet through TON Connect for wallet-aware context. Private keys and seed phrases stay in your wallet.',
+    'No wallet connected'             => 'No wallet connected',
+
+    // Watchlist
+    'Sort ascending'                  => 'Sort ascending',
+    'Sort descending'                 => 'Sort descending',
+
+    // Alerts
+    'Delivery enabled'                => 'Delivery enabled',
+    'Delivery flag off'               => 'Delivery flag off',
+    'Edit alert'                      => 'Edit alert',
+    'New alert'                       => 'New alert',
+    'Active'                          => 'Active',
+    'Paused'                          => 'Paused',
+    'Reset alert form'                => 'Reset alert form',
+
+    // Achievements
+    'badges'                          => 'badges',
+    'day streak'                      => 'day streak',
+    'Opted in'                        => 'Opted in',
+    'Opt-in'                          => 'Opt-in',
+
+    // AI insight card
+    'Share insight'                   => 'Share insight',
+    'Data freshness unavailable'      => 'Data freshness unavailable',
+
+    // Premium
+    'Checkout enabled'                => 'Checkout enabled',
+    'Checkout flag off'               => 'Checkout flag off',
+    'Monthly subscription'            => 'Monthly subscription',
+    'Starter plan'                    => 'Starter plan',
+    '/ month'                         => '/ month',
 ];

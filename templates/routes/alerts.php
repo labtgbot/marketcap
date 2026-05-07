@@ -37,7 +37,7 @@ $frontend_options['alerts']['title'] = __( 'Alerts' );
                     </v-chip>
                     <v-chip small label :color="featureEnabled ? 'success' : 'warning'" text-color="white" class="mb-2">
                         <v-icon small left>{{ featureEnabled ? 'mdi-check-circle-outline' : 'mdi-alert-circle-outline' }}</v-icon>
-                        {{ featureEnabled ? 'Delivery enabled' : 'Delivery flag off' }}
+                        {{ featureEnabled ? '<?php echo esc_attr( __( 'Delivery enabled' ) ); ?>' : '<?php echo esc_attr( __( 'Delivery flag off' ) ); ?>' }}
                     </v-chip>
                 </div>
             </div>
@@ -62,7 +62,7 @@ $frontend_options['alerts']['title'] = __( 'Alerts' );
                 <v-card class="alert-rule-form" outlined>
                     <v-card-title class="text-subtitle-1 font-weight-bold">
                         <v-icon left color="primary">mdi-bell-plus-outline</v-icon>
-                        {{ editingId ? 'Edit alert' : 'New alert' }}
+                        {{ editingId ? '<?php echo esc_attr( __( 'Edit alert' ) ); ?>' : '<?php echo esc_attr( __( 'New alert' ) ); ?>' }}
                     </v-card-title>
                     <v-card-text>
                         <v-row dense>
@@ -183,7 +183,7 @@ $frontend_options['alerts']['title'] = __( 'Alerts' );
                                     false-value="paused"
                                     inset
                                     hide-details
-                                    :label="form.status === 'active' ? 'Active' : 'Paused'"
+                                    :label="form.status === 'active' ? '<?php echo esc_attr( __( 'Active' ) ); ?>' : '<?php echo esc_attr( __( 'Paused' ) ); ?>'"
                                 ></v-switch>
                             </v-col>
                         </v-row>
@@ -198,7 +198,7 @@ $frontend_options['alerts']['title'] = __( 'Alerts' );
                             <?php echo esc_html( __( 'Test' ) ); ?>
                         </v-btn>
                         <v-spacer></v-spacer>
-                        <v-btn icon :aria-label="'Reset alert form'" title="Reset alert form" @click="resetForm">
+                        <v-btn icon :aria-label="'<?php echo esc_attr( __( 'Reset alert form' ) ); ?>'" title="<?php echo esc_attr( __( 'Reset alert form' ) ); ?>" @click="resetForm">
                             <v-icon>mdi-refresh</v-icon>
                         </v-btn>
                     </v-card-actions>

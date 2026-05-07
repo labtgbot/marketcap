@@ -19,7 +19,7 @@ $frontend_options['screener']['tableHeaders'] = [
         'show'     => TRUE,
     ],
     [
-        'text'     => 'Name',
+        'text'     => __( 'Name' ),
         'value'    => 'name',
         'sortable' => TRUE,
         'align'    => 'start',
@@ -27,7 +27,7 @@ $frontend_options['screener']['tableHeaders'] = [
         'show'     => TRUE,
     ],
     [
-        'text'     => 'Watch',
+        'text'     => __( 'Watch' ),
         'value'    => 'watchlist',
         'sortable' => FALSE,
         'align'    => 'center',
@@ -35,63 +35,63 @@ $frontend_options['screener']['tableHeaders'] = [
         'show'     => TRUE,
     ],
     [
-        'text'     => 'Price',
+        'text'     => __( 'Price' ),
         'value'    => 'current_price',
         'sortable' => TRUE,
         'align'    => 'end',
         'show'     => TRUE,
     ],
     [
-        'text'     => '24h',
+        'text'     => __( '24h' ),
         'value'    => 'price_change_percentage_24h_in_currency',
         'sortable' => TRUE,
         'align'    => 'end',
         'show'     => TRUE,
     ],
     [
-        'text'     => '7d',
+        'text'     => __( '7d' ),
         'value'    => 'price_change_percentage_7d_in_currency',
         'sortable' => TRUE,
         'align'    => 'end',
         'show'     => TRUE,
     ],
     [
-        'text'     => '30d',
+        'text'     => __( '30d' ),
         'value'    => 'price_change_percentage_30d_in_currency',
         'sortable' => TRUE,
         'align'    => 'end',
         'show'     => TRUE,
     ],
     [
-        'text'     => 'Market Cap',
+        'text'     => __( 'Market Cap' ),
         'value'    => 'market_cap',
         'sortable' => TRUE,
         'align'    => 'end',
         'show'     => TRUE,
     ],
     [
-        'text'     => 'Volume',
+        'text'     => __( 'Volume' ),
         'value'    => 'total_volume',
         'sortable' => TRUE,
         'align'    => 'end',
         'show'     => TRUE,
     ],
     [
-        'text'     => 'Sentiment',
+        'text'     => __( 'Sentiment' ),
         'value'    => 'sentiment_score',
         'sortable' => TRUE,
         'align'    => 'end',
         'show'     => TRUE,
     ],
     [
-        'text'     => 'Exchange',
+        'text'     => __( 'Exchange' ),
         'value'    => 'exchange_available',
         'sortable' => TRUE,
         'align'    => 'center',
         'show'     => TRUE,
     ],
     [
-        'text'     => 'TON',
+        'text'     => __( 'TON' ),
         'value'    => 'ton_asset',
         'sortable' => FALSE,
         'align'    => 'center',
@@ -99,15 +99,15 @@ $frontend_options['screener']['tableHeaders'] = [
     ],
 ];
 $frontend_options['screener']['categoryOptions'] = [
-    [ 'text' => 'All categories', 'value' => '' ],
-    [ 'text' => 'Stablecoins', 'value' => 'stablecoins' ],
-    [ 'text' => 'DeFi', 'value' => 'decentralized-finance-defi' ],
-    [ 'text' => 'Layer 1', 'value' => 'layer-1' ],
-    [ 'text' => 'Exchange tokens', 'value' => 'exchange-based-tokens' ],
-    [ 'text' => 'Gaming', 'value' => 'gaming' ],
+    [ 'text' => __( 'All categories' ), 'value' => '' ],
+    [ 'text' => __( 'Stablecoins' ), 'value' => 'stablecoins' ],
+    [ 'text' => __( 'DeFi' ), 'value' => 'decentralized-finance-defi' ],
+    [ 'text' => __( 'Layer 1' ), 'value' => 'layer-1' ],
+    [ 'text' => __( 'Exchange tokens' ), 'value' => 'exchange-based-tokens' ],
+    [ 'text' => __( 'Gaming' ), 'value' => 'gaming' ],
 ];
 $frontend_options['screener']['exchangeOptions'] = [
-    [ 'text' => 'Any exchange', 'value' => '' ],
+    [ 'text' => __( 'Any exchange' ), 'value' => '' ],
     [ 'text' => 'Binance', 'value' => 'binance' ],
     [ 'text' => 'Bybit', 'value' => 'bybit_spot' ],
     [ 'text' => 'OKX', 'value' => 'okex' ],
@@ -115,15 +115,15 @@ $frontend_options['screener']['exchangeOptions'] = [
     [ 'text' => 'Gate.io', 'value' => 'gate' ],
 ];
 $frontend_options['screener']['tonTagOptions'] = [
-    [ 'text' => 'All assets', 'value' => '' ],
-    [ 'text' => 'TON ecosystem', 'value' => 'ton_ecosystem' ],
-    [ 'text' => 'Stablecoins', 'value' => 'stablecoin' ],
-    [ 'text' => 'Jettons', 'value' => 'jetton' ],
-    [ 'text' => 'TON DeFi', 'value' => 'defi' ],
-    [ 'text' => 'Wallets', 'value' => 'wallet' ],
-    [ 'text' => 'Gaming', 'value' => 'gaming' ],
-    [ 'text' => 'Verified', 'value' => 'verified' ],
-    [ 'text' => 'Review queue', 'value' => 'unverified' ],
+    [ 'text' => __( 'All assets' ), 'value' => '' ],
+    [ 'text' => __( 'TON ecosystem' ), 'value' => 'ton_ecosystem' ],
+    [ 'text' => __( 'Stablecoins' ), 'value' => 'stablecoin' ],
+    [ 'text' => __( 'Jettons' ), 'value' => 'jetton' ],
+    [ 'text' => __( 'TON DeFi' ), 'value' => 'defi' ],
+    [ 'text' => __( 'Wallets' ), 'value' => 'wallet' ],
+    [ 'text' => __( 'Gaming' ), 'value' => 'gaming' ],
+    [ 'text' => __( 'Verified' ), 'value' => 'verified' ],
+    [ 'text' => __( 'Review queue' ), 'value' => 'unverified' ],
 ];
 
 ?>
@@ -137,10 +137,10 @@ $frontend_options['screener']['tonTagOptions'] = [
                 <div class="text-body-2 text--secondary" v-text="resultSummaryText"></div>
             </div>
             <div class="screener-actions">
-                <v-btn class="d-md-none" icon :aria-label="'Open filters'" title="Open filters" @click="filterDrawer = true">
+                <v-btn class="d-md-none" icon :aria-label="'<?php echo esc_attr( __( 'Open filters' ) ); ?>'" title="<?php echo esc_attr( __( 'Open filters' ) ); ?>" @click="filterDrawer = true">
                     <v-icon>mdi-filter-variant</v-icon>
                 </v-btn>
-                <v-btn icon :aria-label="'Refresh screener'" title="Refresh screener" :loading="loading" @click="fetchScreenerResults">
+                <v-btn icon :aria-label="'<?php echo esc_attr( __( 'Refresh screener' ) ); ?>'" title="<?php echo esc_attr( __( 'Refresh screener' ) ); ?>" :loading="loading" @click="fetchScreenerResults">
                     <v-icon>mdi-refresh</v-icon>
                 </v-btn>
             </div>
@@ -158,26 +158,26 @@ $frontend_options['screener']['tonTagOptions'] = [
         >
             <div class="screener-drawer-header">
                 <strong><?php echo esc_html( __( 'Filters' ) ); ?></strong>
-                <v-btn icon small :aria-label="'Close filters'" title="Close filters" @click="filterDrawer = false">
+                <v-btn icon small :aria-label="'<?php echo esc_attr( __( 'Close filters' ) ); ?>'" title="<?php echo esc_attr( __( 'Close filters' ) ); ?>" @click="filterDrawer = false">
                     <v-icon>mdi-close</v-icon>
                 </v-btn>
             </div>
             <div class="screener-drawer-body">
                 <div class="screener-filter-grid">
-                    <v-select dense outlined hide-details="auto" label="<?php echo esc_attr( 'Category' ); ?>" :items="categoryOptions" v-model="filters.category"></v-select>
-                    <v-select dense outlined hide-details="auto" label="<?php echo esc_attr( 'Exchange' ); ?>" :items="exchangeOptions" v-model="filters.exchange"></v-select>
-                    <v-select dense outlined hide-details="auto" label="<?php echo esc_attr( 'TON tag' ); ?>" :items="tonTagOptions" v-model="filters.ton_tag"></v-select>
-                    <v-select dense outlined hide-details="auto" label="<?php echo esc_attr( 'Watchlist' ); ?>" :items="watchlistFilterOptions" v-model="filters.watchlist"></v-select>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( 'Market cap min' ); ?>" v-model="filters.market_cap_min"></v-text-field>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( 'Market cap max' ); ?>" v-model="filters.market_cap_max"></v-text-field>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( 'Volume min' ); ?>" v-model="filters.volume_min"></v-text-field>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( 'Volume max' ); ?>" v-model="filters.volume_max"></v-text-field>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( 'Rank max' ); ?>" v-model="filters.rank_max"></v-text-field>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( '24h min %' ); ?>" v-model="filters.change_24h_min"></v-text-field>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( '7d min %' ); ?>" v-model="filters.change_7d_min"></v-text-field>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( '30d min %' ); ?>" v-model="filters.change_30d_min"></v-text-field>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( 'Sentiment min' ); ?>" v-model="filters.sentiment_min"></v-text-field>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( 'Sentiment max' ); ?>" v-model="filters.sentiment_max"></v-text-field>
+                    <v-select dense outlined hide-details="auto" label="<?php echo esc_attr( __( 'Category' ) ); ?>" :items="categoryOptions" v-model="filters.category"></v-select>
+                    <v-select dense outlined hide-details="auto" label="<?php echo esc_attr( __( 'Exchange' ) ); ?>" :items="exchangeOptions" v-model="filters.exchange"></v-select>
+                    <v-select dense outlined hide-details="auto" label="<?php echo esc_attr( __( 'TON tag' ) ); ?>" :items="tonTagOptions" v-model="filters.ton_tag"></v-select>
+                    <v-select dense outlined hide-details="auto" label="<?php echo esc_attr( __( 'Watchlist' ) ); ?>" :items="watchlistFilterOptions" v-model="filters.watchlist"></v-select>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( 'Market cap min' ) ); ?>" v-model="filters.market_cap_min"></v-text-field>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( 'Market cap max' ) ); ?>" v-model="filters.market_cap_max"></v-text-field>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( 'Volume min' ) ); ?>" v-model="filters.volume_min"></v-text-field>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( 'Volume max' ) ); ?>" v-model="filters.volume_max"></v-text-field>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( 'Rank max' ) ); ?>" v-model="filters.rank_max"></v-text-field>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( '24h min %' ) ); ?>" v-model="filters.change_24h_min"></v-text-field>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( '7d min %' ) ); ?>" v-model="filters.change_7d_min"></v-text-field>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( '30d min %' ) ); ?>" v-model="filters.change_30d_min"></v-text-field>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( 'Sentiment min' ) ); ?>" v-model="filters.sentiment_min"></v-text-field>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( 'Sentiment max' ) ); ?>" v-model="filters.sentiment_max"></v-text-field>
                 </div>
                 <div class="screener-filter-actions mt-4">
                     <v-btn color="primary" depressed @click="applyFilters">
@@ -202,20 +202,20 @@ $frontend_options['screener']['tonTagOptions'] = [
                     </v-btn>
                 </div>
                 <div class="screener-filter-grid">
-                    <v-select dense outlined hide-details="auto" label="<?php echo esc_attr( 'Category' ); ?>" :items="categoryOptions" v-model="filters.category" @change="applyFilters"></v-select>
-                    <v-select dense outlined hide-details="auto" label="<?php echo esc_attr( 'Exchange' ); ?>" :items="exchangeOptions" v-model="filters.exchange" @change="applyFilters"></v-select>
-                    <v-select dense outlined hide-details="auto" label="<?php echo esc_attr( 'TON tag' ); ?>" :items="tonTagOptions" v-model="filters.ton_tag" @change="applyFilters"></v-select>
-                    <v-select dense outlined hide-details="auto" label="<?php echo esc_attr( 'Watchlist' ); ?>" :items="watchlistFilterOptions" v-model="filters.watchlist" @change="applyFilters"></v-select>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( 'Market cap min' ); ?>" v-model="filters.market_cap_min" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( 'Market cap max' ); ?>" v-model="filters.market_cap_max" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( 'Volume min' ); ?>" v-model="filters.volume_min" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( 'Volume max' ); ?>" v-model="filters.volume_max" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( 'Rank max' ); ?>" v-model="filters.rank_max" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( '24h min %' ); ?>" v-model="filters.change_24h_min" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( '7d min %' ); ?>" v-model="filters.change_7d_min" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( '30d min %' ); ?>" v-model="filters.change_30d_min" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( 'Sentiment min' ); ?>" v-model="filters.sentiment_min" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
-                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( 'Sentiment max' ); ?>" v-model="filters.sentiment_max" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
+                    <v-select dense outlined hide-details="auto" label="<?php echo esc_attr( __( 'Category' ) ); ?>" :items="categoryOptions" v-model="filters.category" @change="applyFilters"></v-select>
+                    <v-select dense outlined hide-details="auto" label="<?php echo esc_attr( __( 'Exchange' ) ); ?>" :items="exchangeOptions" v-model="filters.exchange" @change="applyFilters"></v-select>
+                    <v-select dense outlined hide-details="auto" label="<?php echo esc_attr( __( 'TON tag' ) ); ?>" :items="tonTagOptions" v-model="filters.ton_tag" @change="applyFilters"></v-select>
+                    <v-select dense outlined hide-details="auto" label="<?php echo esc_attr( __( 'Watchlist' ) ); ?>" :items="watchlistFilterOptions" v-model="filters.watchlist" @change="applyFilters"></v-select>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( 'Market cap min' ) ); ?>" v-model="filters.market_cap_min" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( 'Market cap max' ) ); ?>" v-model="filters.market_cap_max" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( 'Volume min' ) ); ?>" v-model="filters.volume_min" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( 'Volume max' ) ); ?>" v-model="filters.volume_max" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( 'Rank max' ) ); ?>" v-model="filters.rank_max" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( '24h min %' ) ); ?>" v-model="filters.change_24h_min" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( '7d min %' ) ); ?>" v-model="filters.change_7d_min" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( '30d min %' ) ); ?>" v-model="filters.change_30d_min" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( 'Sentiment min' ) ); ?>" v-model="filters.sentiment_min" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
+                    <v-text-field dense outlined clearable hide-details="auto" type="number" label="<?php echo esc_attr( __( 'Sentiment max' ) ); ?>" v-model="filters.sentiment_max" @keyup.enter="applyFilters" @blur="applyFilters"></v-text-field>
                 </div>
                 <v-btn block color="primary" depressed class="mt-4" :loading="loading" @click="applyFilters">
                     <v-icon left>mdi-table-search</v-icon>
@@ -249,7 +249,7 @@ $frontend_options['screener']['tonTagOptions'] = [
                         outlined
                         hide-details="auto"
                         class="screener-preset-select"
-                        label="<?php echo esc_attr( 'Saved presets' ); ?>"
+                        label="<?php echo esc_attr( __( 'Saved presets' ) ); ?>"
                         :items="presetOptions"
                         :disabled="!presetSyncEnabled || !presets.length"
                         v-model="selectedPresetId"
@@ -260,15 +260,15 @@ $frontend_options['screener']['tonTagOptions'] = [
                         outlined
                         hide-details="auto"
                         class="screener-preset-name"
-                        label="<?php echo esc_attr( 'Preset name' ); ?>"
+                        label="<?php echo esc_attr( __( 'Preset name' ) ); ?>"
                         v-model="presetName"
                         :disabled="!presetSyncEnabled"
                         @keyup.enter="savePreset"
                     ></v-text-field>
-                    <v-btn icon :disabled="!presetSyncEnabled || !presetName" :loading="savingPreset" title="Save preset" :aria-label="'Save preset'" @click="savePreset">
+                    <v-btn icon :disabled="!presetSyncEnabled || !presetName" :loading="savingPreset" title="<?php echo esc_attr( __( 'Save preset' ) ); ?>" :aria-label="'<?php echo esc_attr( __( 'Save preset' ) ); ?>'" @click="savePreset">
                         <v-icon>mdi-content-save-outline</v-icon>
                     </v-btn>
-                    <v-btn icon :disabled="!presetSyncEnabled || !selectedPresetId" :loading="deletingPreset" title="Delete preset" :aria-label="'Delete preset'" @click="deletePreset">
+                    <v-btn icon :disabled="!presetSyncEnabled || !selectedPresetId" :loading="deletingPreset" title="<?php echo esc_attr( __( 'Delete preset' ) ); ?>" :aria-label="'<?php echo esc_attr( __( 'Delete preset' ) ); ?>'" @click="deletePreset">
                         <v-icon>mdi-delete-outline</v-icon>
                     </v-btn>
                     <span class="text-caption text--secondary" v-text="presetStatusText"></span>

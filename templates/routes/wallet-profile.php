@@ -15,7 +15,7 @@ $frontend_options['wallet-profile']['title'] = __( 'Wallet Profile' );
                 <?php echo esc_html( $frontend_options['wallet-profile']['title'] ); ?>
             </h1>
             <p class="text-body-1 mb-0">
-                <?php echo esc_html( 'Connect a TON wallet through TON Connect for wallet-aware context. Private keys and seed phrases stay in your wallet.' ); ?>
+                <?php echo esc_html( __( 'Connect a TON wallet through TON Connect for wallet-aware context. Private keys and seed phrases stay in your wallet.' ) ); ?>
             </p>
         </div>
         <div class="wallet-profile-actions">
@@ -64,7 +64,7 @@ $frontend_options['wallet-profile']['title'] = __( 'Wallet Profile' );
                 <v-card-title class="wallet-profile-card-title">
                     <div>
                         <div class="text-h6"><?php echo esc_html( __( 'Connection' ) ); ?></div>
-                        <div class="text-caption text--secondary" v-text="isConnected ? walletName : 'No wallet connected'"></div>
+                        <div class="text-caption text--secondary" v-text="isConnected ? walletName : '<?php echo esc_attr( __( 'No wallet connected' ) ); ?>'"></div>
                     </div>
                     <v-spacer></v-spacer>
                     <v-avatar v-if="isConnected && wallet.image_url" size="40" color="white">

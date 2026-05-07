@@ -18,15 +18,15 @@ $frontend_options['achievements']['title'] = __( 'Achievements' );
                 <div class="d-flex flex-wrap align-center">
                     <v-chip small label class="mr-2 mb-2">
                         <v-icon small left>mdi-trophy-outline</v-icon>
-                        {{ unlockedCount }} / {{ definitions.length }} badges
+                        {{ unlockedCount }} / {{ definitions.length }} <?php echo esc_html( __( 'badges' ) ); ?>
                     </v-chip>
                     <v-chip small label class="mr-2 mb-2">
                         <v-icon small left>mdi-fire</v-icon>
-                        {{ streak.current_count || 0 }} day streak
+                        {{ streak.current_count || 0 }} <?php echo esc_html( __( 'day streak' ) ); ?>
                     </v-chip>
                     <v-chip small label :color="optInModel ? 'success' : 'grey'" text-color="white" class="mb-2">
                         <v-icon small left>{{ optInModel ? 'mdi-check-circle-outline' : 'mdi-circle-outline' }}</v-icon>
-                        {{ optInModel ? 'Opted in' : 'Opt-in' }}
+                        {{ optInModel ? '<?php echo esc_attr( __( 'Opted in' ) ); ?>' : '<?php echo esc_attr( __( 'Opt-in' ) ); ?>' }}
                     </v-chip>
                 </div>
             </div>

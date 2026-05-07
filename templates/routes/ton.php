@@ -16,20 +16,20 @@ $frontend_options['ton']['apiBaseUrl'] = site_url( 'api/ton/assets' );
                 <?php echo esc_html( $frontend_options['ton']['title'] ); ?>
             </h1>
             <p class="text-body-1 mb-0">
-                <?php echo esc_html( 'Curated Toncoin, jettons, stablecoins, DeFi venues, wallets, and infrastructure for TONBANKCARD market context.' ); ?>
+                <?php echo esc_html( __( 'Curated Toncoin, jettons, stablecoins, DeFi venues, wallets, and infrastructure for TONBANKCARD market context.' ) ); ?>
             </p>
         </div>
         <div class="ton-route-summary">
             <div>
-                <span class="text-caption text--secondary"><?php echo esc_html( 'Assets' ); ?></span>
+                <span class="text-caption text--secondary"><?php echo esc_html( __( 'Assets' ) ); ?></span>
                 <strong v-text="tonAssets.length"></strong>
             </div>
             <div>
-                <span class="text-caption text--secondary"><?php echo esc_html( 'Verified' ); ?></span>
+                <span class="text-caption text--secondary"><?php echo esc_html( __( 'Verified' ) ); ?></span>
                 <strong v-text="verifiedCount"></strong>
             </div>
             <div>
-                <span class="text-caption text--secondary"><?php echo esc_html( 'Review' ); ?></span>
+                <span class="text-caption text--secondary"><?php echo esc_html( __( 'Review' ) ); ?></span>
                 <strong v-text="unverifiedCount"></strong>
             </div>
         </div>
@@ -52,7 +52,7 @@ $frontend_options['ton']['apiBaseUrl'] = site_url( 'api/ton/assets' );
 
     <div class="ton-filter-bar mb-6">
         <div class="ton-filter-group">
-            <span class="text-caption text--secondary"><?php echo esc_html( 'Categories' ); ?></span>
+            <span class="text-caption text--secondary"><?php echo esc_html( __( 'Categories' ) ); ?></span>
             <v-chip
                 v-for="category in categoryList"
                 :key="'category-' + category.id"
@@ -67,7 +67,7 @@ $frontend_options['ton']['apiBaseUrl'] = site_url( 'api/ton/assets' );
             </v-chip>
         </div>
         <div class="ton-filter-group">
-            <span class="text-caption text--secondary"><?php echo esc_html( 'Lists' ); ?></span>
+            <span class="text-caption text--secondary"><?php echo esc_html( __( 'Lists' ) ); ?></span>
             <v-chip
                 v-for="list in ecosystemLists"
                 :key="'list-' + list.id"
@@ -82,7 +82,7 @@ $frontend_options['ton']['apiBaseUrl'] = site_url( 'api/ton/assets' );
             </v-chip>
         </div>
         <div class="ton-filter-group">
-            <span class="text-caption text--secondary"><?php echo esc_html( 'Tags' ); ?></span>
+            <span class="text-caption text--secondary"><?php echo esc_html( __( 'Tags' ) ); ?></span>
             <v-chip
                 v-for="tag in visibleTags"
                 :key="'tag-' + tag"
@@ -97,7 +97,7 @@ $frontend_options['ton']['apiBaseUrl'] = site_url( 'api/ton/assets' );
             </v-chip>
         </div>
         <div class="ton-filter-group">
-            <span class="text-caption text--secondary"><?php echo esc_html( 'Verification' ); ?></span>
+            <span class="text-caption text--secondary"><?php echo esc_html( __( 'Verification' ) ); ?></span>
             <v-chip
                 v-for="state in ['verified', 'curated', 'unverified']"
                 :key="'state-' + state"
@@ -112,7 +112,7 @@ $frontend_options['ton']['apiBaseUrl'] = site_url( 'api/ton/assets' );
                 <span v-text="stateLabel(state)"></span>
             </v-chip>
             <v-btn v-if="hasActiveFilters" small text :to="clearFiltersRoute()">
-                <?php echo esc_html( 'Clear' ); ?>
+                <?php echo esc_html( __( 'Clear' ) ); ?>
             </v-btn>
         </div>
     </div>
@@ -129,9 +129,9 @@ $frontend_options['ton']['apiBaseUrl'] = site_url( 'api/ton/assets' );
     </v-row>
 
     <div class="ton-section-heading mb-3">
-        <h2 class="text-h6 text-sm-h5 mb-1"><?php echo esc_html( 'Curated TON assets' ); ?></h2>
+        <h2 class="text-h6 text-sm-h5 mb-1"><?php echo esc_html( __( 'Curated TON assets' ) ); ?></h2>
         <span class="text-caption text--secondary">
-            <?php echo esc_html( 'Updated:' ); ?> <span v-text="curationUpdatedLabel"></span>
+            <?php echo esc_html( __( 'Updated:' ) ); ?> <span v-text="curationUpdatedLabel"></span>
         </span>
     </div>
 
@@ -165,21 +165,21 @@ $frontend_options['ton']['apiBaseUrl'] = site_url( 'api/ton/assets' );
                     <div class="ton-asset-meta mb-3">
                         <v-chip x-small label color="primary" outlined v-text="asset.categoryLabel"></v-chip>
                         <v-chip v-if="asset.featured" x-small label color="secondary" outlined>
-                            <?php echo esc_html( 'Featured' ); ?>
+                            <?php echo esc_html( __( 'Featured' ) ); ?>
                         </v-chip>
                     </div>
                     <p class="text-body-2 mb-3" v-text="asset.description"></p>
                     <div class="ton-asset-market-grid" v-if="asset.market">
                         <div>
-                            <span class="text-caption text--secondary"><?php echo esc_html( 'Price' ); ?></span>
+                            <span class="text-caption text--secondary"><?php echo esc_html( __( 'Price' ) ); ?></span>
                             <strong v-text="$root.priceFormat(asset.market.current_price)"></strong>
                         </div>
                         <div>
-                            <span class="text-caption text--secondary"><?php echo esc_html( '24h' ); ?></span>
+                            <span class="text-caption text--secondary"><?php echo esc_html( __( '24h' ) ); ?></span>
                             <strong :class="$root.changeColorClass(asset.market.price_change_percentage_24h_in_currency)" v-text="$root.changeFormat(asset.market.price_change_percentage_24h_in_currency)"></strong>
                         </div>
                         <div>
-                            <span class="text-caption text--secondary"><?php echo esc_html( 'Market cap' ); ?></span>
+                            <span class="text-caption text--secondary"><?php echo esc_html( __( 'Market cap' ) ); ?></span>
                             <strong v-text="$root.marketCapFormat(asset.market.market_cap)"></strong>
                         </div>
                     </div>
@@ -198,20 +198,20 @@ $frontend_options['ton']['apiBaseUrl'] = site_url( 'api/ton/assets' );
                 <v-card-actions>
                     <v-btn small text :to="assetRoute(asset)">
                         <v-icon left small>mdi-open-in-new</v-icon>
-                        <?php echo esc_html( 'Open' ); ?>
+                        <?php echo esc_html( __( 'Open' ) ); ?>
                     </v-btn>
                     <v-btn v-if="canEditCuration" small text class="ton-admin-edit-btn" @click="openEditor(asset)">
                         <v-icon left small>mdi-pencil-outline</v-icon>
-                        <?php echo esc_html( 'Edit' ); ?>
+                        <?php echo esc_html( __( 'Edit' ) ); ?>
                     </v-btn>
                     <v-btn v-if="canEditCuration" small text color="error" class="ton-admin-delete-btn" :disabled="adminSaving" @click="deleteAsset(asset)">
                         <v-icon left small>mdi-delete-outline</v-icon>
-                        <?php echo esc_html( 'Remove' ); ?>
+                        <?php echo esc_html( __( 'Remove' ) ); ?>
                     </v-btn>
                     <v-spacer></v-spacer>
                     <v-btn small text :to="marketRoute(asset.category)">
                         <v-icon left small>mdi-table-search</v-icon>
-                        <?php echo esc_html( 'Markets' ); ?>
+                        <?php echo esc_html( __( 'Markets' ) ); ?>
                     </v-btn>
                 </v-card-actions>
             </v-card>
@@ -219,7 +219,7 @@ $frontend_options['ton']['apiBaseUrl'] = site_url( 'api/ton/assets' );
     </v-row>
 
     <v-alert v-if="!loadingCuration && !filteredAssets.length" type="info" dense text class="mt-4">
-        <?php echo esc_html( 'No TON assets match the active filters.' ); ?>
+        <?php echo esc_html( __( 'No TON assets match the active filters.' ) ); ?>
     </v-alert>
 
     <v-dialog v-if="canEditCuration" v-model="editorOpen" max-width="640" persistent>
