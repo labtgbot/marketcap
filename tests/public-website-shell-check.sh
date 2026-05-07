@@ -232,16 +232,82 @@ if (!initCall) {
 }
 
 const options = initCall[2] || {};
-for (const option of ['trackLinks', 'accurateTrackBounce', 'webvisor', 'clickmap']) {
+for (const option of ['trackLinks', 'accurateTrackBounce', 'webvisor', 'clickmap', 'defer']) {
   if (options[option] !== true) {
     throw new Error(`Yandex Metrica init option ${option} should be true`);
   }
 }
-if (options.url !== context.location.href) {
-  throw new Error(`Yandex Metrica init URL should match location.href, got ${options.url}`);
+const hitCall = context.window.ym.a.find((args) => args[0] === 109107032 && args[1] === 'hit');
+if (!hitCall) {
+  throw new Error('Yandex Metrica initial pageview hit was not queued');
 }
-if (options.referrer !== document.referrer) {
-  throw new Error(`Yandex Metrica init referrer should match document.referrer, got ${options.referrer}`);
+if (hitCall[2] !== context.location.href) {
+  throw new Error(`Yandex Metrica hit URL should match location.href, got ${hitCall[2]}`);
+}
+const hitOptions = hitCall[3] || {};
+if (hitOptions.referer !== document.referrer) {
+  throw new Error(`Yandex Metrica hit referer should match document.referrer, got ${hitOptions.referer}`);
+}
+if (hitOptions.title !== undefined && typeof hitOptions.title !== 'string') {
+  throw new Error('Yandex Metrica hit title should be a string when provided');
+}
+if (!context.window.tonbankcardYandexMetrica || context.window.tonbankcardYandexMetrica.lastTrackedUrl !== context.location.href) {
+  throw new Error('Yandex Metrica browser state should remember the initial tracked URL');
+}
+NODE
+
+node <<'NODE'
+const fs = require('fs');
+const vm = require('vm');
+
+const source = fs.readFileSync('dev/js/src/router.js', 'utf8');
+const afterEachHandlers = [];
+class VueRouter {
+  constructor() {
+    this.afterEach = (handler) => afterEachHandlers.push(handler);
+  }
+}
+const ymCalls = [];
+const context = {
+  window: {
+    location: { href: 'http://127.0.0.1:8891/markets' },
+    document: { referrer: 'https://example.test/referrer', title: 'Markets' },
+    tonbankcardYandexMetrica: {
+      enabled: true,
+      counterId: 109107032,
+      lastTrackedUrl: 'http://127.0.0.1:8891/',
+    },
+    ym: (...args) => ymCalls.push(args),
+    setTimeout: (callback) => callback(),
+  },
+  _: { isFunction: (value) => typeof value === 'function' },
+  VueRouter,
+  GeckoClient: {
+    routerMode: 'history',
+    routerBase: '/',
+    setCanonicalUrl: () => {},
+  },
+};
+
+vm.runInNewContext(source, context);
+if (afterEachHandlers.length !== 1) {
+  throw new Error(`Expected one router.afterEach handler, got ${afterEachHandlers.length}`);
+}
+
+afterEachHandlers[0]({path: '/markets'}, {path: '/'});
+
+const hitCall = ymCalls.find((args) => args[0] === 109107032 && args[1] === 'hit');
+if (!hitCall) {
+  throw new Error('SPA route change did not send a Yandex Metrica hit');
+}
+if (hitCall[2] !== 'http://127.0.0.1:8891/markets') {
+  throw new Error(`SPA route hit used an unexpected URL: ${hitCall[2]}`);
+}
+if ((hitCall[3] || {}).referer !== 'http://127.0.0.1:8891/') {
+  throw new Error(`SPA route hit should use the previous route as referer, got ${(hitCall[3] || {}).referer}`);
+}
+if (context.window.tonbankcardYandexMetrica.lastTrackedUrl !== 'http://127.0.0.1:8891/markets') {
+  throw new Error('SPA route tracking did not update the last tracked URL');
 }
 NODE
 
