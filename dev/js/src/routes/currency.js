@@ -132,7 +132,7 @@
 
                     return {
                         insight_type: 'alert_explanation',
-                        subject: 'Alert context for ' + this.currency.name,
+                        subject: this.currency.name + ' (' + _.toUpper(this.currency.symbol) + ') alert context',
                         market_data_age_seconds: this.currencyMarketAgeSeconds(),
                         market_data_updated_at: this.currencyMarketUpdatedAt(),
                         market_data: Object.assign(

@@ -461,6 +461,104 @@ if ( 'insight unavailable' !== $payload['data']['status'] || 'schema_validation_
 }
 PHP
 
+php_check 'alert explanation system prompt must identify TONBANKCARD as a platform not the subject asset' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_FEATURE_AI=true \
+        GROQ_API_KEY='groq-secret-key' \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$captured_request = null;
+$test_api = $api;
+$test_api['ai']['transport'] = function ( $request ) use ( &$captured_request ) {
+    $captured_request = $request;
+    return [
+        'status'  => 200,
+        'headers' => [ 'content-type' => 'application/json' ],
+        'body'    => json_encode(
+            [
+                'choices' => [
+                    [
+                        'message' => [
+                            'content' => json_encode(
+                                [
+                                    'title'                   => 'X Rocket alert context',
+                                    'summary'                 => 'X Rocket trades near the 24h high.',
+                                    'sentiment'               => 'neutral',
+                                    'confidence'              => 0.6,
+                                    'drivers'                 => [ 'Price held the recent intraday range.' ],
+                                    'risks'                   => [ 'Liquidity can change quickly.' ],
+                                    'uncertainty'             => 'A narrow data window may miss later moves.',
+                                    'market_data_age_seconds' => 30,
+                                    'not_financial_advice'    => TRUE,
+                                ]
+                            ),
+                        ],
+                    ],
+                ],
+            ]
+        ),
+    ];
+};
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'POST',
+        'path'    => '/api/ai/insight',
+        'headers' => [ 'content-type' => 'application/json' ],
+        'body'    => json_encode(
+            [
+                'insight_type'            => 'alert_explanation',
+                'subject'                 => 'X Rocket (XROCKET) alert context',
+                'market_data_age_seconds' => 30,
+                'market_data'             => [ 'asset' => [ 'id' => 'xrocket', 'symbol' => 'XROCKET', 'name' => 'X Rocket' ] ],
+            ]
+        ),
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $test_api
+);
+
+if ( null === $captured_request ) {
+    fwrite( STDERR, "Transport was not called\n" );
+    exit( 1 );
+}
+
+$body = json_decode( $captured_request['body'], TRUE );
+$system_content = isset( $body['messages'][0]['content'] ) ? $body['messages'][0]['content'] : '';
+
+// The system prompt must identify TONBANKCARD as the platform, not the subject coin.
+if ( FALSE === strpos( $system_content, 'TONBANKCARD market intelligence platform' ) ) {
+    fwrite( STDERR, "System prompt does not identify TONBANKCARD as the platform: $system_content\n" );
+    exit( 1 );
+}
+
+// The user message must include the coin identifier in the subject so the AI writes about the right coin.
+$user_content = json_decode( isset( $body['messages'][1]['content'] ) ? $body['messages'][1]['content'] : '{}', TRUE );
+$subject = isset( $user_content['input']['subject'] ) ? $user_content['input']['subject'] : '';
+if ( FALSE === strpos( $subject, 'XROCKET' ) ) {
+    fwrite( STDERR, "Alert explanation subject does not include the coin symbol: $subject\n" );
+    exit( 1 );
+}
+
+$payload = json_decode( $response['body'], TRUE );
+if ( 200 !== $response['status'] || TRUE !== $payload['ok'] || 'available' !== $payload['data']['status'] ) {
+    fwrite( STDERR, "Alert explanation insight was not available\n" . $response['body'] . "\n" );
+    exit( 1 );
+}
+if ( 'X Rocket alert context' !== $payload['data']['insight']['title'] ) {
+    fwrite( STDERR, "Alert explanation insight has wrong title: " . $payload['data']['insight']['title'] . "\n" );
+    exit( 1 );
+}
+PHP
+
+assert_contains dev/js/src/routes/currency.js "currency\.symbol.*alert context" 'alert explanation subject includes the coin symbol'
+assert_contains assets/js/app.js "currency\.symbol.*alert context" 'bundled alert explanation subject includes the coin symbol'
+
 if [ "$failures" -gt 0 ]; then
     exit 1
 fi
