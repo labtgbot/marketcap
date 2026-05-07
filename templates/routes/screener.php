@@ -15,7 +15,7 @@ $frontend_options['screener']['tableHeaders'] = [
         'value'    => 'market_cap_rank',
         'sortable' => TRUE,
         'align'    => 'start',
-        'width'    => 72,
+        'width'    => 48,
         'show'     => TRUE,
     ],
     [
@@ -23,6 +23,7 @@ $frontend_options['screener']['tableHeaders'] = [
         'value'    => 'name',
         'sortable' => TRUE,
         'align'    => 'start',
+        'width'    => 180,
         'show'     => TRUE,
     ],
     [
@@ -30,7 +31,7 @@ $frontend_options['screener']['tableHeaders'] = [
         'value'    => 'watchlist',
         'sortable' => FALSE,
         'align'    => 'center',
-        'width'    => 72,
+        'width'    => 48,
         'show'     => TRUE,
     ],
     [

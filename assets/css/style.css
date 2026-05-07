@@ -1377,9 +1377,9 @@ v-app {
 .screener-coin-cell {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    min-width: 170px;
-    max-width: 280px;
+    gap: 8px;
+    min-width: 120px;
+    max-width: 180px;
     text-decoration: none;
 }
 .screener-filter-drawer {
@@ -1428,8 +1428,8 @@ v-app {
         min-width: 0;
     }
     .screener-coin-cell {
-        min-width: 150px;
-        max-width: 210px;
+        min-width: 110px;
+        max-width: 160px;
     }
 }
 @media only screen and (max-width: 759px) {
