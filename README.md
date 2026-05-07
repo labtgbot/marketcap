@@ -184,6 +184,8 @@ See [docs/v2-gamification-achievements.md](docs/v2-gamification-achievements.md)
 
 See [docs/v2-premium-subscriptions.md](docs/v2-premium-subscriptions.md) for Telegram Stars subscriptions, premium entitlement state, server-side limits, and checkout/refund handling from issue #37.
 
+See [docs/telegram-mini-app-setup-guide.md](docs/telegram-mini-app-setup-guide.md) for the complete Telegram Mini App setup guide from issue #149, including BotFather configuration, trusted sessions, alerts, Stars premium checkout, renewal, refund, and subscription expiry notifications. Run `npm run test:mini-app-setup-guide` to verify the setup-guide documentation gate.
+
 See [docs/v2-charting-and-market-visualization.md](docs/v2-charting-and-market-visualization.md) for the chart rendering decision, advanced coin chart views, lazy ECharts loading, stale state, and accessibility coverage from issue #25.
 
 See [docs/v2-observability-operational-logging.md](docs/v2-observability-operational-logging.md) for request ID tracing, frontend/API/provider error logging, verbose tracing flags, and operational health queries from issue #18.
