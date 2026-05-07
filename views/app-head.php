@@ -254,9 +254,9 @@ $should_render_yandex_metrica = ! empty( $yandex_metrica['enabled'] ) && '' !== 
                 m[i].l=1*new Date();
                 for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
                 k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
-            })(window, document, 'script', 'https://mc.yandex.ru/metrika/tag.js?id=<?php echo esc_attr( $yandex_metrica_counter_id ); ?>', 'ym');
+            })(window, document, 'script', 'https://mc.yandex.ru/metrika/tag.js', 'ym');
 
-            ym(<?php echo esc_attr( $yandex_metrica_counter_id ); ?>, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+            window.ym(<?php echo esc_attr( $yandex_metrica_counter_id ); ?>, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
         </script>
         <noscript><div><img src="https://mc.yandex.ru/watch/<?php echo esc_attr( $yandex_metrica_counter_id ); ?>" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
         <!-- /Yandex.Metrika counter -->

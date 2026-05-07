@@ -565,7 +565,7 @@ $_SERVER['REQUEST_URI'] = '/currencies';
 ob_start();
 include GECKO_CLIENT_VIEWS_DIR . '/app-head.php';
 $public_head = ob_get_clean();
-if ( FALSE === strpos( $public_head, 'mc.yandex.ru/metrika/tag.js?id=109107032' ) || FALSE === strpos( $public_head, 'ym(109107032' ) ) {
+if ( FALSE === strpos( $public_head, 'mc.yandex.ru/metrika/tag.js' ) || FALSE === strpos( $public_head, 'window.ym(109107032' ) ) {
     fwrite( STDERR, "Public pages did not render the configured Yandex Metrica counter\n" );
     exit( 1 );
 }
