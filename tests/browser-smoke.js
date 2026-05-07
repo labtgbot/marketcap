@@ -1116,6 +1116,11 @@ async function checkSearchInteraction(page, errors, requestLog) {
     await activeMenu.getByText('Exchange Toncoin', {exact: true}).waitFor({state: 'visible'});
     await activeMenu.getByText('Tether USD on TON', {exact: true}).waitFor({state: 'visible'});
     await activeMenu.getByText('Stablecoins', {exact: true}).waitFor({state: 'visible'});
+    const toncoinResult = activeMenu.locator('.v-list-item').filter({hasText: /^\s*Toncoin\s+TON/}).first();
+    const toncoinLogoCount = await toncoinResult.locator('.v-avatar img, .v-image__image').count();
+    if (toncoinLogoCount < 1) {
+        fail('TON search result did not render the coin logo avatar');
+    }
     if (await activeMenu.getByText('Binance', {exact: true}).count()) {
         fail('TON search exposed a third-party venue result instead of the first-party exchange action');
     }

@@ -140,6 +140,8 @@
                 result.title = result.title || result.name;
                 result.subtitle = result.subtitle || result.symbol || this.resultTypeLabel(result);
                 result.searchId = result.searchId || (result.type + ':' + result.id);
+                result.image = result.image || result.large || result.small || result.thumb || null;
+                result.large = result.large || result.image || null;
 
                 return result;
             },
@@ -190,6 +192,8 @@
                         'symbol',
                         'rank',
                         'large',
+                        'small',
+                        'thumb',
                         'image',
                         'tags',
                         'contract_addresses',
@@ -427,7 +431,7 @@
                 return 'mdi-currency-btc';
             },
             itemImage: function (item) {
-                return item && (item.large || item.image);
+                return item && (item.large || item.image || item.small || item.thumb);
             }
         }
     });

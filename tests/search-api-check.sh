@@ -117,7 +117,30 @@ $test_api['market_data']['transport'] = function ( $request ) {
         return [
             'status'  => 200,
             'headers' => [ 'content-type' => 'application/json' ],
-            'body'    => json_encode( [ 'coins' => [ [ 'item' => [ 'id' => 'toncoin', 'symbol' => 'TON', 'name' => 'Toncoin', 'market_cap_rank' => 12 ] ] ], 'exchanges' => [] ] ),
+            'body'    => json_encode(
+                [
+                    'coins'     => [
+                        [
+                            'item' => [
+                                'id'              => 'bitcoin',
+                                'symbol'          => 'BTC',
+                                'name'            => 'Bitcoin',
+                                'market_cap_rank' => 1,
+                                'small'           => 'https://assets.example.test/bitcoin-small.png',
+                            ],
+                        ],
+                        [
+                            'item' => [
+                                'id'              => 'toncoin',
+                                'symbol'          => 'TON',
+                                'name'            => 'Toncoin',
+                                'market_cap_rank' => 12,
+                            ],
+                        ],
+                    ],
+                    'exchanges' => [],
+                ]
+            ),
         ];
     }
 
@@ -151,6 +174,10 @@ if ( ! is_array( $payload ) || TRUE !== $payload['ok'] ) {
 $results = $payload['data']['results'];
 if ( 'bitcoin' !== $results[0]['id'] || 'coin' !== $results[0]['type'] ) {
     fwrite( STDERR, "BTC search did not rank Bitcoin first\n" );
+    exit( 1 );
+}
+if ( 'https://assets.example.test/bitcoin-small.png' !== $results[0]['image'] ) {
+    fwrite( STDERR, "BTC search result is missing its coin logo image\n" );
     exit( 1 );
 }
 if ( '/currency/bitcoin' !== $results[0]['links']['web'] || '/app/coin/bitcoin' !== $results[0]['links']['telegram'] ) {
