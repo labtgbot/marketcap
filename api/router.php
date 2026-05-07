@@ -22,6 +22,7 @@ require_once __DIR__ . '/watchlist.php';
 require_once __DIR__ . '/alerts.php';
 require_once __DIR__ . '/screener.php';
 require_once __DIR__ . '/admin.php';
+require_once __DIR__ . '/changenow.php';
 
 /**
  * Returns TRUE when the current or supplied path belongs to the API surface.
@@ -297,6 +298,7 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
                             '/api/admin/operations',
                             '/api/admin/cache/purge',
                             '/api/admin/audit-log',
+                            '/api/changenow/currencies',
                             '/api/observability/client-error',
                             '/api/telegram/session',
                             '/api/telegram/bot',
@@ -565,6 +567,17 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
         if ( tonbankcard_api_admin_is_request( $path ) ) {
             return tonbankcard_api_finalize_response(
                 tonbankcard_api_admin_handle( $request, $runtime, $config, $request_id, $headers ),
+                $request,
+                $runtime,
+                $config,
+                $request_id,
+                $started_at
+            );
+        }
+
+        if ( tonbankcard_api_changenow_is_request( $path ) ) {
+            return tonbankcard_api_finalize_response(
+                tonbankcard_api_changenow_handle( $request, $runtime, $config, $request_id, $headers ),
                 $request,
                 $runtime,
                 $config,

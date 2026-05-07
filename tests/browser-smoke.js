@@ -654,6 +654,20 @@ async function installRoutes(context, requestLog) {
         });
     });
 
+    await context.route(`${baseURL}/api/changenow/currencies`, route => {
+        return fulfillJson(route, {
+            ok: true,
+            data: {
+                tickers: [
+                    'btc', 'eth', 'ltc', 'xrp', 'doge', 'trx', 'sol', 'ada', 'dot', 'link',
+                    'avaxc', 'bnbbsc', 'ton', 'usdtton', 'dogs', 'hmstr', 'not', 'cati',
+                    'fail',
+                ],
+            },
+            meta: {request_id: 'browser-smoke-changenow'},
+        });
+    });
+
     await context.route('https://changenow.io/**', route => {
         if (route.request().url().endsWith('/stepper-connector.js')) {
             return route.fulfill({

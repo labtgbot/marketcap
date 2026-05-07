@@ -4934,10 +4934,43 @@
         }
 
         if (widgetOptions.symbolFallback && symbol) {
-            return {from: symbol};
+            return {from: symbol, _pendingCheck: true};
         }
 
         return null;
+    }
+
+    // Shared cache for the ChangeNOW ticker list so we only fetch once per page load.
+    let tickerListPromise = null;
+
+    function fetchChangeNowTickers() {
+        if (tickerListPromise) {
+            return tickerListPromise;
+        }
+
+        const apiUrl = (widgetOptions.checkAvailabilityUrl || '/api/changenow/currencies');
+
+        tickerListPromise = fetch(apiUrl)
+            .then(function (response) {
+                if (!response.ok) {
+                    return Promise.reject(new Error('HTTP ' + response.status));
+                }
+                return response.json();
+            })
+            .then(function (json) {
+                const tickers = _.get(json, 'data.tickers', null);
+                if (!Array.isArray(tickers)) {
+                    return Promise.reject(new Error('unexpected response shape'));
+                }
+                return tickers;
+            })
+            .catch(function () {
+                // On any error reset so the next call can retry, and signal failure.
+                tickerListPromise = null;
+                return null;
+            });
+
+        return tickerListPromise;
     }
 
     function buildWidgetUrl(baseUrl, params) {
@@ -4955,6 +4988,12 @@
             currency: {}
         },
         template: '#component-currency-exchange-widget',
+        data: function () {
+            return {
+                checkedSymbol: null,    // symbol that was checked
+                checkedResult: null,    // true = listed, false = not listed, null = not yet checked
+            };
+        },
         computed: {
             providerName: function () {
                 return widgetOptions.provider || 'ChangeNOW';
@@ -4965,12 +5004,30 @@
             linkId: function () {
                 return _.trim(widgetOptions.linkId || '');
             },
-            supportedAsset: function () {
+            _rawSupportedAsset: function () {
                 return getSupportedAsset(this.currency);
+            },
+            supportedAsset: function () {
+                const raw = this._rawSupportedAsset;
+                if (!raw) return null;
+                if (!raw._pendingCheck) return raw;
+                // Waiting for async check or result is false.
+                if (this.checkedResult === false) return null;
+                if (this.checkedResult === true) {
+                    return _.omit(raw, '_pendingCheck');
+                }
+                return null; // still checking
             },
             widgetStatus: function () {
                 if (!this.isEnabled) return 'disabled';
                 if (!this.currency) return 'loading';
+                const raw = this._rawSupportedAsset;
+                if (!raw) return 'unsupported';
+                if (raw._pendingCheck) {
+                    if (this.checkedResult === null) return 'checking';
+                    if (this.checkedResult === false) return 'unsupported';
+                    // checkedResult === true falls through to 'ready'
+                }
                 return this.supportedAsset ? 'ready' : 'unsupported';
             },
             isReady: function () {
@@ -5006,6 +5063,33 @@
                 });
 
                 return buildWidgetUrl(widgetOptions.widgetUrl, params);
+            }
+        },
+        watch: {
+            currency: {
+                immediate: true,
+                handler: function (newCurrency) {
+                    if (!newCurrency) return;
+                    const raw = getSupportedAsset(newCurrency);
+                    if (!raw || !raw._pendingCheck) return;
+
+                    const symbol = raw.from;
+                    if (this.checkedSymbol === symbol) return; // already checked/checking
+
+                    this.checkedSymbol = symbol;
+                    this.checkedResult = null;
+
+                    const self = this;
+                    fetchChangeNowTickers().then(function (tickers) {
+                        if (self.checkedSymbol !== symbol) return; // currency changed while fetching
+                        if (tickers === null) {
+                            // API unavailable — show widget optimistically (old behavior).
+                            self.checkedResult = true;
+                        } else {
+                            self.checkedResult = tickers.indexOf(symbol) !== -1;
+                        }
+                    });
+                }
             }
         },
         mounted: function () {
