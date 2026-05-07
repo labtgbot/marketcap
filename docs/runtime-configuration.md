@@ -51,7 +51,7 @@ For staging, production, and telegram profiles, set explicit values for:
 | `MYSQL_DSN` | Non-local profiles | Example: `mysql:host=127.0.0.1;dbname=marketcap;charset=utf8mb4`. |
 | `MYSQL_USER` | Non-local profiles | Database application user. |
 | `MYSQL_PASSWORD` | Non-local profiles | Secret; server-side only. |
-| `CHANGENOW_LINK_ID` | ChangeNOW feature enabled | Partner link id, for example `3cc0024a18fd9d`. |
+| `CHANGENOW_LINK_ID` | ChangeNOW feature enabled | Partner link id, for example `f300d9f2b6f88e`. |
 
 Set explicit production feature flags with `true` or `false`:
 

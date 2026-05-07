@@ -272,7 +272,7 @@ function startServer() {
             TONBANKCARD_CDN: 'false',
             TONBANKCARD_FEATURE_CHANGENOW: 'true',
             TONBANKCARD_FEATURE_TON_CONNECT: 'true',
-            CHANGENOW_LINK_ID: '3cc0024a18fd9d',
+            CHANGENOW_LINK_ID: 'f300d9f2b6f88e',
         },
         stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -933,7 +933,7 @@ async function checkCoinDetail(page, errors, requestLog) {
     const bitcoinWidgetSrc = await page.locator('.currency-exchange-widget iframe').first().getAttribute('src');
     assertURLParam(bitcoinWidgetSrc, 'from', 'btc', 'Bitcoin widget from asset');
     assertURLParam(bitcoinWidgetSrc, 'to', 'usdtton', 'Bitcoin widget target asset');
-    assertURLParam(bitcoinWidgetSrc, 'link_id', '3cc0024a18fd9d', 'Bitcoin widget partner link id');
+    assertURLParam(bitcoinWidgetSrc, 'link_id', 'f300d9f2b6f88e', 'Bitcoin widget partner link id');
     assertURLParam(bitcoinWidgetSrc, 'primaryColor', '1bb2da', 'Bitcoin widget primary color');
     assertURLParam(bitcoinWidgetSrc, 'backgroundColor', 'f6fafd', 'Bitcoin widget background color');
 
@@ -1026,7 +1026,7 @@ async function checkToncoinChangeNowDefaults(page, errors, requestLog) {
     const tonWidgetSrc = await page.locator('.currency-exchange-widget iframe').first().getAttribute('src');
     assertURLParam(tonWidgetSrc, 'from', 'ton', 'Toncoin widget from asset');
     assertURLParam(tonWidgetSrc, 'to', 'usdtton', 'Toncoin widget target asset');
-    assertURLParam(tonWidgetSrc, 'link_id', '3cc0024a18fd9d', 'Toncoin widget partner link id');
+    assertURLParam(tonWidgetSrc, 'link_id', 'f300d9f2b6f88e', 'Toncoin widget partner link id');
     assertURLParam(tonWidgetSrc, 'primaryColor', '1bb2da', 'Toncoin widget primary color');
     assertURLParam(tonWidgetSrc, 'backgroundColor', 'f6fafd', 'Toncoin widget background color');
 

@@ -15,7 +15,7 @@ if ( ! empty( $runtime['providers']['changenow']['link_id'] ) ) {
     $changenow_link_id = trim( (string) $runtime['providers']['changenow']['link_id'] );
 }
 if ( '' === $changenow_link_id ) {
-    $changenow_link_id = '3cc0024a18fd9d';
+    $changenow_link_id = 'f300d9f2b6f88e';
 }
 
 $frontend_options['crypto-exchange'] = [

@@ -10,7 +10,7 @@
     const defaultTo = sanitizeCurrency(options.defaultTo, 'usdtton');
     const widgetBaseUrl = options.widgetBaseUrl || 'https://changenow.io/embeds/exchange-widget/v2/widget.html';
     const stepperScriptUrl = options.stepperScriptUrl || 'https://changenow.io/embeds/exchange-widget/v2/stepper-connector.js';
-    const fallbackLinkId = '3cc0024a18fd9d';
+    const fallbackLinkId = 'f300d9f2b6f88e';
 
     function sanitizeCurrency(value, fallback) {
         const sanitized = _.toLower(_.trim(value || '')).replace(/[^a-z0-9]/g, '');
