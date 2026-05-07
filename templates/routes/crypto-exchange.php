@@ -14,10 +14,6 @@ $changenow_link_id = '';
 if ( ! empty( $runtime['providers']['changenow']['link_id'] ) ) {
     $changenow_link_id = trim( (string) $runtime['providers']['changenow']['link_id'] );
 }
-if ( '' === $changenow_link_id ) {
-    $changenow_link_id = 'f300d9f2b6f88e';
-}
-
 $frontend_options['crypto-exchange'] = [
     'title'            => __( 'Crypto Exchange' ),
     'widgetBaseUrl'    => 'https://changenow.io/embeds/exchange-widget/v2/widget.html',

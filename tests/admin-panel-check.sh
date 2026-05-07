@@ -356,6 +356,10 @@ if (
     fwrite( STDERR, "Runtime config did not reload provider values saved through admin .env persistence\n" );
     exit( 1 );
 }
+if ( 'old-link' === $reloaded_after_providers['providers']['changenow']['link_id'] ) {
+    fwrite( STDERR, "Admin ChangeNOW link_id did not override the previous static/env value\n" );
+    exit( 1 );
+}
 
 $response = call_admin_api(
     [

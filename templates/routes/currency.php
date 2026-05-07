@@ -85,7 +85,7 @@ $route_currency['exchange_widget'] = [
     'provider'           => 'ChangeNOW',
     'widgetUrl'          => 'https://changenow.io/embeds/exchange-widget/v2/widget.html',
     'connectorScriptUrl' => 'https://changenow.io/embeds/exchange-widget/v2/stepper-connector.js',
-    'linkId'             => '' === $changenow_link_id ? 'f300d9f2b6f88e' : $changenow_link_id,
+    'linkId'             => $changenow_link_id,
     'listingUrl'         => $changenow_listing_url,
     'defaults'           => [
         'FAQ'             => 'true',
