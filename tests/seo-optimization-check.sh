@@ -103,6 +103,8 @@ coin_html="$log_dir/seo-coin.html"
 currency_html="$log_dir/seo-currency-alias.html"
 derivatives_html="$log_dir/seo-derivatives.html"
 finance_html="$log_dir/seo-finance-platforms.html"
+watchlist_html="$log_dir/seo-watchlist.html"
+settings_html="$log_dir/seo-settings.html"
 
 fetch_path "/robots.txt" "$robots_txt"
 fetch_path "/sitemap.xml" "$sitemap_xml"
@@ -111,6 +113,8 @@ fetch_path "/coins/bitcoin" "$coin_html"
 fetch_path "/currency/bitcoin" "$currency_html"
 fetch_path "/derivatives" "$derivatives_html"
 fetch_path "/finance-platforms" "$finance_html"
+fetch_path "/watchlist" "$watchlist_html"
+fetch_path "/settings" "$settings_html"
 
 assert_status_ok "/robots.txt"
 assert_status_ok "/sitemap.xml"
@@ -118,12 +122,17 @@ assert_status_ok "/coins/bitcoin"
 assert_status_ok "/currency/bitcoin"
 assert_status_ok "/derivatives"
 assert_status_ok "/finance-platforms"
+assert_status_ok "/watchlist"
+assert_status_ok "/settings"
 
 assert_contains "$robots_txt" '^User-agent: \*$' 'robots user agent rule'
 assert_contains "$robots_txt" '^Disallow: /api/$' 'API crawl disallow rule'
+assert_contains "$robots_txt" '^Disallow: /admin/$' 'admin crawl disallow rule'
+assert_contains "$robots_txt" '^Clean-param: utm_source&utm_medium&utm_campaign&utm_term&utm_content&yclid&gclid&fbclid /$' 'Yandex tracking parameter cleanup rule'
 assert_contains "$robots_txt" "^Sitemap: $base_url/sitemap\\.xml$" 'sitemap discovery URL'
 
 assert_contains "$sitemap_xml" '<urlset xmlns="http://www\.sitemaps\.org/schemas/sitemap/0\.9">' 'XML sitemap urlset'
+assert_contains "$sitemap_xml" '<lastmod>[0-9]{4}-[0-9]{2}-[0-9]{2}</lastmod>' 'sitemap lastmod values'
 assert_contains "$sitemap_xml" "<loc>$base_url/</loc>" 'home sitemap URL'
 assert_contains "$sitemap_xml" "<loc>$base_url/markets</loc>" 'markets sitemap URL'
 assert_contains "$sitemap_xml" "<loc>$base_url/coins/bitcoin</loc>" 'Bitcoin canonical coin URL'
@@ -131,7 +140,9 @@ assert_contains "$sitemap_xml" "<loc>$base_url/coins/ethereum</loc>" 'Ethereum c
 assert_contains "$sitemap_xml" "<loc>$base_url/coins/toncoin</loc>" 'Toncoin canonical coin URL'
 assert_contains "$sitemap_xml" "<loc>$base_url/derivatives</loc>" 'derivatives sitemap URL'
 assert_contains "$sitemap_xml" "<loc>$base_url/finance-platforms</loc>" 'finance platforms sitemap URL'
+assert_contains "$sitemap_xml" "<loc>$base_url/watchlist</loc>" 'watchlist sitemap URL'
 assert_not_contains "$sitemap_xml" '<loc>[^<]*/currency/bitcoin</loc>' 'duplicate legacy currency URL'
+assert_not_contains "$sitemap_xml" '<loc>[^<]*/settings</loc>' 'private settings sitemap URL'
 
 assert_contains "$home_html" '<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"' 'advanced robots directives'
 assert_contains "$home_html" '<meta property="og:image:alt" content="TONBANKCARD Crypto Tracker market dashboard preview"' 'Open Graph image alt text'
@@ -148,6 +159,9 @@ assert_contains "$coin_html" '"name":"Bitcoin"' 'coin breadcrumb label'
 assert_contains "$currency_html" '<link rel="canonical" href="http://127\.0\.0\.1:8893/coins/bitcoin"' 'legacy currency canonical URL'
 assert_contains "$derivatives_html" '<title>Crypto Derivatives - TONBANKCARD Crypto Tracker' 'derivatives route title'
 assert_contains "$finance_html" '<title>Crypto Finance Platforms - TONBANKCARD Crypto Tracker' 'finance route title'
+assert_contains "$watchlist_html" '<title>Crypto Watchlist - TONBANKCARD Crypto Tracker' 'watchlist route title'
+assert_contains "$watchlist_html" '<link rel="canonical" href="http://127\.0\.0\.1:8893/watchlist"' 'watchlist canonical URL'
+assert_contains "$settings_html" '<meta name="robots" content="noindex,nofollow"' 'settings noindex policy'
 
 if [ "$failures" -gt 0 ]; then
     log "SEO optimization check failed. See $log_file and $server_log"

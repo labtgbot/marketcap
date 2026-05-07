@@ -247,9 +247,12 @@ NODE
 
 assert_contains "$robots_txt" '^User-agent: \*$' 'robots user agent directive'
 assert_contains "$robots_txt" '^Allow: /$' 'robots allow directive'
+assert_contains "$robots_txt" '^Disallow: /admin/$' 'robots admin disallow directive'
+assert_contains "$robots_txt" '^Clean-param: utm_source&utm_medium&utm_campaign&utm_term&utm_content&yclid&gclid&fbclid /$' 'Yandex tracking parameter cleanup directive'
 assert_contains "$robots_txt" '^Sitemap: http://127\.0\.0\.1:8891/sitemap\.xml$' 'sitemap pointer in robots.txt'
 
 assert_contains "$sitemap_xml" '<urlset xmlns="http://www\.sitemaps\.org/schemas/sitemap/0\.9">' 'sitemap urlset'
+assert_contains "$sitemap_xml" '<lastmod>[0-9]{4}-[0-9]{2}-[0-9]{2}</lastmod>' 'sitemap lastmod value'
 assert_contains "$sitemap_xml" '<loc>http://127\.0\.0\.1:8891/markets</loc>' 'markets sitemap URL'
 assert_contains "$sitemap_xml" '<loc>http://127\.0\.0\.1:8891/ton</loc>' 'TON sitemap URL'
 assert_contains "$sitemap_xml" '<loc>http://127\.0\.0\.1:8891/alerts</loc>' 'alerts sitemap URL'
