@@ -1161,6 +1161,7 @@ async function checkSearchInteraction(page, errors, requestLog) {
     if (!widgetSrc || !widgetSrc.includes('from=ton') || !widgetSrc.includes('to=usdtton')) {
         fail(`crypto exchange widget did not receive the searched TON pair: ${widgetSrc || 'missing src'}`);
     }
+    assertURLParam(widgetSrc, 'link_id', 'f300d9f2b6f88e', 'crypto exchange widget partner link id');
     await assertNoErrors(errors, 'search interaction');
 }
 
