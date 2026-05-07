@@ -73,8 +73,8 @@ $routes_v2['public'] = [
         'description' => 'Manage TONBANKCARD Mini App wallet context, local preferences, and account-adjacent settings without sharing private keys.',
         'og_type'     => 'website',
         'schema_type' => 'WebApplication',
-        'sitemap_changefreq' => 'weekly',
-        'sitemap_priority'   => '0.5',
+        'sitemap'     => FALSE,
+        'robots'      => 'noindex,nofollow',
     ],
     'exchanges' => [
         'path'        => '/exchanges',
@@ -93,6 +93,15 @@ $routes_v2['public'] = [
         'schema_type' => 'WebPage',
         'sitemap_changefreq' => 'weekly',
         'sitemap_priority'   => '0.7',
+    ],
+    'watchlist' => [
+        'path'        => '/watchlist',
+        'title'       => 'Crypto Watchlist',
+        'description' => 'Build a local TONBANKCARD crypto watchlist, review saved assets, compare market movement, and share watchlist context without signing in.',
+        'og_type'     => 'website',
+        'schema_type' => 'CollectionPage',
+        'sitemap_changefreq' => 'weekly',
+        'sitemap_priority'   => '0.6',
     ],
     'exchange' => [
         'path'                 => '/exchange/:id',

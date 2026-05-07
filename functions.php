@@ -600,6 +600,49 @@ function tonbankcard_xml_escape( string $value ) {
 }
 
 /**
+ * Returns the best available modification date for a sitemap route entry.
+ *
+ * @param array $route
+ * @return string
+ */
+function tonbankcard_public_sitemap_lastmod( array $route ) {
+    if ( ! empty( $route['sitemap_lastmod'] ) && is_string( $route['sitemap_lastmod'] ) ) {
+        $timestamp = strtotime( $route['sitemap_lastmod'] );
+        if ( FALSE !== $timestamp ) {
+            return gmdate( 'Y-m-d', $timestamp );
+        }
+    }
+
+    $files = [
+        GECKO_CLIENT_CONFIG_DIR . '/routes-v2.php',
+        GECKO_CLIENT_CONFIG_DIR . '/site.php',
+    ];
+
+    $route_name = ! empty( $route['name'] ) ? (string) $route['name'] : '';
+    $template   = ! empty( $route['template'] ) ? (string) $route['template'] : $route_name;
+
+    if ( 'home' === $template ) {
+        $template = 'currencies';
+    } elseif ( in_array( $template, [ 'coins', 'currency' ], TRUE ) ) {
+        $template = 'currency';
+    }
+
+    if ( '' !== $template ) {
+        $template_file = GECKO_CLIENT_TEMPLATES_DIR . '/routes/' . $template . '.php';
+        if ( is_file( $template_file ) ) {
+            $files[] = $template_file;
+        }
+    }
+
+    $latest = 0;
+    foreach ( $files as $file ) {
+        $latest = max( $latest, file_modified_time( $file ) );
+    }
+
+    return gmdate( 'Y-m-d', $latest ?: time() );
+}
+
+/**
  * Returns indexable public route URLs for the XML sitemap.
  *
  * @return array
@@ -612,13 +655,15 @@ function tonbankcard_public_sitemap_entries() {
     $entries = [];
     $seen    = [];
 
-    foreach ( $routes as $route ) {
+    foreach ( $routes as $name => $route ) {
         if ( empty( $route['path'] ) || ! is_string( $route['path'] ) ) {
             continue;
         }
         if ( array_key_exists( 'sitemap', $route ) && FALSE === (bool) $route['sitemap'] ) {
             continue;
         }
+
+        $route['name'] = $name;
 
         $params_list = [ [] ];
         if ( FALSE !== strpos( $route['path'], ':' ) ) {
@@ -644,6 +689,7 @@ function tonbankcard_public_sitemap_entries() {
             $seen[ $loc ] = TRUE;
             $entries[] = [
                 'loc'        => $loc,
+                'lastmod'    => tonbankcard_public_sitemap_lastmod( $route ),
                 'changefreq' => ! empty( $route['sitemap_changefreq'] ) ? $route['sitemap_changefreq'] : 'weekly',
                 'priority'   => ! empty( $route['sitemap_priority'] ) ? $route['sitemap_priority'] : '0.5',
             ];
@@ -667,6 +713,7 @@ function tonbankcard_public_sitemap_xml() {
     foreach ( tonbankcard_public_sitemap_entries() as $entry ) {
         $lines[] = '    <url>';
         $lines[] = '        <loc>' . tonbankcard_xml_escape( $entry['loc'] ) . '</loc>';
+        $lines[] = '        <lastmod>' . tonbankcard_xml_escape( $entry['lastmod'] ) . '</lastmod>';
         $lines[] = '        <changefreq>' . tonbankcard_xml_escape( $entry['changefreq'] ) . '</changefreq>';
         $lines[] = '        <priority>' . tonbankcard_xml_escape( $entry['priority'] ) . '</priority>';
         $lines[] = '    </url>';
@@ -687,9 +734,12 @@ function tonbankcard_public_robots_txt() {
         [
             'User-agent: *',
             'Allow: /',
+            'Disallow: /admin/',
             'Disallow: /api/',
             'Disallow: /database/',
             'Disallow: /dev/',
+            'Disallow: /install/',
+            'Clean-param: utm_source&utm_medium&utm_campaign&utm_term&utm_content&yclid&gclid&fbclid /',
             'Sitemap: ' . site_url( 'sitemap.xml' ),
             '',
         ]
