@@ -37,6 +37,9 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
         <v-alert v-else-if="widgetStatus === 'disabled'" type="info" outlined text dense class="mb-0">
             <?php echo esc_html( __( 'ChangeNOW exchange widget is disabled for this environment.' ) ); ?>
         </v-alert>
+        <div v-else-if="widgetStatus === 'checking'" class="currency-exchange-widget-checking text-center pa-4">
+            <v-progress-circular indeterminate color="primary" size="24"></v-progress-circular>
+        </div>
         <template v-else>
             <v-alert type="info" outlined text dense class="mb-0">
                 <?php echo esc_html( __( 'ChangeNOW does not list this asset for the embedded widget yet.' ) ); ?>

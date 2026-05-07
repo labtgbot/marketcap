@@ -654,6 +654,20 @@ async function installRoutes(context, requestLog) {
         });
     });
 
+    await context.route(`${baseURL}/api/changenow/currencies`, route => {
+        return fulfillJson(route, {
+            ok: true,
+            data: {
+                tickers: [
+                    'btc', 'eth', 'ltc', 'xrp', 'doge', 'trx', 'sol', 'ada', 'dot', 'link',
+                    'avaxc', 'bnbbsc', 'ton', 'usdtton', 'dogs', 'hmstr', 'not', 'cati',
+                    'fail',
+                ],
+            },
+            meta: {request_id: 'browser-smoke-changenow'},
+        });
+    });
+
     await context.route('https://changenow.io/**', route => {
         if (route.request().url().endsWith('/stepper-connector.js')) {
             return route.fulfill({
@@ -753,7 +767,12 @@ async function installRoutes(context, requestLog) {
             return fulfillMarketJson(route, coinDetail('unsupported-coin', '', 'Unsupported Coin', 999, 1));
         }
 
-        if (apiPath === 'coins/bitcoin/market_chart' || apiPath === 'coins/toncoin/market_chart' || apiPath === 'coins/unsupported-coin/market_chart') {
+        if (apiPath === 'coins/unlisted-coin') {
+            requestLog.coinDetails.push(requestRecord(url));
+            return fulfillMarketJson(route, coinDetail('unlisted-coin', 'xyz', 'Unlisted Coin', 998, 2));
+        }
+
+        if (apiPath === 'coins/bitcoin/market_chart' || apiPath === 'coins/toncoin/market_chart' || apiPath === 'coins/unsupported-coin/market_chart' || apiPath === 'coins/unlisted-coin/market_chart') {
             requestLog.marketCharts.push(requestRecord(url));
             return fulfillMarketJson(route, marketChart());
         }
@@ -983,8 +1002,7 @@ async function checkCoinChartFailureFallback(page, errors, requestLog) {
     await page.getByText('Chart Failure Coin Price', {exact: false}).first().waitFor({state: 'visible'});
     await page.getByText('Market chart is unavailable', {exact: false}).first().waitFor({state: 'visible'});
     await page.getByRole('button', {name: 'Retry'}).first().waitFor({state: 'visible'});
-    await page.locator('.currency-exchange-widget[data-widget-status="ready"]').waitFor({state: 'visible'});
-    await page.locator('.currency-exchange-widget iframe').waitFor({state: 'attached'});
+    await page.locator('.currency-exchange-widget').waitFor({state: 'visible'});
 
     const detailRequest = lastRequest(requestLog.coinDetails, 'chart failure coin detail request');
     assertEqual(detailRequest.path, 'coins/chart-failure', 'chart failure coin detail path');
@@ -1033,6 +1051,24 @@ async function checkUnsupportedCoinFallback(page, errors, requestLog) {
     const detailRequest = lastRequest(requestLog.coinDetails, 'unsupported coin detail request');
     assertEqual(detailRequest.path, 'coins/unsupported-coin', 'unsupported coin detail path');
     await assertNoErrors(errors, 'unsupported coin ChangeNOW fallback');
+}
+
+async function checkUnlistedCoinFallback(page, errors, requestLog) {
+    log('Checking unlisted coin with non-empty symbol does not show ChangeNOW widget');
+    requestLog.coinDetails = [];
+
+    await page.goto(`${baseURL}/currency/unlisted-coin`, {waitUntil: 'domcontentloaded'});
+    await page.locator('#currency').waitFor({state: 'visible'});
+    await page.getByText('Unlisted Coin Price', {exact: false}).first().waitFor({state: 'visible'});
+    await page.locator('.currency-exchange-widget[data-widget-status="unsupported"]').waitFor({state: 'visible'});
+    await page.getByText('ChangeNOW does not list this asset for the embedded widget yet.', {exact: false}).first().waitFor({state: 'visible'});
+
+    const frameCount = await page.locator('.currency-exchange-widget iframe').count();
+    assertEqual(frameCount, 0, 'unlisted coin iframe count');
+
+    const detailRequest = lastRequest(requestLog.coinDetails, 'unlisted coin detail request');
+    assertEqual(detailRequest.path, 'coins/unlisted-coin', 'unlisted coin detail path');
+    await assertNoErrors(errors, 'unlisted coin ChangeNOW fallback');
 }
 
 async function checkExchangesList(page, errors, requestLog) {
@@ -1711,6 +1747,7 @@ async function run() {
         trending: [],
         tonDominanceMarkets: [],
         searches: [],
+        screeners: [],
     };
     await installRoutes(context, requestLog);
 
@@ -1742,6 +1779,7 @@ async function run() {
         await checkCoinChartFailureFallback(page, errors, requestLog);
         await checkToncoinChangeNowDefaults(page, errors, requestLog);
         await checkUnsupportedCoinFallback(page, errors, requestLog);
+        await checkUnlistedCoinFallback(page, errors, requestLog);
         await checkExchangesList(page, errors, requestLog);
         await checkSearchInteraction(page, errors, requestLog);
         await checkSearchMobileDialog(page, errors, requestLog);
