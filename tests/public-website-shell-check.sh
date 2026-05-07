@@ -144,7 +144,7 @@ assert_contains "$home_html" 'application/ld\+json' 'JSON-LD structured data'
 assert_contains "$home_html" '"@type":"WebSite"' 'website structured data'
 assert_contains "$home_html" '"@type":"Organization"' 'organization structured data'
 assert_contains "$home_html" '"@type":"SiteNavigationElement"' 'site navigation structured data'
-assert_contains "$home_html" 'mc\.yandex\.ru/metrika/tag\.js\?id=109107032' 'Yandex Metrica script on the home route'
+assert_contains "$home_html" 'mc\.yandex\.ru/metrika/tag\.js' 'Yandex Metrica script on the home route'
 assert_contains "$home_html" 'ym\(109107032' 'Yandex Metrica initialization on the home route'
 assert_contains "$home_html" 'mc\.yandex\.ru/watch/109107032' 'Yandex Metrica noscript pixel on the home route'
 assert_contains "$home_html" 'public-web-navigation' 'public website navigation shell'
@@ -153,7 +153,7 @@ assert_not_contains "$home_html" 'telegram-webapp-navigation|Telegram.WebApp|tel
 assert_contains "$markets_html" '<title>Crypto Markets - TONBANKCARD Crypto Tracker' 'markets route title'
 assert_contains "$markets_html" '<link rel="canonical" href="http://127\.0\.0\.1:8891/markets"' 'markets canonical URL'
 assert_contains "$markets_html" '"path":"\\/markets"' 'markets route in frontend registry'
-assert_contains "$markets_html" 'mc\.yandex\.ru/metrika/tag\.js\?id=109107032' 'Yandex Metrica script on the markets route'
+assert_contains "$markets_html" 'mc\.yandex\.ru/metrika/tag\.js' 'Yandex Metrica script on the markets route'
 
 assert_contains "$coin_html" '<title>Bitcoin Price, Chart, and Market Data - TONBANKCARD Crypto Tracker' 'coin route title'
 assert_contains "$coin_html" '<link rel="canonical" href="http://127\.0\.0\.1:8891/coins/bitcoin"' 'coin canonical URL'
@@ -161,17 +161,17 @@ assert_contains "$coin_html" '<meta property="og:type" content="article"' 'coin 
 assert_contains "$coin_html" '"@type":"FinancialProduct"' 'coin structured data'
 assert_contains "$coin_html" '"@type":"BreadcrumbList"' 'coin breadcrumb structured data'
 assert_contains "$coin_html" '"path":"\\/coins\\/:id"' 'canonical coin route in frontend registry'
-assert_contains "$coin_html" 'mc\.yandex\.ru/metrika/tag\.js\?id=109107032' 'Yandex Metrica script on the coin store route'
+assert_contains "$coin_html" 'mc\.yandex\.ru/metrika/tag\.js' 'Yandex Metrica script on the coin store route'
 
 assert_contains "$ton_html" '<title>TON Ecosystem - TONBANKCARD Crypto Tracker' 'TON route title'
 assert_contains "$ton_html" '<link rel="canonical" href="http://127\.0\.0\.1:8891/ton"' 'TON route canonical URL'
 assert_contains "$ton_html" 'route-ton' 'TON route template'
-assert_contains "$ton_html" 'mc\.yandex\.ru/metrika/tag\.js\?id=109107032' 'Yandex Metrica script on the TON Ecosystem route'
+assert_contains "$ton_html" 'mc\.yandex\.ru/metrika/tag\.js' 'Yandex Metrica script on the TON Ecosystem route'
 
 assert_contains "$screener_html" '<title>Crypto Screener - TONBANKCARD Crypto Tracker' 'screener route title'
 assert_contains "$screener_html" '<link rel="canonical" href="http://127\.0\.0\.1:8891/screener"' 'screener route canonical URL'
 assert_contains "$screener_html" 'route-screener' 'screener route template'
-assert_contains "$screener_html" 'mc\.yandex\.ru/metrika/tag\.js\?id=109107032' 'Yandex Metrica script on the screener route'
+assert_contains "$screener_html" 'mc\.yandex\.ru/metrika/tag\.js' 'Yandex Metrica script on the screener route'
 
 assert_contains "$alerts_html" '<title>Smart Alerts - TONBANKCARD Crypto Tracker' 'alerts route title'
 assert_contains "$alerts_html" '<link rel="canonical" href="http://127\.0\.0\.1:8891/alerts"' 'alerts route canonical URL'
@@ -183,6 +183,67 @@ assert_contains "$support_html" 'route-support' 'support route template'
 
 assert_not_contains "$admin_html" 'mc\.yandex\.ru/metrika/tag\.js' 'Yandex Metrica script on the admin route'
 assert_not_contains "$admin_html" 'ym\(109107032' 'Yandex Metrica initialization on the admin route'
+
+YANDEX_METRICA_HTML="$markets_html" node <<'NODE'
+const fs = require('fs');
+const vm = require('vm');
+
+const html = fs.readFileSync(process.env.YANDEX_METRICA_HTML, 'utf8');
+const match = html.match(/<!-- Yandex\.Metrika counter -->\s*<script>([\s\S]*?)<\/script>/);
+if (!match) {
+  throw new Error('Yandex Metrica script block was not found');
+}
+
+const insertedScripts = [];
+const firstScript = { parentNode: { insertBefore: (script) => insertedScripts.push(script) } };
+const document = {
+  referrer: 'https://example.test/referrer',
+  scripts: [firstScript],
+  createElement: () => ({}),
+  getElementsByTagName: () => [firstScript],
+};
+const context = {
+  window: {},
+  document,
+  location: { href: 'http://127.0.0.1:8891/markets' },
+  Date,
+};
+context.window.document = document;
+context.window.location = context.location;
+
+vm.runInNewContext(match[1], context);
+
+if (insertedScripts.length !== 1) {
+  throw new Error(`Expected one inserted Yandex Metrica script, got ${insertedScripts.length}`);
+}
+if (insertedScripts[0].src !== 'https://mc.yandex.ru/metrika/tag.js') {
+  throw new Error(`Yandex Metrica script should use canonical tag.js URL, got ${insertedScripts[0].src}`);
+}
+if (insertedScripts[0].async !== 1) {
+  throw new Error('Yandex Metrica script should load asynchronously');
+}
+if (!context.window.ym || !Array.isArray(context.window.ym.a)) {
+  throw new Error('Yandex Metrica loader did not queue ym calls');
+}
+
+const initCall = context.window.ym.a.find((args) => args[0] === 109107032 && args[1] === 'init');
+if (!initCall) {
+  throw new Error('Yandex Metrica init call was not queued for counter 109107032');
+}
+
+const options = initCall[2] || {};
+for (const option of ['trackLinks', 'accurateTrackBounce', 'webvisor', 'clickmap']) {
+  if (options[option] !== true) {
+    throw new Error(`Yandex Metrica init option ${option} should be true`);
+  }
+}
+if (options.url !== context.location.href) {
+  throw new Error(`Yandex Metrica init URL should match location.href, got ${options.url}`);
+}
+if (options.referrer !== document.referrer) {
+  throw new Error(`Yandex Metrica init referrer should match document.referrer, got ${options.referrer}`);
+}
+NODE
 
 assert_contains "$robots_txt" '^User-agent: \*$' 'robots user agent directive'
 assert_contains "$robots_txt" '^Allow: /$' 'robots allow directive'
