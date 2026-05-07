@@ -140,7 +140,7 @@ MVP requirement: AI can be disabled without breaking core market routes.
 2. Product builds the ChangeNOW iframe parameters from the selected coin when the
    asset is supported.
 3. Toncoin uses the initial partner defaults from the roadmap source:
-   `from=ton`, `to=usdtton`, `link_id=3cc0024a18fd9d`,
+   `from=ton`, `to=usdtton`, `link_id=f300d9f2b6f88e`,
    `primaryColor=1bb2da`, `backgroundColor=f6fafd`.
 4. Unsupported coins show a fallback and do not display a broken iframe.
 

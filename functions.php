@@ -1801,7 +1801,7 @@ function validate_runtime_config() {
             $invalid,
             'CHANGENOW_LINK_ID',
             'Set the ChangeNOW partner link id when the exchange widget is enabled.',
-            "'3cc0024a18fd9d'"
+            "'f300d9f2b6f88e'"
         );
     }
 
