@@ -89,7 +89,7 @@ foreach ( [ 'Content-Security-Policy', 'X-Content-Type-Options', 'Referrer-Polic
 }
 
 $csp = $headers['Content-Security-Policy'];
-foreach ( [ "default-src 'self'", "object-src 'none'", "base-uri 'self'", 'frame-ancestors', 'telegram.org', 'changenow.io' ] as $directive ) {
+foreach ( [ "default-src 'self'", "object-src 'none'", "base-uri 'self'", 'frame-ancestors', 'telegram.org', 'changenow.io', 'mc.yandex.ru' ] as $directive ) {
     if ( FALSE === strpos( $csp, $directive ) ) {
         fwrite( STDERR, "CSP is missing required directive/source: $directive\n" );
         exit( 1 );

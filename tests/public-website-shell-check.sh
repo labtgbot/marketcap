@@ -40,6 +40,8 @@ start_server() {
         TONBANKCARD_BASE_URL="$base_url/" \
         TONBANKCARD_LOCAL_BASE_URL="$base_url/" \
         TONBANKCARD_CDN=false \
+        YANDEX_METRICA_ENABLED=true \
+        YANDEX_METRICA_COUNTER_ID=109107032 \
         php -S "$host:$port" dev/php/router.php
     ) > "$server_log" 2>&1 &
     server_pid=$!
@@ -103,6 +105,7 @@ ton_html="$log_dir/public-shell-ton.html"
 screener_html="$log_dir/public-shell-screener.html"
 alerts_html="$log_dir/public-shell-alerts.html"
 support_html="$log_dir/public-shell-support.html"
+admin_html="$log_dir/public-shell-admin.html"
 robots_txt="$log_dir/public-shell-robots.txt"
 sitemap_xml="$log_dir/public-shell-sitemap.xml"
 
@@ -113,6 +116,7 @@ fetch_path "/ton" "$ton_html"
 fetch_path "/screener" "$screener_html"
 fetch_path "/alerts" "$alerts_html"
 fetch_path "/support" "$support_html"
+fetch_path "/admin" "$admin_html"
 fetch_path "/robots.txt" "$robots_txt"
 fetch_path "/sitemap.xml" "$sitemap_xml"
 
@@ -123,6 +127,7 @@ assert_status_ok "/ton"
 assert_status_ok "/screener"
 assert_status_ok "/alerts"
 assert_status_ok "/support"
+assert_status_ok "/admin"
 assert_status_ok "/robots.txt"
 assert_status_ok "/sitemap.xml"
 
@@ -139,12 +144,16 @@ assert_contains "$home_html" 'application/ld\+json' 'JSON-LD structured data'
 assert_contains "$home_html" '"@type":"WebSite"' 'website structured data'
 assert_contains "$home_html" '"@type":"Organization"' 'organization structured data'
 assert_contains "$home_html" '"@type":"SiteNavigationElement"' 'site navigation structured data'
+assert_contains "$home_html" 'mc\.yandex\.ru/metrika/tag\.js\?id=109107032' 'Yandex Metrica script on the home route'
+assert_contains "$home_html" 'ym\(109107032' 'Yandex Metrica initialization on the home route'
+assert_contains "$home_html" 'mc\.yandex\.ru/watch/109107032' 'Yandex Metrica noscript pixel on the home route'
 assert_contains "$home_html" 'public-web-navigation' 'public website navigation shell'
 assert_not_contains "$home_html" 'telegram-webapp-navigation|Telegram.WebApp|telegram-adapter' 'Telegram-only controls in normal browser shell'
 
 assert_contains "$markets_html" '<title>Crypto Markets - TONBANKCARD Crypto Tracker' 'markets route title'
 assert_contains "$markets_html" '<link rel="canonical" href="http://127\.0\.0\.1:8891/markets"' 'markets canonical URL'
 assert_contains "$markets_html" '"path":"\\/markets"' 'markets route in frontend registry'
+assert_contains "$markets_html" 'mc\.yandex\.ru/metrika/tag\.js\?id=109107032' 'Yandex Metrica script on the markets route'
 
 assert_contains "$coin_html" '<title>Bitcoin Price, Chart, and Market Data - TONBANKCARD Crypto Tracker' 'coin route title'
 assert_contains "$coin_html" '<link rel="canonical" href="http://127\.0\.0\.1:8891/coins/bitcoin"' 'coin canonical URL'
@@ -152,14 +161,17 @@ assert_contains "$coin_html" '<meta property="og:type" content="article"' 'coin 
 assert_contains "$coin_html" '"@type":"FinancialProduct"' 'coin structured data'
 assert_contains "$coin_html" '"@type":"BreadcrumbList"' 'coin breadcrumb structured data'
 assert_contains "$coin_html" '"path":"\\/coins\\/:id"' 'canonical coin route in frontend registry'
+assert_contains "$coin_html" 'mc\.yandex\.ru/metrika/tag\.js\?id=109107032' 'Yandex Metrica script on the coin store route'
 
 assert_contains "$ton_html" '<title>TON Ecosystem - TONBANKCARD Crypto Tracker' 'TON route title'
 assert_contains "$ton_html" '<link rel="canonical" href="http://127\.0\.0\.1:8891/ton"' 'TON route canonical URL'
 assert_contains "$ton_html" 'route-ton' 'TON route template'
+assert_contains "$ton_html" 'mc\.yandex\.ru/metrika/tag\.js\?id=109107032' 'Yandex Metrica script on the TON Ecosystem route'
 
 assert_contains "$screener_html" '<title>Crypto Screener - TONBANKCARD Crypto Tracker' 'screener route title'
 assert_contains "$screener_html" '<link rel="canonical" href="http://127\.0\.0\.1:8891/screener"' 'screener route canonical URL'
 assert_contains "$screener_html" 'route-screener' 'screener route template'
+assert_contains "$screener_html" 'mc\.yandex\.ru/metrika/tag\.js\?id=109107032' 'Yandex Metrica script on the screener route'
 
 assert_contains "$alerts_html" '<title>Smart Alerts - TONBANKCARD Crypto Tracker' 'alerts route title'
 assert_contains "$alerts_html" '<link rel="canonical" href="http://127\.0\.0\.1:8891/alerts"' 'alerts route canonical URL'
@@ -168,6 +180,9 @@ assert_contains "$alerts_html" 'route-alerts' 'alerts route template'
 assert_contains "$support_html" '<title>Support - TONBANKCARD Crypto Tracker' 'support route title'
 assert_contains "$support_html" '<link rel="canonical" href="http://127\.0\.0\.1:8891/support"' 'support route canonical URL'
 assert_contains "$support_html" 'route-support' 'support route template'
+
+assert_not_contains "$admin_html" 'mc\.yandex\.ru/metrika/tag\.js' 'Yandex Metrica script on the admin route'
+assert_not_contains "$admin_html" 'ym\(109107032' 'Yandex Metrica initialization on the admin route'
 
 assert_contains "$robots_txt" '^User-agent: \*$' 'robots user agent directive'
 assert_contains "$robots_txt" '^Allow: /$' 'robots allow directive'
