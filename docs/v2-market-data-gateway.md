@@ -43,6 +43,16 @@ exchange ids are limited to safe path characters, and client-supplied provider
 credential query parameters such as `x_cg_demo_api_key` and `x_cg_pro_api_key`
 are stripped.
 
+When CoinGecko returns `404` for `/api/market/coins/{id}` and the same `id`
+exists in the TON curation catalog, the gateway uses a TON curation fallback
+instead of failing the coin detail page. The fallback returns a CoinGecko-shaped
+coin detail payload with the curated name, symbol, description, TON contract
+address, TON ecosystem category metadata, and empty market-data buckets. Chart
+and ticker subroutes for the same curated id return empty arrays so the existing
+coin page can render without provider market history. Response metadata marks
+this path with `provider.fallback = "ton_curation"` and
+`freshness.cache_status = "ton_curation_fallback"`.
+
 ## Authentication
 
 The default configuration works without a CoinGecko API key. With
@@ -151,9 +161,10 @@ npm run test:market-gateway
 
 The check verifies route documentation, browser source rewiring, default no-key
 behavior, Demo and Pro header behavior, secret redaction, rate-limit
-normalization, timeout normalization, invalid-symbol normalization, and freshness
-metadata. The browser smoke test also stubs `/api/market/*` and fails if the app
-makes direct data requests to `api.coingecko.com`, `pro-api.coingecko.com`, or
+normalization, timeout normalization, invalid-symbol normalization, TON curation
+fallback behavior for manually added TON assets, and freshness metadata. The
+browser smoke test also stubs `/api/market/*` and fails if the app makes direct
+data requests to `api.coingecko.com`, `pro-api.coingecko.com`, or
 `localstorage.one`.
 
 Cache and rate-limit regression coverage lives in

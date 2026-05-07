@@ -68,6 +68,7 @@ assert_contains "$doc" 'cache_age_seconds' 'freshness metadata'
 assert_contains "$doc" 'provider_rate_limited' 'rate-limit error normalization'
 assert_contains "$doc" 'provider_timeout' 'timeout error normalization'
 assert_contains "$doc" 'invalid_symbol' 'invalid symbol error normalization'
+assert_contains "$doc" 'TON curation fallback' 'TON curation fallback for manually added TON assets'
 assert_contains package.json '"test:market-gateway"' 'the market gateway npm script'
 assert_contains package.json 'test:market-gateway' 'the aggregate market gateway check'
 assert_contains README.md 'docs/v2-market-data-gateway\.md' 'the market gateway documentation link'
@@ -141,6 +142,102 @@ if ( ! empty( $payload['meta']['provider']['credentialed'] ) || 'demo' !== $payl
     fwrite( STDERR, "Keyless market response should expose uncredentialed Demo/Public provider metadata\n" );
     exit( 1 );
 }
+PHP
+
+php_check 'market gateway should expose manually curated TON assets as coin detail pages after CoinGecko misses' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_ADMIN_TOKEN='ton-admin-secret' \
+        TONBANKCARD_ADMIN_STORE="$(mktemp)" \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$store_path = (string) getenv( 'TONBANKCARD_ADMIN_STORE' );
+@unlink( $store_path );
+
+$payload = [
+    'content' => [
+        'ton_assets' => [
+            [
+                'id'                 => 'sample-ton-jetton',
+                'name'               => 'Sample TON Jetton',
+                'symbol'             => 'STJ',
+                'category'           => 'jetton',
+                'verification_state' => 'curated',
+                'link_type'          => 'currency',
+                'contract_addresses' => [ 'EQSampleTonJettonContractAddress0000000000000000000000' ],
+                'description'        => 'A manually curated TON jetton without a CoinGecko id.',
+                'tags'               => [ 'ton_ecosystem', 'jetton' ],
+            ],
+        ],
+    ],
+];
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'PUT',
+        'path'    => '/api/admin/content',
+        'headers' => [
+            'authorization' => 'Bearer ton-admin-secret',
+            'content-type'  => 'application/json',
+            'x-request-id'  => 'ton-market-fallback-write',
+        ],
+        'body'    => json_encode( $payload ),
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $api
+);
+if ( 200 !== $response['status'] ) {
+    fwrite( STDERR, 'Admin TON asset setup failed: ' . $response['status'] . ' body ' . $response['body'] . "\n" );
+    exit( 1 );
+}
+
+$test_api = $api;
+$test_api['market_data']['transport'] = function ( $request ) {
+    if ( 'coins/sample-ton-jetton' === $request['path'] ) {
+        return [ 'status' => 404, 'headers' => [ 'content-type' => 'application/json' ], 'body' => '{"error":"not found"}' ];
+    }
+    fwrite( STDERR, 'Unexpected provider path during TON fallback test: ' . $request['path'] . "\n" );
+    exit( 1 );
+};
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'GET',
+        'path'    => '/api/market/coins/sample-ton-jetton?market_data=true&localization=false&tickers=false',
+        'headers' => [ 'x-request-id' => 'ton-market-fallback-read' ],
+        'body'    => '',
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $test_api
+);
+if ( 200 !== $response['status'] ) {
+    fwrite( STDERR, 'Expected TON fallback coin detail 200, got ' . $response['status'] . ' body ' . $response['body'] . "\n" );
+    exit( 1 );
+}
+$body = json_decode( $response['body'], TRUE );
+$coin = $body['data'];
+if ( 'sample-ton-jetton' !== $coin['id'] || 'stj' !== $coin['symbol'] || 'Sample TON Jetton' !== $coin['name'] ) {
+    fwrite( STDERR, "TON fallback coin detail did not preserve the curated asset identity\n" );
+    exit( 1 );
+}
+if ( empty( $coin['platforms']['the-open-network'] ) || 'EQSampleTonJettonContractAddress0000000000000000000000' !== $coin['platforms']['the-open-network'] ) {
+    fwrite( STDERR, "TON fallback coin detail is missing the TON contract platform mapping\n" );
+    exit( 1 );
+}
+if ( empty( $coin['categories'] ) || ! in_array( 'TON ecosystem', $coin['categories'], TRUE ) ) {
+    fwrite( STDERR, "TON fallback coin detail is missing TON ecosystem category metadata\n" );
+    exit( 1 );
+}
+if ( empty( $body['meta']['provider']['fallback'] ) || 'ton_curation' !== $body['meta']['provider']['fallback'] ) {
+    fwrite( STDERR, "TON fallback response metadata did not identify the curation fallback\n" );
+    exit( 1 );
+}
+@unlink( $store_path );
 PHP
 
 php_check 'market gateway should proxy coin markets through the Demo API header and freshness envelope' \
