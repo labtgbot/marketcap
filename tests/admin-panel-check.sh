@@ -311,6 +311,9 @@ $response = call_admin_api(
                         'status'     => 'enabled',
                         'rest_token' => 'redis-secret-value-that-must-not-return',
                     ],
+                    'tonapi' => [
+                        'api_key' => 'tonapi-secret-value-that-must-not-return',
+                    ],
                     'telegram' => [
                         'bot_username' => 'tonbankcard_admin_bot',
                         'bot_token'    => 'telegram-secret-value-that-must-not-return',
@@ -331,7 +334,7 @@ if ( 200 !== $response['status'] || TRUE !== $payload['ok'] ) {
     exit( 1 );
 }
 $body = $response['body'];
-foreach ( [ 'groq-secret-value-that-must-not-return', 'coingecko-secret-value-that-must-not-return', 'redis-secret-value-that-must-not-return' ] as $secret ) {
+foreach ( [ 'groq-secret-value-that-must-not-return', 'coingecko-secret-value-that-must-not-return', 'redis-secret-value-that-must-not-return', 'tonapi-secret-value-that-must-not-return' ] as $secret ) {
     if ( FALSE !== strpos( $body, $secret ) ) {
         fwrite( STDERR, "Admin provider response leaked a submitted secret\n" );
         exit( 1 );
@@ -349,6 +352,7 @@ foreach (
         'GROQ_API_KEY=groq-secret-value-that-must-not-return',
         'GROQ_MODEL_ID=llama-3.3-70b-versatile',
         'UPSTASH_REDIS_REST_TOKEN=redis-secret-value-that-must-not-return',
+        'TONAPI_API_KEY=tonapi-secret-value-that-must-not-return',
         'TONBANKCARD_BOT_USERNAME=tonbankcard_admin_bot',
         'TONBANKCARD_BOT_TOKEN=telegram-secret-value-that-must-not-return',
         'CHANGENOW_LINK_ID=3cc0024a18fd9d',
@@ -365,6 +369,7 @@ if (
     'coingecko-secret-value-that-must-not-return' !== $reloaded_after_providers['providers']['coingecko']['api_key'] ||
     'groq-secret-value-that-must-not-return' !== $reloaded_after_providers['providers']['groq']['api_key'] ||
     'llama-3.3-70b-versatile' !== $reloaded_after_providers['providers']['groq']['model_id'] ||
+    'tonapi-secret-value-that-must-not-return' !== $reloaded_after_providers['providers']['tonapi']['api_key'] ||
     'telegram-secret-value-that-must-not-return' !== $reloaded_after_providers['telegram']['bot_token'] ||
     '3cc0024a18fd9d' !== $reloaded_after_providers['providers']['changenow']['link_id']
 ) {

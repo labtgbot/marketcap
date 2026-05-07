@@ -296,6 +296,29 @@ $frontend_options['admin']['apiBaseUrl'] = site_url( 'api/admin' );
                 <v-col cols="12" lg="6">
                     <v-card outlined>
                         <v-card-title class="text-subtitle-1 font-weight-bold">
+                            <v-icon left color="primary">mdi-diamond-stone</v-icon>
+                            <?php echo esc_html( __( 'TON API' ) ); ?>
+                        </v-card-title>
+                        <v-card-text>
+                            <v-text-field
+                                v-model.trim="providerSecrets.tonapi.api_key"
+                                class="admin-secret-input"
+                                label="<?php echo esc_attr( __( 'TON API key' ) ); ?>"
+                                type="password"
+                                outlined
+                                dense
+                                hide-details="auto"
+                                autocomplete="off"
+                                :placeholder="secretPlaceholder(providers.tonapi.api_key)"
+                                :disabled="!canWrite"
+                            ></v-text-field>
+                            <div class="admin-meta-line mt-2">Key: {{ secretStatus(providers.tonapi.api_key) }}</div>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+                <v-col cols="12" lg="6">
+                    <v-card outlined>
+                        <v-card-title class="text-subtitle-1 font-weight-bold">
                             <v-icon left color="primary">mdi-swap-horizontal-circle-outline</v-icon>
                             <?php echo esc_html( __( 'ChangeNOW' ) ); ?>
                         </v-card-title>
