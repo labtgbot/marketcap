@@ -249,6 +249,11 @@ $should_render_yandex_metrica = ! empty( $yandex_metrica['enabled'] ) && '' !== 
         <?php if ( $should_render_yandex_metrica ) : ?>
         <!-- Yandex.Metrika counter -->
         <script>
+            window.tonbankcardYandexMetrica = {
+                enabled: true,
+                counterId: <?php echo esc_attr( $yandex_metrica_counter_id ); ?>,
+                lastTrackedUrl: window.location.href
+            };
             (function(m,e,t,r,i,k,a){
                 m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
                 m[i].l=1*new Date();
@@ -256,7 +261,8 @@ $should_render_yandex_metrica = ! empty( $yandex_metrica['enabled'] ) && '' !== 
                 k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
             })(window, document, 'script', 'https://mc.yandex.ru/metrika/tag.js', 'ym');
 
-            window.ym(<?php echo esc_attr( $yandex_metrica_counter_id ); ?>, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+            window.ym(<?php echo esc_attr( $yandex_metrica_counter_id ); ?>, 'init', {defer:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", accurateTrackBounce:true, trackLinks:true});
+            window.ym(<?php echo esc_attr( $yandex_metrica_counter_id ); ?>, 'hit', window.location.href, {title: document.title, referer: document.referrer});
         </script>
         <noscript><div><img src="https://mc.yandex.ru/watch/<?php echo esc_attr( $yandex_metrica_counter_id ); ?>" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
         <!-- /Yandex.Metrika counter -->
