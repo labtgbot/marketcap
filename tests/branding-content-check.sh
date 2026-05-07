@@ -40,8 +40,15 @@ assert_not_contains() {
 
 assert_contains config/site.php "\\\$site\\['name'\\] = 'TONBANKCARD';" 'the TONBANKCARD product name'
 assert_contains config/site.php 'TONBANKCARD Crypto Tracker' 'the TONBANKCARD market product title'
-assert_contains config/site.php 'tonbankcard-logo\.svg' 'TONBANKCARD logo asset usage'
-assert_contains config/site.php 'tonbankcard-icon\.svg' 'TONBANKCARD icon asset usage'
+assert_contains config/site.php "\\\$site\\['logo'\\] = 'assets/images/logo\\.png';" 'PNG logo asset usage'
+assert_contains config/site.php "\\\$site\\['favicon'\\] = 'assets/images/favicon\\.ico';" 'ICO favicon asset usage'
+assert_contains config/site.php "assets/images/tonbankcard-icon-16x16\\.png" 'PNG 16x16 favicon asset usage'
+assert_contains config/site.php "assets/images/tonbankcard-icon-32x32\\.png" 'PNG 32x32 favicon asset usage'
+assert_contains config/site.php "assets/images/tonbankcard-icon-192x192\\.png" 'PNG 192x192 favicon asset usage'
+assert_contains config/site.php "assets/images/tonbankcard-apple-touch-icon\\.png" 'PNG apple touch icon asset usage'
+assert_contains config/site.php "\\\$site\\['og_image'\\] = 'assets/images/logo\\.png';" 'PNG Open Graph image asset usage'
+assert_contains config/site.php "\\\$site\\['twitter_image'\\] = 'assets/images/logo\\.png';" 'PNG Twitter image asset usage'
+assert_not_contains config/site.php "tonbankcard-logo\\.svg|tonbankcard-icon\\.svg" 'SVG logo or favicon asset usage'
 assert_not_contains config/site.php "\\\$site\\['name'\\] = 'Gecko Client';" 'the Gecko Client visible site name'
 
 assert_contains config/navigation.php 'https://t\.me/tonbankcard' 'approved TONBANKCARD Telegram channel link'
