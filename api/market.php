@@ -127,7 +127,10 @@ function tonbankcard_api_market_handle( array $request, array $runtime, array $c
         $request_id,
         $headers,
         $fetched_at,
-        $cache_context
+        $cache_context,
+        $runtime,
+        $config,
+        $query
     );
     tonbankcard_api_market_log_provider_response(
         $upstream_response,
@@ -711,7 +714,7 @@ function tonbankcard_api_market_parse_header_lines( array $lines ) {
  * @param array $cache_context
  * @return array
  */
-function tonbankcard_api_market_response( array $upstream_response, array $route, array $provider, string $request_id, array $headers, int $fetched_at, array $cache_context = [] ) {
+function tonbankcard_api_market_response( array $upstream_response, array $route, array $provider, string $request_id, array $headers, int $fetched_at, array $cache_context = [], array $runtime = [], array $config = [], array $query = [] ) {
     $provider_headers = tonbankcard_api_market_normalize_headers( isset( $upstream_response['headers'] ) && is_array( $upstream_response['headers'] ) ? $upstream_response['headers'] : [] );
 
     if ( ! empty( $upstream_response['error'] ) ) {
@@ -748,6 +751,13 @@ function tonbankcard_api_market_response( array $upstream_response, array $route
 
     $status = isset( $upstream_response['status'] ) ? (int) $upstream_response['status'] : 0;
     if ( 200 > $status || 300 <= $status ) {
+        if ( 404 === $status ) {
+            $fallback = tonbankcard_api_market_ton_fallback_response( $route, $query, $provider, $request_id, $headers, $fetched_at, $runtime, $config );
+            if ( null !== $fallback ) {
+                return $fallback;
+            }
+        }
+
         $fallback = tonbankcard_api_market_stale_fallback_response( $cache_context, $route, $provider, $request_id, $headers );
         if ( null !== $fallback ) {
             return $fallback;
@@ -805,6 +815,180 @@ function tonbankcard_api_market_response( array $upstream_response, array $route
         200,
         tonbankcard_api_market_response_meta( $route, $provider, $data, $status, $fetched_at, $cache_meta )
     );
+}
+
+/**
+ * Serves curated TON assets through CoinGecko-shaped coin routes when the
+ * upstream provider does not know a manually added jetton id.
+ *
+ * @param array $route
+ * @param array $query
+ * @param array $provider
+ * @param string $request_id
+ * @param array $headers
+ * @param int $fetched_at
+ * @param array $runtime
+ * @param array $config
+ * @return array|null
+ */
+function tonbankcard_api_market_ton_fallback_response( array $route, array $query, array $provider, string $request_id, array $headers, int $fetched_at, array $runtime, array $config ) {
+    if ( empty( $route['upstream_path'] ) || ! function_exists( 'tonbankcard_api_ton_load_state' ) ) {
+        return null;
+    }
+
+    if ( ! preg_match( '#^coins/([^/]+)(?:/(market_chart)(?:/range)?|/tickers)?$#', (string) $route['upstream_path'], $matches ) ) {
+        return null;
+    }
+
+    $asset_id = rawurldecode( $matches[1] );
+    $asset = tonbankcard_api_market_ton_asset_for_id( $asset_id, $runtime, $config );
+    if ( null === $asset ) {
+        return null;
+    }
+
+    $path = (string) $route['upstream_path'];
+    if ( FALSE !== strpos( $path, '/tickers' ) ) {
+        $data = [ 'name' => isset( $asset['name'] ) ? $asset['name'] : $asset_id, 'tickers' => [] ];
+    } elseif ( FALSE !== strpos( $path, '/market_chart' ) ) {
+        $data = [ 'prices' => [], 'market_caps' => [], 'total_volumes' => [] ];
+    } else {
+        $data = tonbankcard_api_market_ton_coin_detail( $asset, $query, $fetched_at );
+    }
+
+    return tonbankcard_api_success_response(
+        $data,
+        $request_id,
+        $headers,
+        200,
+        tonbankcard_api_market_response_meta(
+            $route,
+            tonbankcard_api_market_ton_provider_meta( $provider ),
+            $data,
+            404,
+            $fetched_at,
+            [
+                'cache_status'      => 'ton_curation_fallback',
+                'cache_age_seconds' => 0,
+                'cache_ttl_seconds' => 0,
+            ]
+        )
+    );
+}
+
+/**
+ * Finds a visible curated TON asset by its public route id.
+ *
+ * @param string $id
+ * @param array $runtime
+ * @param array $config
+ * @return array|null
+ */
+function tonbankcard_api_market_ton_asset_for_id( string $id, array $runtime, array $config ) {
+    $id = strtolower( trim( $id ) );
+    if ( '' === $id ) {
+        return null;
+    }
+
+    $state = tonbankcard_api_ton_load_state( $runtime, $config );
+    foreach ( isset( $state['assets'] ) && is_array( $state['assets'] ) ? $state['assets'] : [] as $asset ) {
+        if ( empty( $asset['visible'] ) ) {
+            continue;
+        }
+        $asset_id = isset( $asset['id'] ) ? strtolower( (string) $asset['id'] ) : '';
+        $route_path = isset( $asset['route']['path'] ) ? (string) $asset['route']['path'] : '';
+        if ( $id === $asset_id || '/currency/' . rawurlencode( $id ) === $route_path ) {
+            return $asset;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Builds a CoinGecko-compatible coin detail payload from TON curation data.
+ *
+ * @param array $asset
+ * @param array $query
+ * @param int $fetched_at
+ * @return array
+ */
+function tonbankcard_api_market_ton_coin_detail( array $asset, array $query, int $fetched_at ) {
+    $id = isset( $asset['id'] ) ? (string) $asset['id'] : '';
+    $symbol = isset( $asset['symbol'] ) ? strtolower( (string) $asset['symbol'] ) : '';
+    $name = isset( $asset['name'] ) ? (string) $asset['name'] : $id;
+    $description = isset( $asset['description'] ) ? (string) $asset['description'] : '';
+    $contract = '';
+    if ( ! empty( $asset['contract_addresses'] ) && is_array( $asset['contract_addresses'] ) ) {
+        $contract = (string) reset( $asset['contract_addresses'] );
+    }
+
+    return [
+        'id'                              => $id,
+        'symbol'                          => $symbol,
+        'name'                            => $name,
+        'asset_platform_id'               => 'the-open-network',
+        'platforms'                       => '' === $contract ? [] : [ 'the-open-network' => $contract ],
+        'detail_platforms'                => '' === $contract ? [] : [
+            'the-open-network' => [
+                'decimal_place'    => null,
+                'contract_address' => $contract,
+            ],
+        ],
+        'categories'                      => [ 'TON ecosystem', isset( $asset['category'] ) ? (string) $asset['category'] : 'jetton' ],
+        'description'                     => [ 'en' => $description ],
+        'links'                           => [ 'homepage' => [ isset( $asset['links']['web'] ) ? (string) $asset['links']['web'] : '/ton' ] ],
+        'image'                           => [ 'thumb' => '', 'small' => '', 'large' => '' ],
+        'market_cap_rank'                 => null,
+        'coingecko_rank'                  => null,
+        'coingecko_score'                 => null,
+        'developer_score'                 => null,
+        'community_score'                 => null,
+        'liquidity_score'                 => null,
+        'public_interest_score'           => null,
+        'market_data'                     => tonbankcard_api_market_ton_empty_market_data( $query ),
+        'last_updated'                    => gmdate( 'c', $fetched_at ),
+        'ton_asset'                       => $asset,
+    ];
+}
+
+/**
+ * Builds empty per-currency market data buckets expected by the coin page.
+ *
+ * @param array $query
+ * @return array
+ */
+function tonbankcard_api_market_ton_empty_market_data( array $query ) {
+    $vs = isset( $query['vs_currency'] ) ? strtolower( trim( (string) $query['vs_currency'] ) ) : 'usd';
+    if ( '' === $vs || ! preg_match( '/^[a-z0-9._-]{1,30}$/', $vs ) ) {
+        $vs = 'usd';
+    }
+    $empty = [ $vs => null ];
+
+    return [
+        'current_price'                                  => $empty,
+        'price_change_percentage_24h_in_currency'        => $empty,
+        'high_24h'                                       => $empty,
+        'low_24h'                                        => $empty,
+        'market_cap'                                     => $empty,
+        'market_cap_change_24h_in_currency'              => $empty,
+        'market_cap_change_percentage_24h_in_currency'   => $empty,
+        'fully_diluted_valuation'                        => $empty,
+        'total_volume'                                   => $empty,
+        'circulating_supply'                             => null,
+        'total_supply'                                   => null,
+        'max_supply'                                     => null,
+    ];
+}
+
+/**
+ * Marks provider metadata as served from TON curation after a CoinGecko miss.
+ *
+ * @param array $provider
+ * @return array
+ */
+function tonbankcard_api_market_ton_provider_meta( array $provider ) {
+    $provider['fallback'] = 'ton_curation';
+    return $provider;
 }
 
 /**
@@ -1122,12 +1306,17 @@ function tonbankcard_api_market_response_meta( array $route, array $provider, ar
  * @return array
  */
 function tonbankcard_api_market_provider_meta( array $provider ) {
-    return [
+    $meta = [
         'name'          => $provider['name'],
         'plan'          => $provider['plan'],
         'attribution'   => $provider['attribution'],
         'credentialed'  => (bool) $provider['api_key_configured'],
     ];
+    if ( ! empty( $provider['fallback'] ) ) {
+        $meta['fallback'] = (string) $provider['fallback'];
+    }
+
+    return $meta;
 }
 
 /**
