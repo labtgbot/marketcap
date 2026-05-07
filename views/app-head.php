@@ -21,9 +21,8 @@ $public_meta = tonbankcard_public_route_meta();
 $linked_data = tonbankcard_public_linked_data( $public_meta );
 $public_image_url = empty( $public_meta['image'] ) ? '' : get_file_url_for_display( $public_meta['image'] );
 $runtime = isset( $GLOBALS['runtime_config'] ) ? $GLOBALS['runtime_config'] : tonbankcard_runtime_config();
-$admin_store = tonbankcard_runtime_admin_store( isset( $runtime['admin']['store_path'] ) ? $runtime['admin']['store_path'] : null );
-$yandex_metrica = isset( $admin_store['analytics']['yandex_metrica'] ) && is_array( $admin_store['analytics']['yandex_metrica'] )
-    ? $admin_store['analytics']['yandex_metrica']
+$yandex_metrica = isset( $runtime['analytics']['yandex_metrica'] ) && is_array( $runtime['analytics']['yandex_metrica'] )
+    ? $runtime['analytics']['yandex_metrica']
     : [];
 $yandex_metrica_counter_id = isset( $yandex_metrica['counter_id'] ) ? preg_replace( '/\D+/', '', (string) $yandex_metrica['counter_id'] ) : '';
 $request_path = isset( $_SERVER['REQUEST_URI'] ) ? (string) parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ) : '/';

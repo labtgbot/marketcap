@@ -562,9 +562,15 @@ function tonbankcard_api_admin_update_providers( array $request, array $runtime,
     $state = tonbankcard_api_admin_load_state( $runtime, $config );
     $before = $state['providers'];
     $state['providers'] = tonbankcard_api_admin_merge_providers( $state['providers'], tonbankcard_api_admin_normalize_provider_input( $input, $state['providers'] ) );
+    if ( isset( $body['analytics'] ) && is_array( $body['analytics'] ) ) {
+        $state['analytics'] = tonbankcard_api_admin_merge_analytics( $state['analytics'], $body['analytics'] );
+    }
     $state = tonbankcard_api_admin_record_write( $state, $actor, 'providers.updated', 'providers', $before, $state['providers'], $request_id );
 
-    $env_updates = tonbankcard_api_admin_provider_env_updates( $input );
+    $env_updates = array_merge(
+        tonbankcard_api_admin_provider_env_updates( $input ),
+        isset( $body['analytics'] ) && is_array( $body['analytics'] ) ? tonbankcard_api_admin_analytics_env_updates( $body['analytics'] ) : []
+    );
     $saved = tonbankcard_api_admin_save_state( $state, $runtime, $config, $env_updates );
     if ( empty( $saved['ok'] ) ) {
         return tonbankcard_api_admin_store_error( $saved, $request_id, $headers );
@@ -574,6 +580,7 @@ function tonbankcard_api_admin_update_providers( array $request, array $runtime,
         [
             'actor'     => tonbankcard_api_admin_public_actor( $actor ),
             'providers' => $state['providers'],
+            'analytics' => $state['analytics'],
         ],
         $request_id,
         $headers
@@ -631,12 +638,13 @@ function tonbankcard_api_admin_update_operations( array $request, array $runtime
     $state = tonbankcard_api_admin_load_state( $runtime, $config );
     $before = $state['operations'];
     $state['operations'] = tonbankcard_api_admin_merge_operations( $state['operations'], $input );
-    if ( isset( $input['analytics'] ) && is_array( $input['analytics'] ) ) {
-        $state['analytics'] = tonbankcard_api_admin_merge_analytics( $state['analytics'], $input['analytics'] );
+    if ( isset( $body['analytics'] ) && is_array( $body['analytics'] ) ) {
+        $state['analytics'] = tonbankcard_api_admin_merge_analytics( $state['analytics'], $body['analytics'] );
     }
     $state = tonbankcard_api_admin_record_write( $state, $actor, 'operations.updated', 'operations', $before, $state['operations'], $request_id );
 
-    $saved = tonbankcard_api_admin_save_state( $state, $runtime, $config );
+    $env_updates = isset( $body['analytics'] ) && is_array( $body['analytics'] ) ? tonbankcard_api_admin_analytics_env_updates( $body['analytics'] ) : [];
+    $saved = tonbankcard_api_admin_save_state( $state, $runtime, $config, $env_updates );
     if ( empty( $saved['ok'] ) ) {
         return tonbankcard_api_admin_store_error( $saved, $request_id, $headers );
     }
@@ -809,6 +817,29 @@ function tonbankcard_api_admin_provider_env_updates( array $input ) {
     }
     if ( isset( $input['changenow'] ) && is_array( $input['changenow'] ) && isset( $input['changenow']['link_id'] ) ) {
         $updates['CHANGENOW_LINK_ID'] = tonbankcard_api_admin_safe_text( $input['changenow']['link_id'], 96 );
+    }
+
+    return $updates;
+}
+
+/**
+ * Returns environment updates represented by an analytics payload.
+ *
+ * @param array $input
+ * @return array
+ */
+function tonbankcard_api_admin_analytics_env_updates( array $input ) {
+    $analytics = tonbankcard_api_admin_merge_analytics( [], $input );
+    $metrica = isset( $analytics['yandex_metrica'] ) && is_array( $analytics['yandex_metrica'] ) ? $analytics['yandex_metrica'] : [];
+
+    $updates = [];
+    if ( isset( $input['yandex_metrica'] ) && is_array( $input['yandex_metrica'] ) ) {
+        if ( array_key_exists( 'counter_id', $input['yandex_metrica'] ) ) {
+            $updates['YANDEX_METRICA_COUNTER_ID'] = isset( $metrica['counter_id'] ) ? (string) $metrica['counter_id'] : '';
+        }
+        if ( array_key_exists( 'enabled', $input['yandex_metrica'] ) ) {
+            $updates['YANDEX_METRICA_ENABLED'] = ! empty( $metrica['enabled'] ) ? 'true' : 'false';
+        }
     }
 
     return $updates;
@@ -1307,6 +1338,8 @@ function tonbankcard_api_admin_env_keys() {
         'TONBANKCARD_BOT_USERNAME',
         'TONBANKCARD_BOT_TOKEN',
         'CHANGENOW_LINK_ID',
+        'YANDEX_METRICA_COUNTER_ID',
+        'YANDEX_METRICA_ENABLED',
     ];
 }
 

@@ -82,6 +82,19 @@ assert_contains templates/routes/admin.php 'Yandex Metrica' 'Yandex Metrica admi
 assert_contains views/app-head.php 'mc\.yandex\.ru/metrika/tag\.js' 'Yandex Metrica public embed'
 assert_contains assets/css/style.css 'admin-shell' 'admin panel styling'
 
+php_check 'Yandex Metrica controls should be rendered inside the Providers section before Operations starts' \
+    php <<'PHP'
+<?php
+$template = file_get_contents( 'templates/routes/admin.php' );
+$providers = strpos( $template, "activeSection === 'providers'" );
+$metrica = strpos( $template, 'Yandex Metrica' );
+$operations = strpos( $template, "activeSection === 'operations'" );
+if ( FALSE === $providers || FALSE === $metrica || FALSE === $operations || ! ( $providers < $metrica && $metrica < $operations ) ) {
+    fwrite( STDERR, "Yandex Metrica controls are not inside the Providers section\n" );
+    exit( 1 );
+}
+PHP
+
 php_check 'Admin API should require admin auth, enforce read-only support, audit writes, merge runtime flags, and redact secrets' \
     env -i PATH="$PATH" \
         TONBANKCARD_ADMIN_STORE="$(mktemp)" \
@@ -499,6 +512,13 @@ $payload = json_payload( $response );
 if ( 200 !== $response['status'] || '109107032' !== $payload['data']['analytics']['yandex_metrica']['counter_id'] || TRUE !== $payload['data']['analytics']['yandex_metrica']['enabled'] ) {
     fwrite( STDERR, "Admin Yandex Metrica settings were not saved as a sanitized numeric counter\n" );
     exit( 1 );
+}
+$env_after_metrica = file_get_contents( $env_path );
+foreach ( [ 'YANDEX_METRICA_COUNTER_ID=109107032', 'YANDEX_METRICA_ENABLED=true' ] as $line ) {
+    if ( FALSE === strpos( $env_after_metrica, $line ) ) {
+        fwrite( STDERR, "Admin Yandex Metrica save did not update .env line: {$line}\n" );
+        exit( 1 );
+    }
 }
 
 $GLOBALS['runtime_config'] = tonbankcard_runtime_config();

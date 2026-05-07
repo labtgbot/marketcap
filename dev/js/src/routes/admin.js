@@ -315,9 +315,10 @@
                     if (this.providerSecrets.tonapi.api_key) payload.tonapi.api_key = this.providerSecrets.tonapi.api_key;
                     if (this.providerSecrets.telegram.bot_token) payload.telegram.bot_token = this.providerSecrets.telegram.bot_token;
 
-                    this.write('/providers', {providers: payload}, 'Providers saved.')
+                    this.write('/providers', {providers: payload, analytics: this.analytics}, 'Providers saved.')
                         .then(data => {
                             if (data.providers) this.providers = _.merge(defaultProviders(), clone(data.providers));
+                            if (data.analytics) this.analytics = _.merge(defaultAnalytics(), clone(data.analytics));
                             this.clearProviderSecrets();
                         });
                 },
@@ -342,10 +343,9 @@
                 },
                 saveOperations: function () {
                     if (!this.canWrite) return;
-                    this.write('/operations', {operations: this.operations, analytics: this.analytics}, 'Operations saved.')
+                    this.write('/operations', {operations: this.operations}, 'Operations saved.')
                         .then(data => {
                             if (data.operations) this.operations = _.merge(defaultOperations(), clone(data.operations));
-                            if (data.analytics) this.analytics = _.merge(defaultAnalytics(), clone(data.analytics));
                         });
                 },
                 purgeCache: function () {

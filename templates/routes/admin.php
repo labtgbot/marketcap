@@ -364,6 +364,24 @@ $frontend_options['admin']['apiBaseUrl'] = site_url( 'api/admin' );
                         </v-card-text>
                     </v-card>
                 </v-col>
+                <v-col cols="12" lg="6">
+                    <v-card outlined>
+                        <v-card-title class="text-subtitle-1 font-weight-bold">
+                            <v-icon left color="primary">mdi-chart-areaspline</v-icon>
+                            <?php echo esc_html( __( 'Yandex Metrica' ) ); ?>
+                        </v-card-title>
+                        <v-card-text>
+                            <v-row dense>
+                                <v-col cols="12" sm="4">
+                                    <v-switch v-model="analytics.yandex_metrica.enabled" label="<?php echo esc_attr( __( 'Enabled' ) ); ?>" inset hide-details :disabled="!canWrite"></v-switch>
+                                </v-col>
+                                <v-col cols="12" sm="8">
+                                    <v-text-field v-model.trim="analytics.yandex_metrica.counter_id" label="<?php echo esc_attr( __( 'Counter ID' ) ); ?>" outlined dense hide-details="auto" inputmode="numeric" :disabled="!canWrite"></v-text-field>
+                                </v-col>
+                            </v-row>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
                 <v-col cols="12">
                     <div class="admin-sticky-actions">
                         <v-btn color="primary" depressed :disabled="!canWrite" :loading="saving" @click="saveProviders">
@@ -511,24 +529,6 @@ $frontend_options['admin']['apiBaseUrl'] = site_url( 'api/admin' );
                 </v-card-title>
                 <v-card-text>
                     <v-row dense>
-                        <v-col cols="12">
-                            <v-card outlined>
-                                <v-card-title class="text-subtitle-1 font-weight-bold">
-                                    <v-icon left color="primary">mdi-chart-areaspline</v-icon>
-                                    <?php echo esc_html( __( 'Yandex Metrica' ) ); ?>
-                                </v-card-title>
-                                <v-card-text>
-                                    <v-row dense>
-                                        <v-col cols="12" sm="4">
-                                            <v-switch v-model="analytics.yandex_metrica.enabled" label="<?php echo esc_attr( __( 'Enabled' ) ); ?>" inset hide-details :disabled="!canWrite"></v-switch>
-                                        </v-col>
-                                        <v-col cols="12" sm="8">
-                                            <v-text-field v-model.trim="analytics.yandex_metrica.counter_id" label="<?php echo esc_attr( __( 'Counter ID' ) ); ?>" outlined dense hide-details="auto" inputmode="numeric" :disabled="!canWrite"></v-text-field>
-                                        </v-col>
-                                    </v-row>
-                                </v-card-text>
-                            </v-card>
-                        </v-col>
                         <v-col cols="12" sm="6" md="3">
                             <v-text-field v-model.number="operations.alert_thresholds.max_alerts_per_user" label="<?php echo esc_attr( __( 'Max alerts' ) ); ?>" type="number" min="1" outlined dense hide-details="auto" :disabled="!canWrite"></v-text-field>
                         </v-col>

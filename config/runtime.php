@@ -401,6 +401,23 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
         $mysql_password     = (string) tonbankcard_env( 'MYSQL_PASSWORD', '' );
         $changenow_link_id     = tonbankcard_runtime_admin_scalar( $admin_store, [ 'providers', 'changenow', 'link_id' ], (string) tonbankcard_env( 'CHANGENOW_LINK_ID', '' ) );
         $changenow_listing_url = tonbankcard_runtime_admin_scalar( $admin_store, [ 'providers', 'changenow', 'listing_url' ], (string) tonbankcard_env( 'CHANGENOW_LISTING_URL', '' ) );
+        $yandex_metrica_counter_id = preg_replace( '/\D+/', '', (string) tonbankcard_env( 'YANDEX_METRICA_COUNTER_ID', '' ) );
+        if ( null === $yandex_metrica_counter_id ) {
+            $yandex_metrica_counter_id = '';
+        }
+        $yandex_metrica_enabled = tonbankcard_env_bool( 'YANDEX_METRICA_ENABLED', FALSE ) && '' !== $yandex_metrica_counter_id;
+        if ( isset( $admin_store['analytics']['yandex_metrica'] ) && is_array( $admin_store['analytics']['yandex_metrica'] ) ) {
+            $admin_metrica = $admin_store['analytics']['yandex_metrica'];
+            if ( array_key_exists( 'counter_id', $admin_metrica ) ) {
+                $yandex_metrica_counter_id = preg_replace( '/\D+/', '', (string) $admin_metrica['counter_id'] );
+                if ( null === $yandex_metrica_counter_id ) {
+                    $yandex_metrica_counter_id = '';
+                }
+            }
+            if ( array_key_exists( 'enabled', $admin_metrica ) ) {
+                $yandex_metrica_enabled = (bool) $admin_metrica['enabled'] && '' !== $yandex_metrica_counter_id;
+            }
+        }
         $observability_log_level = strtolower( trim( (string) tonbankcard_env( 'TONBANKCARD_OBSERVABILITY_LOG_LEVEL', 'warning' ) ) );
         if ( ! in_array( $observability_log_level, [ 'debug', 'info', 'warning', 'warn', 'error', 'critical', 'off' ], TRUE ) ) {
             $observability_log_level = 'warning';
@@ -487,6 +504,12 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
                 'verbose_tracing'        => tonbankcard_env_bool( 'TONBANKCARD_VERBOSE_TRACING', FALSE ),
                 'client_error_reporting' => tonbankcard_env_bool( 'TONBANKCARD_CLIENT_ERROR_REPORTING', TRUE ),
                 'sink'                   => 'error_log',
+            ],
+            'analytics'     => [
+                'yandex_metrica' => [
+                    'counter_id' => $yandex_metrica_counter_id,
+                    'enabled'    => $yandex_metrica_enabled,
+                ],
             ],
             'feature_flags' => $feature_flags,
         ];
