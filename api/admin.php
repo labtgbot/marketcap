@@ -458,6 +458,9 @@ function tonbankcard_api_admin_default_state( array $runtime, array $config ) {
                 'rest_url_configured' => ! empty( $providers['upstash']['rest_url'] ),
                 'rest_token'          => tonbankcard_api_admin_secret_metadata_from_config( ! empty( $providers['upstash']['token_configured'] ), 'env:UPSTASH_REDIS_REST_TOKEN' ),
             ],
+            'tonapi'    => [
+                'api_key' => tonbankcard_api_admin_secret_metadata_from_config( ! empty( $providers['tonapi']['api_key_configured'] ), 'env:TONAPI_API_KEY' ),
+            ],
             'telegram'  => [
                 'bot_username' => isset( $runtime['telegram']['bot_username'] ) ? (string) $runtime['telegram']['bot_username'] : '',
                 'bot_token'    => tonbankcard_api_admin_secret_metadata_from_config( ! empty( $runtime['telegram']['bot_token_configured'] ), 'env:TONBANKCARD_BOT_TOKEN' ),
@@ -791,6 +794,11 @@ function tonbankcard_api_admin_provider_env_updates( array $input ) {
             $updates['UPSTASH_REDIS_REST_TOKEN'] = trim( (string) $input['upstash']['rest_token'] );
         }
     }
+    if ( isset( $input['tonapi'] ) && is_array( $input['tonapi'] ) ) {
+        if ( isset( $input['tonapi']['api_key'] ) && '' !== trim( (string) $input['tonapi']['api_key'] ) ) {
+            $updates['TONAPI_API_KEY'] = trim( (string) $input['tonapi']['api_key'] );
+        }
+    }
     if ( isset( $input['telegram'] ) && is_array( $input['telegram'] ) ) {
         if ( isset( $input['telegram']['bot_username'] ) ) {
             $updates['TONBANKCARD_BOT_USERNAME'] = tonbankcard_api_admin_safe_text( $input['telegram']['bot_username'], 64 );
@@ -853,6 +861,13 @@ function tonbankcard_api_admin_normalize_provider_input( array $input, array $cu
         }
         if ( isset( $input['upstash']['rest_token'] ) && '' !== trim( (string) $input['upstash']['rest_token'] ) ) {
             $providers['upstash']['rest_token'] = tonbankcard_api_admin_secret_metadata( (string) $input['upstash']['rest_token'], 'UPSTASH_REDIS_REST_TOKEN' );
+        }
+    }
+
+    if ( isset( $input['tonapi'] ) && is_array( $input['tonapi'] ) ) {
+        $providers['tonapi'] = [];
+        if ( isset( $input['tonapi']['api_key'] ) && '' !== trim( (string) $input['tonapi']['api_key'] ) ) {
+            $providers['tonapi']['api_key'] = tonbankcard_api_admin_secret_metadata( (string) $input['tonapi']['api_key'], 'TONAPI_API_KEY' );
         }
     }
 
@@ -1288,6 +1303,7 @@ function tonbankcard_api_admin_env_keys() {
         'GROQ_API_KEY',
         'GROQ_MODEL_ID',
         'UPSTASH_REDIS_REST_TOKEN',
+        'TONAPI_API_KEY',
         'TONBANKCARD_BOT_USERNAME',
         'TONBANKCARD_BOT_TOKEN',
         'CHANGENOW_LINK_ID',

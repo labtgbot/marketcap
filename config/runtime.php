@@ -396,6 +396,7 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
         }
         $groq_model_id = tonbankcard_runtime_admin_scalar( $admin_store, [ 'providers', 'groq', 'model_id' ], $groq_model_id );
         $groq_base_url      = tonbankcard_normalize_url( (string) tonbankcard_env( 'GROQ_BASE_URL', 'https://api.groq.com/openai/v1/' ) );
+        $tonapi_api_key     = (string) tonbankcard_env( 'TONAPI_API_KEY', '' );
         $upstash_token      = (string) tonbankcard_env( 'UPSTASH_REDIS_REST_TOKEN', '' );
         $mysql_password     = (string) tonbankcard_env( 'MYSQL_PASSWORD', '' );
         $changenow_link_id     = tonbankcard_runtime_admin_scalar( $admin_store, [ 'providers', 'changenow', 'link_id' ], (string) tonbankcard_env( 'CHANGENOW_LINK_ID', '' ) );
@@ -458,6 +459,10 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
                     'rest_url'          => (string) tonbankcard_env( 'UPSTASH_REDIS_REST_URL', '' ),
                     'rest_token'        => $upstash_token,
                     'token_configured'  => '' !== trim( $upstash_token ),
+                ],
+                'tonapi'    => [
+                    'api_key'            => $tonapi_api_key,
+                    'api_key_configured' => '' !== trim( $tonapi_api_key ),
                 ],
                 'mysql'     => [
                     'dsn'                 => (string) tonbankcard_env( 'MYSQL_DSN', '' ),
