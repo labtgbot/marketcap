@@ -78,6 +78,8 @@ assert_contains config/routes.php "'admin'" 'admin route registration'
 assert_contains config/routes-v2.php "'admin'" 'admin route metadata'
 assert_contains dev/js/source.json '"routes/admin.js"' 'admin route source bundle entry'
 assert_contains templates/routes/admin.php 'admin-secret-input' 'write-only secret field markup'
+assert_contains templates/routes/admin.php 'Yandex Metrica' 'Yandex Metrica admin controls'
+assert_contains views/app-head.php 'mc\.yandex\.ru/metrika/tag\.js' 'Yandex Metrica public embed'
 assert_contains assets/css/style.css 'admin-shell' 'admin panel styling'
 
 php_check 'Admin API should require admin auth, enforce read-only support, audit writes, merge runtime flags, and redact secrets' \
@@ -413,6 +415,26 @@ if ( ! function_exists( 'esc_html' ) ) {
         return htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' );
     }
 }
+if ( ! function_exists( 'esc_attr' ) ) {
+    function esc_attr( $value ) {
+        return htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' );
+    }
+}
+if ( ! function_exists( 'esc_url' ) ) {
+    function esc_url( $value ) {
+        return htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' );
+    }
+}
+if ( ! function_exists( 'vendor_url' ) ) {
+    function vendor_url( $path ) {
+        return '/vendor/' . ltrim( (string) $path, '/' );
+    }
+}
+if ( ! function_exists( 'get_file_url_for_display' ) ) {
+    function get_file_url_for_display( $path ) {
+        return '/' . ltrim( (string) $path, '/' );
+    }
+}
 if ( ! function_exists( '__' ) ) {
     function __( string $text ) {
         return $text;
@@ -442,6 +464,92 @@ $response = call_admin_api(
 );
 if ( 202 !== $response['status'] ) {
     fwrite( STDERR, "Admin cache purge request failed: {$response['body']}\n" );
+    exit( 1 );
+}
+
+$response = call_admin_api(
+    [
+        'method'  => 'PUT',
+        'path'    => '/api/admin/operations',
+        'headers' => [
+            'content-type' => 'application/json',
+            'x-request-id' => 'admin-yandex-metrica-write',
+            'authorization' => 'Bearer owner-secret-token',
+        ],
+        'body'    => json_encode(
+            [
+                'analytics' => [
+                    'yandex_metrica' => [
+                        'enabled'    => TRUE,
+                        'counter_id' => '109107032<script>',
+                    ],
+                ],
+            ]
+        ),
+    ],
+    $runtime,
+    $api
+);
+$payload = json_payload( $response );
+if ( 200 !== $response['status'] || '109107032' !== $payload['data']['analytics']['yandex_metrica']['counter_id'] || TRUE !== $payload['data']['analytics']['yandex_metrica']['enabled'] ) {
+    fwrite( STDERR, "Admin Yandex Metrica settings were not saved as a sanitized numeric counter\n" );
+    exit( 1 );
+}
+
+$GLOBALS['runtime_config'] = tonbankcard_runtime_config();
+$head_constants = [
+    'ROBOTO_VERSION' => 'test',
+    'MDI_VERSION' => 'test',
+    'VUE_VERSION' => 'test',
+    'VUE_ROUTER_VERSION' => 'test',
+    'VUETIFY_VERSION' => 'test',
+];
+foreach ( $head_constants as $constant => $value ) {
+    if ( ! defined( $constant ) ) {
+        define( $constant, $value );
+    }
+}
+$site = [
+    'lang' => 'en',
+    'name' => 'TONBANKCARD',
+    'title' => 'Crypto Tracker',
+    'description' => 'Market data',
+    'theme_color' => '#111111',
+];
+if ( ! function_exists( 'tonbankcard_public_route_meta' ) ) {
+    function tonbankcard_public_route_meta() {
+        return [
+            'robots' => 'index,follow',
+            'canonical_url' => 'https://example.test/',
+            'og_type' => 'website',
+            'full_title' => 'TONBANKCARD',
+            'description' => 'Market data',
+            'image' => '',
+            'image_width' => 1200,
+            'image_height' => 630,
+            'image_alt' => 'TONBANKCARD',
+        ];
+    }
+}
+if ( ! function_exists( 'tonbankcard_public_linked_data' ) ) {
+    function tonbankcard_public_linked_data( array $meta ) {
+        return [ '@type' => 'WebSite', 'name' => $meta['full_title'] ];
+    }
+}
+$_SERVER['REQUEST_URI'] = '/currencies';
+ob_start();
+include GECKO_CLIENT_VIEWS_DIR . '/app-head.php';
+$public_head = ob_get_clean();
+if ( FALSE === strpos( $public_head, 'mc.yandex.ru/metrika/tag.js?id=109107032' ) || FALSE === strpos( $public_head, 'ym(109107032' ) ) {
+    fwrite( STDERR, "Public pages did not render the configured Yandex Metrica counter\n" );
+    exit( 1 );
+}
+$_SERVER['REQUEST_URI'] = '/admin';
+ob_start();
+include GECKO_CLIENT_VIEWS_DIR . '/app-head.php';
+$admin_head = ob_get_clean();
+if ( FALSE !== strpos( $admin_head, 'mc.yandex.ru/metrika/tag.js' ) || FALSE !== strpos( $admin_head, 'ym(109107032' ) ) {
+    fwrite( STDERR, "Admin pages unexpectedly rendered the Yandex Metrica counter\n" );
     exit( 1 );
 }
 
