@@ -105,7 +105,7 @@ $route_currency['exchange_widget'] = [
         'toFiat'          => 'eth',
         'toTheMoon'       => 'true',
     ],
-    'symbolFallback'     => TRUE,
+    'symbolFallback'     => FALSE,
     'supportedAssets'    => [
         'ids'     => [
             'toncoin'     => [ 'from' => 'ton', 'to' => 'usdtton', 'label' => 'Toncoin', 'network' => 'TON' ],
