@@ -7575,6 +7575,7 @@
             coingecko: {api_plan: 'demo', api_key: {configured: false}},
             groq: {model_id: 'llama-3.3-70b-versatile', api_key: {configured: false}},
             upstash: {status: 'not_configured', rest_url_configured: false, rest_token: {configured: false}},
+            tonapi: {api_key: {configured: false}},
             telegram: {bot_username: '', bot_token: {configured: false}},
             changenow: {link_id: '', listing_url: ''}
         };
@@ -7639,6 +7640,7 @@
                         coingecko: {api_key: ''},
                         groq: {api_key: ''},
                         upstash: {rest_token: ''},
+                        tonapi: {api_key: ''},
                         telegram: {bot_token: ''}
                     },
                     content: defaultContent(),
@@ -7722,6 +7724,7 @@
                         _.get(this.providers, 'groq.api_key.configured'),
                         _.get(this.providers, 'coingecko.api_key.configured'),
                         _.get(this.providers, 'upstash.rest_token.configured'),
+                        _.get(this.providers, 'tonapi.api_key.configured'),
                         _.get(this.providers, 'telegram.bot_token.configured')
                     ].filter(Boolean).length;
 
@@ -7821,6 +7824,7 @@
                         coingecko: {api_key: ''},
                         groq: {api_key: ''},
                         upstash: {rest_token: ''},
+                        tonapi: {api_key: ''},
                         telegram: {bot_token: ''}
                     };
                 },
@@ -7844,6 +7848,7 @@
                         upstash: {
                             status: _.get(this.providers, 'upstash.status')
                         },
+                        tonapi: {},
                         telegram: {
                             bot_username: _.get(this.providers, 'telegram.bot_username')
                         },
@@ -7856,6 +7861,7 @@
                     if (this.providerSecrets.coingecko.api_key) payload.coingecko.api_key = this.providerSecrets.coingecko.api_key;
                     if (this.providerSecrets.groq.api_key) payload.groq.api_key = this.providerSecrets.groq.api_key;
                     if (this.providerSecrets.upstash.rest_token) payload.upstash.rest_token = this.providerSecrets.upstash.rest_token;
+                    if (this.providerSecrets.tonapi.api_key) payload.tonapi.api_key = this.providerSecrets.tonapi.api_key;
                     if (this.providerSecrets.telegram.bot_token) payload.telegram.bot_token = this.providerSecrets.telegram.bot_token;
 
                     this.write('/providers', {providers: payload, analytics: this.analytics}, 'Providers saved.')

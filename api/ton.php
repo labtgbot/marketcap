@@ -69,7 +69,7 @@ function tonbankcard_api_ton_handle( array $request, array $runtime, array $conf
         }
 
         $query  = isset( $request['query'] ) && is_array( $request['query'] ) ? $request['query'] : [];
-        $result = tonbankcard_api_ton_lookup_jetton( $query, $request_id, $headers );
+        $result = tonbankcard_api_ton_lookup_jetton( $query, $request_id, $headers, $runtime );
         return $result;
     }
 
@@ -602,7 +602,7 @@ function tonbankcard_api_ton_read_store( array $settings, array &$warnings ) {
  * @param array  $headers
  * @return array
  */
-function tonbankcard_api_ton_lookup_jetton( array $query, string $request_id, array $headers ) {
+function tonbankcard_api_ton_lookup_jetton( array $query, string $request_id, array $headers, array $runtime = [] ) {
     $contract = trim( (string) ( isset( $query['contract'] ) ? $query['contract'] : '' ) );
     if ( '' === $contract ) {
         return tonbankcard_api_error_response(
@@ -628,12 +628,20 @@ function tonbankcard_api_ton_lookup_jetton( array $query, string $request_id, ar
     }
 
     $url     = 'https://tonapi.io/v2/jettons/' . rawurlencode( $contract );
+    $tonapi_key = isset( $runtime['providers']['tonapi']['api_key'] ) ? trim( (string) $runtime['providers']['tonapi']['api_key'] ) : '';
+    $request_headers = [
+        'Accept: application/json',
+        'User-Agent: TONBANKCARD/2',
+    ];
+    if ( '' !== $tonapi_key ) {
+        $request_headers[] = 'Authorization: Bearer ' . $tonapi_key;
+    }
     $context = stream_context_create( [
         'http' => [
             'method'          => 'GET',
             'timeout'         => 8,
             'follow_location' => 1,
-            'header'          => "Accept: application/json\r\nUser-Agent: TONBANKCARD/2\r\n",
+            'header'          => implode( "\r\n", $request_headers ) . "\r\n",
         ],
         'ssl'  => [ 'verify_peer' => TRUE ],
     ] );
