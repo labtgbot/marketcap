@@ -30,7 +30,7 @@ return [
     'Chart'                    => 'Graphique',
     'Market'                   => 'Marché',
     'Historical Data'          => 'Données historiques',
-    'More Info'                => 'Plus d’infos',
+    'More Info'                => 'Plus d\'infos',
     'Price'                    => 'Prix',
     '24h Low'                  => 'Plus bas 24 h',
     '24h High'                 => 'Plus haut 24 h',
@@ -87,7 +87,7 @@ return [
     'Platform'                 => 'Plateforme',
     'Identifier'               => 'Identifiant',
     'Supply Rate'              => 'Taux de prêt',
-    'Borrow Rate'              => 'Taux d’emprunt',
+    'Borrow Rate'              => 'Taux d\'emprunt',
     'Start Date'               => 'Date de début',
     'End Date'                 => 'Date de fin',
     'Finance Products'         => 'Produits financiers',
@@ -98,7 +98,7 @@ return [
     'Index Price'              => 'Prix indiciel',
     'Basis'                    => 'Base',
     'Funding rate'             => 'Taux de financement',
-    'Expire Date'              => 'Date d’expiration',
+    'Expire Date'              => 'Date d\'expiration',
     'Open Interest'            => 'Intérêt ouvert',
     'Derivatives'              => 'Dérivés',
     'Search'                   => 'Rechercher',
@@ -270,7 +270,7 @@ return [
 
     // Cookies dialog
     'TONBANKCARD Uses Cookies'        => 'TONBANKCARD utilise des cookies',
-    'TONBANKCARD Crypto Tracker uses necessary cookies and local storage for preferences such as theme, display currency, consent state, and future watchlist or alert settings. Analytics cookies are used only when enabled for the current deployment.' => 'TONBANKCARD Crypto Tracker utilise des cookies nécessaires et le stockage local pour les préférences telles que le thème, la devise d'affichage, l'état de consentement et les futurs paramètres de liste de suivi ou d'alertes. Les cookies analytiques ne sont utilisés que lorsqu'ils sont activés pour le déploiement en cours.',
+    'TONBANKCARD Crypto Tracker uses necessary cookies and local storage for preferences such as theme, display currency, consent state, and future watchlist or alert settings. Analytics cookies are used only when enabled for the current deployment.' => 'TONBANKCARD Crypto Tracker utilise des cookies nécessaires et le stockage local pour les préférences telles que le thème, la devise d\'affichage, l\'état de consentement et les futurs paramètres de liste de suivi ou d\'alertes. Les cookies analytiques ne sont utilisés que lorsqu\'ils sont activés pour le déploiement en cours.',
     'Accept'                          => 'Accepter',
 
     // Market pulse inline labels
@@ -278,12 +278,12 @@ return [
 
     // TON ecosystem catalog labels
     'Back to TON catalog'             => 'Retour au catalogue TON',
-    'No description has been recorded for this asset yet.' => 'Aucune description n'a encore été enregistrée pour cet actif.',
+    'No description has been recorded for this asset yet.' => 'Aucune description n\'a encore été enregistrée pour cet actif.',
     'View market'                     => 'Voir le marché',
     'Browse category'                 => 'Parcourir la catégorie',
-    'Edit asset'                      => 'Modifier l'actif',
+    'Edit asset'                      => 'Modifier l\'actif',
     'Remove'                          => 'Supprimer',
-    'This TON asset is not in the catalog yet.' => 'Cet actif TON n'est pas encore dans le catalogue.',
+    'This TON asset is not in the catalog yet.' => 'Cet actif TON n\'est pas encore dans le catalogue.',
     'Curated Toncoin, jettons, stablecoins, DeFi venues, wallets, and infrastructure for TONBANKCARD market context.' => 'Toncoin, jettons, stablecoins, plateformes DeFi, portefeuilles et infrastructures sélectionnés pour le contexte de marché TONBANKCARD.',
     'Verified'                        => 'Vérifié',
     'Review'                          => 'En révision',
@@ -300,7 +300,7 @@ return [
     'TON stablecoins'                 => 'Stablecoins TON',
     'Jettons'                         => 'Jettons',
     'TON DeFi'                        => 'TON DeFi',
-    'Review queue'                    => 'File d'attente de révision',
+    'Review queue'                    => 'File d\'attente de révision',
     'Last 7d'                         => '7 derniers j.',
     '7d %'                            => '7j %',
     '30d %'                           => '30j %',
@@ -312,9 +312,9 @@ return [
     'All categories'                  => 'Toutes les catégories',
     'Stablecoins'                     => 'Stablecoins',
     'Layer 1'                         => 'Couche 1',
-    'Exchange tokens'                 => 'Tokens d'échange',
+    'Exchange tokens'                 => 'Tokens d\'échange',
     'Gaming'                          => 'Jeux',
-    'Any exchange'                    => 'N'importe quelle bourse',
+    'Any exchange'                    => 'N\'importe quelle bourse',
     'Wallets'                         => 'Portefeuilles',
     'Open filters'                    => 'Ouvrir les filtres',
     'Refresh screener'                => 'Actualiser le screener',
@@ -347,11 +347,11 @@ return [
     // Alerts
     'Delivery enabled'                => 'Livraison activée',
     'Delivery flag off'               => 'Livraison désactivée',
-    'Edit alert'                      => 'Modifier l'alerte',
+    'Edit alert'                      => 'Modifier l\'alerte',
     'New alert'                       => 'Nouvelle alerte',
     'Active'                          => 'Actif',
     'Paused'                          => 'En pause',
-    'Reset alert form'                => 'Réinitialiser le formulaire d'alerte',
+    'Reset alert form'                => 'Réinitialiser le formulaire d\'alerte',
 
     // Achievements
     'badges'                          => 'badges',
@@ -360,7 +360,7 @@ return [
     'Opt-in'                          => 'Activer',
 
     // AI insight card
-    'Share insight'                   => 'Partager l'analyse',
+    'Share insight'                   => 'Partager l\'analyse',
     'Data freshness unavailable'      => 'Fraîcheur des données indisponible',
 
     // Premium
