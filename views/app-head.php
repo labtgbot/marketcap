@@ -20,6 +20,18 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 $public_meta = tonbankcard_public_route_meta();
 $linked_data = tonbankcard_public_linked_data( $public_meta );
 $public_image_url = empty( $public_meta['image'] ) ? '' : get_file_url_for_display( $public_meta['image'] );
+$runtime = isset( $GLOBALS['runtime_config'] ) ? $GLOBALS['runtime_config'] : tonbankcard_runtime_config();
+$admin_store = tonbankcard_runtime_admin_store( isset( $runtime['admin']['store_path'] ) ? $runtime['admin']['store_path'] : null );
+$yandex_metrica = isset( $admin_store['analytics']['yandex_metrica'] ) && is_array( $admin_store['analytics']['yandex_metrica'] )
+    ? $admin_store['analytics']['yandex_metrica']
+    : [];
+$yandex_metrica_counter_id = isset( $yandex_metrica['counter_id'] ) ? preg_replace( '/\D+/', '', (string) $yandex_metrica['counter_id'] ) : '';
+$request_path = isset( $_SERVER['REQUEST_URI'] ) ? (string) parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ) : '/';
+$router_base_path = function_exists( 'router_base' ) ? (string) parse_url( router_base(), PHP_URL_PATH ) : '';
+$router_base_path = '/' === $router_base_path ? '' : rtrim( $router_base_path, '/' );
+$admin_base_path = $router_base_path . '/admin';
+$is_admin_page = $request_path === $admin_base_path || 0 === strpos( $request_path, $admin_base_path . '/' );
+$should_render_yandex_metrica = ! empty( $yandex_metrica['enabled'] ) && '' !== $yandex_metrica_counter_id && ! $is_admin_page;
 
 ?>
 <head>
@@ -235,6 +247,21 @@ $public_image_url = empty( $public_meta['image'] ) ? '' : get_file_url_for_displ
          */
         ?>
         <script type="application/ld+json"><?php echo json_encode( $linked_data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ); ?></script>
+        <?php if ( $should_render_yandex_metrica ) : ?>
+        <!-- Yandex.Metrika counter -->
+        <script>
+            (function(m,e,t,r,i,k,a){
+                m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+                m[i].l=1*new Date();
+                for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+                k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+            })(window, document, 'script', 'https://mc.yandex.ru/metrika/tag.js?id=<?php echo esc_attr( $yandex_metrica_counter_id ); ?>', 'ym');
+
+            ym(<?php echo esc_attr( $yandex_metrica_counter_id ); ?>, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+        </script>
+        <noscript><div><img src="https://mc.yandex.ru/watch/<?php echo esc_attr( $yandex_metrica_counter_id ); ?>" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+        <!-- /Yandex.Metrika counter -->
+        <?php endif; ?>
         <?php
 
     ?>

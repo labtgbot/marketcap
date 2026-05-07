@@ -368,6 +368,7 @@ function tonbankcard_api_admin_config_payload( array $runtime, array $config, ar
         'providers'     => $state['providers'],
         'content'       => $state['content'],
         'operations'    => $state['operations'],
+        'analytics'     => $state['analytics'],
         'audit_log'     => array_slice( $state['audit_log'], 0, 25 ),
         'meta'          => [
             'store_configured' => ! empty( $state['store_configured'] ),
@@ -412,6 +413,10 @@ function tonbankcard_api_admin_load_state( array $runtime, array $config ) {
     $state['operations'] = tonbankcard_api_admin_merge_operations(
         $state['operations'],
         isset( $store['operations'] ) && is_array( $store['operations'] ) ? $store['operations'] : []
+    );
+    $state['analytics'] = tonbankcard_api_admin_merge_analytics(
+        $state['analytics'],
+        isset( $store['analytics'] ) && is_array( $store['analytics'] ) ? $store['analytics'] : []
     );
     $state['audit_log'] = isset( $store['audit_log'] ) && is_array( $store['audit_log'] )
         ? array_slice( array_values( $store['audit_log'] ), 0, 100 )
@@ -490,6 +495,12 @@ function tonbankcard_api_admin_default_state( array $runtime, array $config ) {
                 'daily_streak_points' => 10,
                 'share_points'        => 5,
                 'alert_points'        => 10,
+            ],
+        ],
+        'analytics'        => [
+            'yandex_metrica' => [
+                'counter_id' => '',
+                'enabled'    => FALSE,
             ],
         ],
         'audit_log'        => [],
@@ -617,6 +628,9 @@ function tonbankcard_api_admin_update_operations( array $request, array $runtime
     $state = tonbankcard_api_admin_load_state( $runtime, $config );
     $before = $state['operations'];
     $state['operations'] = tonbankcard_api_admin_merge_operations( $state['operations'], $input );
+    if ( isset( $input['analytics'] ) && is_array( $input['analytics'] ) ) {
+        $state['analytics'] = tonbankcard_api_admin_merge_analytics( $state['analytics'], $input['analytics'] );
+    }
     $state = tonbankcard_api_admin_record_write( $state, $actor, 'operations.updated', 'operations', $before, $state['operations'], $request_id );
 
     $saved = tonbankcard_api_admin_save_state( $state, $runtime, $config );
@@ -628,6 +642,7 @@ function tonbankcard_api_admin_update_operations( array $request, array $runtime
         [
             'actor'      => tonbankcard_api_admin_public_actor( $actor ),
             'operations' => $state['operations'],
+            'analytics'  => $state['analytics'],
         ],
         $request_id,
         $headers
@@ -978,6 +993,52 @@ function tonbankcard_api_admin_merge_operations( array $base, array $input ) {
 }
 
 /**
+ * Merges analytics settings.
+ *
+ * @param array $base
+ * @param array $input
+ * @return array
+ */
+function tonbankcard_api_admin_merge_analytics( array $base, array $input ) {
+    if ( ! isset( $base['yandex_metrica'] ) || ! is_array( $base['yandex_metrica'] ) ) {
+        $base['yandex_metrica'] = [
+            'counter_id' => '',
+            'enabled'    => FALSE,
+        ];
+    }
+
+    if ( isset( $input['yandex_metrica'] ) && is_array( $input['yandex_metrica'] ) ) {
+        if ( array_key_exists( 'counter_id', $input['yandex_metrica'] ) ) {
+            $base['yandex_metrica']['counter_id'] = tonbankcard_api_admin_numeric_id( $input['yandex_metrica']['counter_id'], 16 );
+        }
+        if ( array_key_exists( 'enabled', $input['yandex_metrica'] ) ) {
+            $base['yandex_metrica']['enabled'] = (bool) $input['yandex_metrica']['enabled'];
+        }
+    }
+
+    if ( '' === $base['yandex_metrica']['counter_id'] ) {
+        $base['yandex_metrica']['enabled'] = FALSE;
+    }
+
+    return $base;
+}
+
+/**
+ * Returns a bounded numeric identifier.
+ *
+ * @param mixed $value
+ * @param int $max_length
+ * @return string
+ */
+function tonbankcard_api_admin_numeric_id( $value, int $max_length ) {
+    $value = preg_replace( '/\D+/', '', (string) $value );
+    if ( null === $value ) {
+        return '';
+    }
+    return substr( $value, 0, max( 1, $max_length ) );
+}
+
+/**
  * Returns redacted secret metadata from configured environment state.
  *
  * @param bool $configured
@@ -1079,6 +1140,7 @@ function tonbankcard_api_admin_save_state( array $state, array $runtime, array $
         'providers'     => tonbankcard_api_admin_redact_value( $state['providers'] ),
         'content'       => tonbankcard_api_admin_redact_value( $state['content'] ),
         'operations'    => tonbankcard_api_admin_redact_value( $state['operations'] ),
+        'analytics'     => tonbankcard_api_admin_redact_value( isset( $state['analytics'] ) ? $state['analytics'] : [] ),
         'audit_log'     => tonbankcard_api_admin_redact_value( $state['audit_log'] ),
     ];
 

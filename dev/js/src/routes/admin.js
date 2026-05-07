@@ -66,6 +66,15 @@
         };
     }
 
+    function defaultAnalytics() {
+        return {
+            yandex_metrica: {
+                counter_id: '',
+                enabled: false
+            }
+        };
+    }
+
     function component() {
         return {
             template: '#route-admin',
@@ -85,6 +94,7 @@
                     },
                     content: defaultContent(),
                     operations: defaultOperations(),
+                    analytics: defaultAnalytics(),
                     auditLog: [],
                     loading: false,
                     saving: false,
@@ -239,6 +249,7 @@
                     const providers = _.merge(defaultProviders(), clone(data.providers));
                     const content = _.merge(defaultContent(), clone(data.content));
                     const operations = _.merge(defaultOperations(), clone(data.operations));
+                    const analytics = _.merge(defaultAnalytics(), clone(data.analytics));
 
                     content.ton_assets = (content.ton_assets || []).map((asset, index) => {
                         asset.local_id = asset.local_id || ('ton-asset-' + index + '-' + Date.now());
@@ -252,6 +263,7 @@
                     this.providers = providers;
                     this.content = content;
                     this.operations = operations;
+                    this.analytics = analytics;
                     this.auditLog = clone(data.audit_log || []);
                     this.clearProviderSecrets();
                 },
@@ -324,9 +336,10 @@
                 },
                 saveOperations: function () {
                     if (!this.canWrite) return;
-                    this.write('/operations', {operations: this.operations}, 'Operations saved.')
+                    this.write('/operations', {operations: this.operations, analytics: this.analytics}, 'Operations saved.')
                         .then(data => {
                             if (data.operations) this.operations = _.merge(defaultOperations(), clone(data.operations));
+                            if (data.analytics) this.analytics = _.merge(defaultAnalytics(), clone(data.analytics));
                         });
                 },
                 purgeCache: function () {
