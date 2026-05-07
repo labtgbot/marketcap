@@ -12,7 +12,7 @@ $frontend_options['ton-asset']['apiBaseUrl'] = site_url( 'api/ton/assets' );
 <v-container tag="section" id="ton-asset" class="mt-8 mb-16 pa-4 pa-sm-6">
     <v-btn small text :to="backRoute()" class="mb-4">
         <v-icon left small>mdi-arrow-left</v-icon>
-        <?php echo esc_html( 'Back to TON catalog' ); ?>
+        <?php echo esc_html( __( 'Back to TON catalog' ) ); ?>
     </v-btn>
 
     <v-progress-linear v-if="loadingCuration" indeterminate color="primary" class="mb-4"></v-progress-linear>
@@ -43,22 +43,22 @@ $frontend_options['ton-asset']['apiBaseUrl'] = site_url( 'api/ton/assets' );
             <div class="ton-asset-meta mb-3">
                 <v-chip x-small label color="primary" outlined v-text="categoryTitle(asset.category)"></v-chip>
                 <v-chip v-if="asset.featured" x-small label color="secondary" outlined>
-                    <?php echo esc_html( 'Featured' ); ?>
+                    <?php echo esc_html( __( 'Featured' ) ); ?>
                 </v-chip>
             </div>
-            <p class="text-body-1 mb-4" v-text="asset.description || 'No description has been recorded for this asset yet.'"></p>
+            <p class="text-body-1 mb-4" v-text="asset.description || '<?php echo esc_attr( __( 'No description has been recorded for this asset yet.' ) ); ?>'"></p>
 
             <div class="ton-asset-market-grid mb-4" v-if="asset.market">
                 <div>
-                    <span class="text-caption text--secondary"><?php echo esc_html( 'Price' ); ?></span>
+                    <span class="text-caption text--secondary"><?php echo esc_html( __( 'Price' ) ); ?></span>
                     <strong v-text="$root.priceFormat(asset.market.current_price)"></strong>
                 </div>
                 <div>
-                    <span class="text-caption text--secondary"><?php echo esc_html( '24h' ); ?></span>
+                    <span class="text-caption text--secondary"><?php echo esc_html( __( '24h' ) ); ?></span>
                     <strong :class="$root.changeColorClass(asset.market.price_change_percentage_24h_in_currency)" v-text="$root.changeFormat(asset.market.price_change_percentage_24h_in_currency)"></strong>
                 </div>
                 <div>
-                    <span class="text-caption text--secondary"><?php echo esc_html( 'Market cap' ); ?></span>
+                    <span class="text-caption text--secondary"><?php echo esc_html( __( 'Market cap' ) ); ?></span>
                     <strong v-text="$root.marketCapFormat(asset.market.market_cap)"></strong>
                 </div>
             </div>
@@ -79,20 +79,20 @@ $frontend_options['ton-asset']['apiBaseUrl'] = site_url( 'api/ton/assets' );
         <v-card-actions>
             <v-btn v-if="asset.coin_id" small text :to="coinRoute(asset)">
                 <v-icon left small>mdi-chart-line</v-icon>
-                <?php echo esc_html( 'View market' ); ?>
+                <?php echo esc_html( __( 'View market' ) ); ?>
             </v-btn>
             <v-btn small text :to="categoryRoute(asset.category)">
                 <v-icon left small>mdi-folder-multiple-outline</v-icon>
-                <?php echo esc_html( 'Browse category' ); ?>
+                <?php echo esc_html( __( 'Browse category' ) ); ?>
             </v-btn>
             <v-spacer></v-spacer>
             <v-btn v-if="canEditCuration" small color="primary" depressed class="ton-admin-edit-btn" @click="openEditor">
                 <v-icon left small>mdi-pencil-outline</v-icon>
-                <?php echo esc_html( 'Edit asset' ); ?>
+                <?php echo esc_html( __( 'Edit asset' ) ); ?>
             </v-btn>
             <v-btn v-if="canEditCuration" small text color="error" class="ton-admin-delete-btn" :disabled="adminSaving" @click="deleteAsset">
                 <v-icon left small>mdi-delete-outline</v-icon>
-                <?php echo esc_html( 'Remove' ); ?>
+                <?php echo esc_html( __( 'Remove' ) ); ?>
             </v-btn>
         </v-card-actions>
     </v-card>
@@ -109,7 +109,7 @@ $frontend_options['ton-asset']['apiBaseUrl'] = site_url( 'api/ton/assets' );
     </v-row>
 
     <v-alert v-else-if="!loadingCuration" type="info" dense text class="mt-4">
-        <?php echo esc_html( 'This TON asset is not in the catalog yet.' ); ?>
+        <?php echo esc_html( __( 'This TON asset is not in the catalog yet.' ) ); ?>
     </v-alert>
 
     <v-dialog v-if="canEditCuration" v-model="editorOpen" max-width="640" persistent>

@@ -73,7 +73,7 @@ $frontend_options['currencies']['tonApiBaseUrl'] = site_url( 'api/ton/assets' );
             </v-chip>
             <v-chip small label class="mb-2" v-if="marketCurrencies.length">
                 <v-icon small left>mdi-database-check</v-icon>
-                {{ marketCurrencies.length }} assets
+                {{ marketCurrencies.length }} <?php echo esc_html( __( 'assets' ) ); ?>
             </v-chip>
         </div>
 

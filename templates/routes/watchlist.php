@@ -25,7 +25,7 @@ $frontend_options['watchlist']['title'] = __( 'Watchlist' );
                 <div class="d-flex flex-wrap align-center">
                     <v-chip small label class="mr-2 mb-2">
                         <v-icon small left>mdi-star</v-icon>
-                        {{ entries.length }} assets
+                        {{ entries.length }} <?php echo esc_html( __( 'assets' ) ); ?>
                     </v-chip>
                     <v-chip small label class="mr-2 mb-2">
                         <v-icon small left>mdi-database</v-icon>
@@ -68,8 +68,8 @@ $frontend_options['watchlist']['title'] = __( 'Watchlist' );
             <v-btn
                 icon
                 class="watchlist-icon-button"
-                :aria-label="sortDirection === 'asc' ? 'Sort descending' : 'Sort ascending'"
-                :title="sortDirection === 'asc' ? 'Sort descending' : 'Sort ascending'"
+                :aria-label="sortDirection === 'asc' ? '<?php echo esc_attr( __( 'Sort descending' ) ); ?>' : '<?php echo esc_attr( __( 'Sort ascending' ) ); ?>'"
+                :title="sortDirection === 'asc' ? '<?php echo esc_attr( __( 'Sort descending' ) ); ?>' : '<?php echo esc_attr( __( 'Sort ascending' ) ); ?>'"
                 @click="toggleSortDirection"
             >
                 <v-icon v-text="sortIcon()"></v-icon>

@@ -267,4 +267,106 @@ return [
     'Search coins, exchanges, TON assets, categories, and quick actions' => '搜索币种、交易所、TON 资产、分类与快捷操作',
     'Not financial advice'          => '不构成财务建议',
     'TONBANKCARD Crypto Tracker. Market data and third-party widgets are provided for informational use only.' => 'TONBANKCARD Crypto Tracker。市场数据及第三方小工具仅供参考。',
+
+    // Cookies dialog
+    'TONBANKCARD Uses Cookies'        => 'TONBANKCARD 使用 Cookie',
+    'TONBANKCARD Crypto Tracker uses necessary cookies and local storage for preferences such as theme, display currency, consent state, and future watchlist or alert settings. Analytics cookies are used only when enabled for the current deployment.' => 'TONBANKCARD Crypto Tracker 使用必要的 Cookie 和本地存储来保存偏好设置，例如主题、显示货币、同意状态以及未来的自选和提醒设置。分析 Cookie 仅在当前部署中启用时使用。',
+    'Accept'                          => '接受',
+
+    // Market pulse inline labels
+    'assets'                          => '个资产',
+
+    // TON ecosystem catalog labels
+    'Back to TON catalog'             => '返回 TON 目录',
+    'No description has been recorded for this asset yet.' => '该资产暂无描述。',
+    'View market'                     => '查看市场',
+    'Browse category'                 => '浏览分类',
+    'Edit asset'                      => '编辑资产',
+    'Remove'                          => '删除',
+    'This TON asset is not in the catalog yet.' => '该 TON 资产尚未加入目录。',
+    'Curated Toncoin, jettons, stablecoins, DeFi venues, wallets, and infrastructure for TONBANKCARD market context.' => '精选 Toncoin、代币、稳定币、DeFi 平台、钱包及基础设施，为 TONBANKCARD 市场提供背景参考。',
+    'Verified'                        => '已验证',
+    'Review'                          => '待审核',
+    'Categories'                      => '分类',
+    'Lists'                           => '列表',
+    'Tags'                            => '标签',
+    'Verification'                    => '验证',
+    'Curated TON assets'              => '精选 TON 资产',
+    'Updated:'                        => '更新时间：',
+    'Featured'                        => '精选',
+    'Edit'                            => '编辑',
+    'No TON assets match the active filters.' => '没有 TON 资产符合当前筛选条件。',
+    'TON ecosystem'                   => 'TON 生态',
+    'TON stablecoins'                 => 'TON 稳定币',
+    'Jettons'                         => '代币',
+    'TON DeFi'                        => 'TON DeFi',
+    'Review queue'                    => '审核队列',
+    'Last 7d'                         => '近 7 天',
+    '7d %'                            => '7天 %',
+    '30d %'                           => '30天 %',
+
+    // Screener labels
+    'Watch'                           => '关注',
+    '7d'                              => '7天',
+    '30d'                             => '30天',
+    'All categories'                  => '所有分类',
+    'Stablecoins'                     => '稳定币',
+    'Layer 1'                         => '第一层',
+    'Exchange tokens'                 => '交易所代币',
+    'Gaming'                          => '游戏',
+    'Any exchange'                    => '任意交易所',
+    'Wallets'                         => '钱包',
+    'Open filters'                    => '打开筛选',
+    'Refresh screener'                => '刷新筛选器',
+    'Close filters'                   => '关闭筛选',
+    'Category'                        => '分类',
+    'TON tag'                         => 'TON 标签',
+    'Market cap min'                  => '最小市值',
+    'Market cap max'                  => '最大市值',
+    'Volume min'                      => '最小成交量',
+    'Volume max'                      => '最大成交量',
+    'Rank max'                        => '最大排名',
+    '24h min %'                       => '24小时最小 %',
+    '7d min %'                        => '7天最小 %',
+    '30d min %'                       => '30天最小 %',
+    'Sentiment min'                   => '最小情绪',
+    'Sentiment max'                   => '最大情绪',
+    'Saved presets'                   => '已保存预设',
+    'Preset name'                     => '预设名称',
+    'Save preset'                     => '保存预设',
+    'Delete preset'                   => '删除预设',
+
+    // Wallet profile
+    'Connect a TON wallet through TON Connect for wallet-aware context. Private keys and seed phrases stay in your wallet.' => '通过 TON Connect 连接 TON 钱包以获取钱包感知上下文。私钥和助记词保留在您的钱包中。',
+    'No wallet connected'             => '未连接钱包',
+
+    // Watchlist
+    'Sort ascending'                  => '升序排序',
+    'Sort descending'                 => '降序排序',
+
+    // Alerts
+    'Delivery enabled'                => '投递已启用',
+    'Delivery flag off'               => '投递已禁用',
+    'Edit alert'                      => '编辑提醒',
+    'New alert'                       => '新建提醒',
+    'Active'                          => '激活',
+    'Paused'                          => '已暂停',
+    'Reset alert form'                => '重置提醒表单',
+
+    // Achievements
+    'badges'                          => '枚徽章',
+    'day streak'                      => '天连续',
+    'Opted in'                        => '已加入',
+    'Opt-in'                          => '加入',
+
+    // AI insight card
+    'Share insight'                   => '分享洞察',
+    'Data freshness unavailable'      => '数据时效性不可用',
+
+    // Premium
+    'Checkout enabled'                => '结账已启用',
+    'Checkout flag off'               => '结账已禁用',
+    'Monthly subscription'            => '月度订阅',
+    'Starter plan'                    => '入门计划',
+    '/ month'                         => '/ 月',
 ];

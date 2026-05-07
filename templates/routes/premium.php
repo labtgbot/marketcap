@@ -33,7 +33,7 @@ $frontend_options['premium']['title'] = __( 'Premium' );
                     </v-chip>
                     <v-chip small label :color="checkoutEnabled ? 'success' : 'warning'" text-color="white" class="mb-2">
                         <v-icon small left>{{ checkoutEnabled ? 'mdi-check-circle-outline' : 'mdi-alert-circle-outline' }}</v-icon>
-                        {{ checkoutEnabled ? 'Checkout enabled' : 'Checkout flag off' }}
+                        {{ checkoutEnabled ? '<?php echo esc_attr( __( 'Checkout enabled' ) ); ?>' : '<?php echo esc_attr( __( 'Checkout flag off' ) ); ?>' }}
                     </v-chip>
                 </div>
             </div>
@@ -63,7 +63,7 @@ $frontend_options['premium']['title'] = __( 'Premium' );
                     <v-card-title class="premium-plan-title">
                         <div>
                             <div class="text-subtitle-1 font-weight-bold">{{ plan.name }}</div>
-                            <div class="text-caption text--secondary">{{ plan.recurring ? 'Monthly subscription' : 'Starter plan' }}</div>
+                            <div class="text-caption text--secondary">{{ plan.recurring ? '<?php echo esc_attr( __( 'Monthly subscription' ) ); ?>' : '<?php echo esc_attr( __( 'Starter plan' ) ); ?>' }}</div>
                         </div>
                         <v-spacer></v-spacer>
                         <v-icon color="primary">{{ plan.recurring ? 'mdi-star-four-points-outline' : 'mdi-lock-open-variant-outline' }}</v-icon>
@@ -71,7 +71,7 @@ $frontend_options['premium']['title'] = __( 'Premium' );
                     <v-card-text>
                         <div class="premium-plan-price mb-4">
                             <span class="premium-plan-price-value">{{ priceLabel(plan) }}</span>
-                            <span class="text-caption text--secondary" v-if="plan.recurring">/ month</span>
+                            <span class="text-caption text--secondary" v-if="plan.recurring"><?php echo esc_html( __( '/ month' ) ); ?></span>
                         </div>
 
                         <div class="premium-benefit-grid">

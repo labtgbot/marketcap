@@ -28,7 +28,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
         <div class="share-market-card-footer mt-3">
             <v-chip x-small label outlined>
                 <v-icon left x-small>mdi-clock-check-outline</v-icon>
-                {{ normalizedCard.freshness || 'Data freshness unavailable' }}
+                {{ normalizedCard.freshness || '<?php echo esc_attr( __( 'Data freshness unavailable' ) ); ?>' }}
             </v-chip>
             <v-chip x-small label outlined color="primary">
                 <v-icon left x-small>mdi-shield-check-outline</v-icon>

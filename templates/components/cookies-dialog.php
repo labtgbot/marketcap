@@ -21,7 +21,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 | DESCRIPTION: Dialog title.
 |
 */
-$component_cookies_dialog['title'] = 'TONBANKCARD Uses Cookies';
+$component_cookies_dialog['title'] = __( 'TONBANKCARD Uses Cookies' );
 
 /*
 | -------------------------------------------------------------------------
@@ -32,7 +32,7 @@ $component_cookies_dialog['title'] = 'TONBANKCARD Uses Cookies';
 | DESCRIPTION: Dialog message.
 |
 */
-$component_cookies_dialog['message'] = 'TONBANKCARD Crypto Tracker uses necessary cookies and local storage for preferences such as theme, display currency, consent state, and future watchlist or alert settings. Analytics cookies are used only when enabled for the current deployment.';
+$component_cookies_dialog['message'] = __( 'TONBANKCARD Crypto Tracker uses necessary cookies and local storage for preferences such as theme, display currency, consent state, and future watchlist or alert settings. Analytics cookies are used only when enabled for the current deployment.' );
 
 /*
 | -------------------------------------------------------------------------
@@ -43,7 +43,7 @@ $component_cookies_dialog['message'] = 'TONBANKCARD Crypto Tracker uses necessar
 | DESCRIPTION: Text for accept button.
 |
 */
-$component_cookies_dialog['button_accept_text'] = 'Accept';
+$component_cookies_dialog['button_accept_text'] = __( 'Accept' );
 
 /*
 | -------------------------------------------------------------------------
@@ -65,7 +65,7 @@ $component_cookies_dialog['button_policy_show'] = ! empty( $routes['cookies-poli
 | DESCRIPTION: The text for cookies dialog reject button.
 |
 */
-$component_cookies_dialog['button_policy_text'] = 'Cookies Policy';
+$component_cookies_dialog['button_policy_text'] = __( 'Cookies Policy' );
 
 ?>
 

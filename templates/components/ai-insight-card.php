@@ -116,8 +116,8 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
                     small
                     color="primary"
                     class="ai-insight-feedback-button"
-                    aria-label="Share insight"
-                    title="Share insight"
+                    aria-label="<?php echo esc_attr( __( 'Share insight' ) ); ?>"
+                    title="<?php echo esc_attr( __( 'Share insight' ) ); ?>"
                     v-bind="attrs"
                     v-on="on"
                     @click="shareInsight"

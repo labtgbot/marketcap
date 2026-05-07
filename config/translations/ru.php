@@ -267,4 +267,106 @@ return [
     'Search coins, exchanges, TON assets, categories, and quick actions' => 'Поиск монет, бирж, TON-активов, категорий и быстрых действий',
     'Not financial advice'          => 'Не финансовая консультация',
     'TONBANKCARD Crypto Tracker. Market data and third-party widgets are provided for informational use only.' => 'TONBANKCARD Crypto Tracker. Рыночные данные и виджеты сторонних сервисов предоставляются исключительно в информационных целях.',
+
+    // Cookies dialog
+    'TONBANKCARD Uses Cookies'        => 'TONBANKCARD использует cookies',
+    'TONBANKCARD Crypto Tracker uses necessary cookies and local storage for preferences such as theme, display currency, consent state, and future watchlist or alert settings. Analytics cookies are used only when enabled for the current deployment.' => 'TONBANKCARD Crypto Tracker использует необходимые cookies и локальное хранилище для сохранения настроек: темы, валюты отображения, состояния согласия и будущих функций избранного и оповещений. Аналитические cookies используются только при включении в текущем развёртывании.',
+    'Accept'                          => 'Принять',
+
+    // Market pulse inline labels
+    'assets'                          => 'активов',
+
+    // TON ecosystem catalog labels
+    'Back to TON catalog'             => 'Назад в каталог TON',
+    'No description has been recorded for this asset yet.' => 'Описание для этого актива пока не добавлено.',
+    'View market'                     => 'Смотреть рынок',
+    'Browse category'                 => 'Открыть категорию',
+    'Edit asset'                      => 'Редактировать актив',
+    'Remove'                          => 'Удалить',
+    'This TON asset is not in the catalog yet.' => 'Этот TON-актив пока не добавлен в каталог.',
+    'Curated Toncoin, jettons, stablecoins, DeFi venues, wallets, and infrastructure for TONBANKCARD market context.' => 'Отобранные Toncoin, джеттоны, стейблкоины, DeFi-платформы, кошельки и инфраструктура для контекста рынка TONBANKCARD.',
+    'Verified'                        => 'Проверено',
+    'Review'                          => 'На проверке',
+    'Categories'                      => 'Категории',
+    'Lists'                           => 'Списки',
+    'Tags'                            => 'Теги',
+    'Verification'                    => 'Верификация',
+    'Curated TON assets'              => 'Отобранные TON-активы',
+    'Updated:'                        => 'Обновлено:',
+    'Featured'                        => 'Рекомендуемое',
+    'Edit'                            => 'Редактировать',
+    'No TON assets match the active filters.' => 'Нет TON-активов, соответствующих активным фильтрам.',
+    'TON ecosystem'                   => 'Экосистема TON',
+    'TON stablecoins'                 => 'Стейблкоины TON',
+    'Jettons'                         => 'Джеттоны',
+    'TON DeFi'                        => 'TON DeFi',
+    'Review queue'                    => 'Очередь проверки',
+    'Last 7d'                         => 'Посл. 7 дней',
+    '7d %'                            => '7д %',
+    '30d %'                           => '30д %',
+
+    // Screener labels
+    'Watch'                           => 'Отслеж.',
+    '7d'                              => '7д',
+    '30d'                             => '30д',
+    'All categories'                  => 'Все категории',
+    'Stablecoins'                     => 'Стейблкоины',
+    'Layer 1'                         => 'Уровень 1',
+    'Exchange tokens'                 => 'Токены бирж',
+    'Gaming'                          => 'Гейминг',
+    'Any exchange'                    => 'Любая биржа',
+    'Wallets'                         => 'Кошельки',
+    'Open filters'                    => 'Открыть фильтры',
+    'Refresh screener'                => 'Обновить скринер',
+    'Close filters'                   => 'Закрыть фильтры',
+    'Category'                        => 'Категория',
+    'TON tag'                         => 'Тег TON',
+    'Market cap min'                  => 'Мин. кап.',
+    'Market cap max'                  => 'Макс. кап.',
+    'Volume min'                      => 'Мин. объём',
+    'Volume max'                      => 'Макс. объём',
+    'Rank max'                        => 'Макс. ранг',
+    '24h min %'                       => '24ч мин %',
+    '7d min %'                        => '7д мин %',
+    '30d min %'                       => '30д мин %',
+    'Sentiment min'                   => 'Мин. настроение',
+    'Sentiment max'                   => 'Макс. настроение',
+    'Saved presets'                   => 'Сохранённые пресеты',
+    'Preset name'                     => 'Название пресета',
+    'Save preset'                     => 'Сохранить пресет',
+    'Delete preset'                   => 'Удалить пресет',
+
+    // Wallet profile
+    'Connect a TON wallet through TON Connect for wallet-aware context. Private keys and seed phrases stay in your wallet.' => 'Подключите TON-кошелёк через TON Connect для контекста, учитывающего кошелёк. Приватные ключи и сид-фразы остаются в вашем кошельке.',
+    'No wallet connected'             => 'Кошелёк не подключён',
+
+    // Watchlist
+    'Sort ascending'                  => 'Сортировать по возрастанию',
+    'Sort descending'                 => 'Сортировать по убыванию',
+
+    // Alerts
+    'Delivery enabled'                => 'Доставка включена',
+    'Delivery flag off'               => 'Доставка отключена',
+    'Edit alert'                      => 'Редактировать оповещение',
+    'New alert'                       => 'Новое оповещение',
+    'Active'                          => 'Активно',
+    'Paused'                          => 'Приостановлено',
+    'Reset alert form'                => 'Сбросить форму оповещения',
+
+    // Achievements
+    'badges'                          => 'значков',
+    'day streak'                      => 'дней подряд',
+    'Opted in'                        => 'Включено',
+    'Opt-in'                          => 'Включить',
+
+    // AI insight card
+    'Share insight'                   => 'Поделиться аналитикой',
+    'Data freshness unavailable'      => 'Актуальность данных недоступна',
+
+    // Premium
+    'Checkout enabled'                => 'Оплата доступна',
+    'Checkout flag off'               => 'Оплата отключена',
+    'Monthly subscription'            => 'Ежемесячная подписка',
+    'Starter plan'                    => 'Начальный план',
+    '/ month'                         => '/ мес.',
 ];
