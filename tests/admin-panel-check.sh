@@ -63,6 +63,7 @@ assert_contains "$doc" '^# TONBANKCARD V2 Admin Panel$' 'the admin panel documen
 assert_contains "$doc" 'Issue: \[#35\]' 'the issue reference'
 assert_contains "$doc" '/api/admin/feature-flags' 'feature flag admin endpoint'
 assert_contains "$doc" '/api/admin/mini-app' 'Mini App setup admin endpoint'
+assert_contains "$doc" '/api/admin/mini-app/telegram-setup' 'automatic Telegram Mini App setup endpoint'
 assert_contains "$doc" 'support role' 'read-only support role behavior'
 assert_contains "$doc" 'Secrets are write-only' 'write-only secret handling'
 assert_contains "$doc" 'audit log' 'admin audit log behavior'
@@ -82,8 +83,10 @@ assert_contains config/routes-v2.php "'admin'" 'admin route metadata'
 assert_contains config/routes-v2.php "'admin-mini-app'" 'Mini App setup admin route metadata'
 assert_contains dev/js/source.json '"routes/admin.js"' 'admin route source bundle entry'
 assert_contains dev/js/src/routes/admin.js 'admin-mini-app' 'the Mini App setup client route'
+assert_contains dev/js/src/routes/admin.js 'setupMiniAppTelegram' 'automatic Telegram setup client action'
 assert_contains templates/routes/admin.php 'admin-secret-input' 'write-only secret field markup'
 assert_contains templates/routes/admin.php 'Mini App Setup' 'the Mini App setup tab'
+assert_contains templates/routes/admin.php 'Check Bot' 'the Telegram bot check button'
 assert_contains templates/routes/admin.php 'Register Webhook' 'the Mini App webhook registration control'
 assert_contains templates/routes/admin.php 'Launch URL' 'the Mini App launch URL output'
 assert_contains templates/routes/admin.php 'Yandex Metrica' 'Yandex Metrica admin controls'
@@ -586,6 +589,138 @@ if ( FALSE !== strpos( $admin_head, 'mc.yandex.ru/metrika/tag.js' ) || FALSE !==
     exit( 1 );
 }
 
+$telegram_calls = [];
+$api_with_telegram_setup = $api;
+$api_with_telegram_setup['telegram_bot']['transport'] = function ( $method, array $payload ) use ( &$telegram_calls ) {
+    $telegram_calls[] = [
+        'method'  => $method,
+        'payload' => $payload,
+    ];
+
+    if ( 'getMe' === $method ) {
+        return [
+            'ok'     => TRUE,
+            'result' => [
+                'id'         => 987654321,
+                'is_bot'     => TRUE,
+                'first_name' => 'TONBANKCARD Admin',
+                'username'   => 'autochecked_bot',
+            ],
+        ];
+    }
+
+    if ( 'getWebhookInfo' === $method ) {
+        return [
+            'ok'     => TRUE,
+            'result' => [
+                'url'                  => 'https://miniapp.example.com/api/telegram/bot',
+                'pending_update_count' => 0,
+                'allowed_updates'      => [ 'message', 'pre_checkout_query', 'inline_query' ],
+            ],
+        ];
+    }
+
+    return [
+        'ok'          => TRUE,
+        'result'      => TRUE,
+        'description' => 'ok',
+    ];
+};
+$response = call_admin_api(
+    [
+        'method'  => 'POST',
+        'path'    => '/api/admin/mini-app/telegram-setup',
+        'headers' => [
+            'content-type' => 'application/json',
+            'x-request-id' => 'admin-mini-app-telegram-setup',
+            'authorization' => 'Bearer owner-secret-token',
+        ],
+        'body'    => json_encode(
+            [
+                'mini_app' => [
+                    'profile'           => 'telegram',
+                    'public_base_url'   => 'https://marketcap.example.com/',
+                    'telegram_base_url' => 'https://miniapp.example.com/',
+                    'bot_token'         => '123456:auto-check-bot-token-secret',
+                    'feature_alerts'    => TRUE,
+                    'feature_premium'   => TRUE,
+                ],
+            ]
+        ),
+    ],
+    $runtime,
+    $api_with_telegram_setup
+);
+$payload = json_payload( $response );
+if ( 200 !== $response['status'] || TRUE !== $payload['ok'] ) {
+    fwrite( STDERR, "Automatic Telegram Mini App setup failed: {$response['body']}\n" );
+    exit( 1 );
+}
+if (
+    'autochecked_bot' !== $payload['data']['mini_app']['telegram']['bot_username'] ||
+    empty( $payload['data']['mini_app']['telegram']['bot_token']['configured'] ) ||
+    empty( $payload['data']['mini_app']['telegram']['webhook_secret']['configured'] ) ||
+    'configured' !== $payload['data']['mini_app']['telegram_setup']['status']
+) {
+    fwrite( STDERR, "Automatic Telegram setup did not save checked bot metadata and setup status\n" );
+    exit( 1 );
+}
+$telegram_methods = array_map(
+    function ( $call ) {
+        return $call['method'];
+    },
+    $telegram_calls
+);
+$expected_telegram_methods = [ 'getMe', 'setWebhook', 'setMyCommands', 'setChatMenuButton', 'getWebhookInfo' ];
+if ( $expected_telegram_methods !== $telegram_methods ) {
+    fwrite( STDERR, 'Automatic Telegram setup called unexpected methods: ' . implode( ', ', $telegram_methods ) . "\n" );
+    exit( 1 );
+}
+$set_webhook_payload = $telegram_calls[1]['payload'];
+if (
+    'https://miniapp.example.com/api/telegram/bot' !== $set_webhook_payload['url'] ||
+    ! preg_match( '/^[A-Za-z0-9_-]{32,}$/', $set_webhook_payload['secret_token'] ) ||
+    ! in_array( 'message', $set_webhook_payload['allowed_updates'], TRUE ) ||
+    ! in_array( 'pre_checkout_query', $set_webhook_payload['allowed_updates'], TRUE ) ||
+    ! in_array( 'inline_query', $set_webhook_payload['allowed_updates'], TRUE )
+) {
+    fwrite( STDERR, "Automatic Telegram setup did not register the expected webhook payload\n" );
+    exit( 1 );
+}
+if (
+    empty( $telegram_calls[2]['payload']['commands'][0]['command'] ) ||
+    'start' !== $telegram_calls[2]['payload']['commands'][0]['command'] ||
+    'web_app' !== $telegram_calls[3]['payload']['menu_button']['type'] ||
+    'https://miniapp.example.com/' !== $telegram_calls[3]['payload']['menu_button']['web_app']['url']
+) {
+    fwrite( STDERR, "Automatic Telegram setup did not register bot commands and Mini App menu button\n" );
+    exit( 1 );
+}
+if (
+    FALSE !== strpos( $response['body'], '123456:auto-check-bot-token-secret' ) ||
+    FALSE !== strpos( $response['body'], $set_webhook_payload['secret_token'] )
+) {
+    fwrite( STDERR, "Automatic Telegram setup response leaked bot token or webhook secret\n" );
+    exit( 1 );
+}
+$env_after_telegram_setup = file_get_contents( $env_path );
+foreach (
+    [
+        'TONBANKCARD_BOT_USERNAME=autochecked_bot',
+        'TONBANKCARD_BOT_TOKEN=123456:auto-check-bot-token-secret',
+        'TONBANKCARD_TELEGRAM_BASE_URL=https://miniapp.example.com/',
+    ] as $line
+) {
+    if ( FALSE === strpos( $env_after_telegram_setup, $line ) ) {
+        fwrite( STDERR, "Automatic Telegram setup did not update .env line: {$line}\n" );
+        exit( 1 );
+    }
+}
+if ( FALSE === strpos( $env_after_telegram_setup, 'TONBANKCARD_BOT_WEBHOOK_SECRET=' . $set_webhook_payload['secret_token'] ) ) {
+    fwrite( STDERR, "Automatic Telegram setup did not persist the generated webhook secret\n" );
+    exit( 1 );
+}
+
 $response = call_admin_api(
     [
         'method'  => 'PUT',
@@ -715,11 +850,11 @@ if ( 200 !== $response['status'] || count( $payload['data']['audit_log'] ) < 5 )
     exit( 1 );
 }
 $audit = json_encode( $payload['data']['audit_log'] );
-if ( FALSE === strpos( $audit, 'owner' ) || FALSE === strpos( $audit, 'feature_flags.updated' ) || FALSE === strpos( $audit, 'providers.updated' ) || FALSE === strpos( $audit, 'mini_app.updated' ) || FALSE === strpos( $audit, 'cache.purge_requested' ) ) {
+if ( FALSE === strpos( $audit, 'owner' ) || FALSE === strpos( $audit, 'feature_flags.updated' ) || FALSE === strpos( $audit, 'providers.updated' ) || FALSE === strpos( $audit, 'mini_app.updated' ) || FALSE === strpos( $audit, 'mini_app.telegram_setup' ) || FALSE === strpos( $audit, 'cache.purge_requested' ) ) {
     fwrite( STDERR, "Admin audit log is missing actor, timestamp, or expected actions\n" );
     exit( 1 );
 }
-foreach ( [ 'groq-secret-value-that-must-not-return', 'coingecko-secret-value-that-must-not-return', 'redis-secret-value-that-must-not-return', '123456:mini-app-bot-token-secret', 'mini-app-webhook-secret-value', 'mini-app-alert-worker-secret-value', 'mini-app-premium-signing-secret-value', 'owner-secret-token' ] as $secret ) {
+foreach ( [ 'groq-secret-value-that-must-not-return', 'coingecko-secret-value-that-must-not-return', 'redis-secret-value-that-must-not-return', '123456:auto-check-bot-token-secret', $set_webhook_payload['secret_token'], '123456:mini-app-bot-token-secret', 'mini-app-webhook-secret-value', 'mini-app-alert-worker-secret-value', 'mini-app-premium-signing-secret-value', 'owner-secret-token' ] as $secret ) {
     if ( FALSE !== strpos( $audit, $secret ) ) {
         fwrite( STDERR, "Admin audit log leaked a submitted secret or token\n" );
         exit( 1 );
@@ -731,7 +866,7 @@ if ( ! is_array( $stored ) || empty( $stored['audit_log'][0]['created_at'] ) || 
     fwrite( STDERR, "Admin store did not persist audit entries with actor and timestamp\n" );
     exit( 1 );
 }
-foreach ( [ 'groq-secret-value-that-must-not-return', 'coingecko-secret-value-that-must-not-return', 'redis-secret-value-that-must-not-return', '123456:mini-app-bot-token-secret', 'mini-app-webhook-secret-value', 'mini-app-alert-worker-secret-value', 'mini-app-premium-signing-secret-value' ] as $secret ) {
+foreach ( [ 'groq-secret-value-that-must-not-return', 'coingecko-secret-value-that-must-not-return', 'redis-secret-value-that-must-not-return', '123456:auto-check-bot-token-secret', $set_webhook_payload['secret_token'], '123456:mini-app-bot-token-secret', 'mini-app-webhook-secret-value', 'mini-app-alert-worker-secret-value', 'mini-app-premium-signing-secret-value' ] as $secret ) {
     if ( FALSE !== strpos( json_encode( $stored ), $secret ) ) {
         fwrite( STDERR, "Admin store persisted a raw secret value\n" );
         exit( 1 );

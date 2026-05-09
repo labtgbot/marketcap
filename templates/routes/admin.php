@@ -488,6 +488,22 @@ $frontend_options['admin']['apiBaseUrl'] = site_url( 'api/admin' );
                                 :placeholder="secretPlaceholder(miniApp.telegram.bot_token)"
                                 :disabled="!canWrite"
                             ></v-text-field>
+                            <div class="admin-telegram-setup-row mt-3">
+                                <v-btn
+                                    outlined
+                                    small
+                                    color="primary"
+                                    :disabled="!telegramSetupAvailable"
+                                    :loading="telegramSetupLoading"
+                                    @click="setupMiniAppTelegram"
+                                >
+                                    <v-icon left>mdi-robot-outline</v-icon>
+                                    <?php echo esc_html( __( 'Check Bot' ) ); ?>
+                                </v-btn>
+                                <span class="admin-meta-line">
+                                    <?php echo esc_html( __( 'Setup' ) ); ?>: {{ telegramSetupStatusLabel }}
+                                </span>
+                            </div>
                             <v-text-field
                                 v-model.trim="miniAppSecrets.webhook_secret"
                                 class="admin-secret-input mt-3"

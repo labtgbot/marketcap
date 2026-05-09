@@ -1561,7 +1561,8 @@ v-app {
 .admin-header,
 .admin-header-actions,
 .admin-status-strip,
-.admin-sticky-actions {
+.admin-sticky-actions,
+.admin-telegram-setup-row {
     display: flex;
     align-items: center;
     flex-wrap: wrap;

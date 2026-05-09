@@ -32,6 +32,7 @@ function tonbankcard_api_admin_routes() {
         '/api/admin/session',
         '/api/admin/config',
         '/api/admin/mini-app',
+        '/api/admin/mini-app/telegram-setup',
         '/api/admin/providers',
         '/api/admin/feature-flags',
         '/api/admin/content',
@@ -149,6 +150,14 @@ function tonbankcard_api_admin_handle( array $request, array $runtime, array $co
         }
 
         return tonbankcard_api_admin_update_mini_app( $request, $runtime, $config, $actor, $request_id, $headers );
+    }
+
+    if ( '/api/admin/mini-app/telegram-setup' === $path ) {
+        if ( 'POST' !== $method ) {
+            return tonbankcard_api_method_not_allowed_response( [ 'POST', 'OPTIONS' ], $request_id, $headers );
+        }
+
+        return tonbankcard_api_admin_setup_mini_app_telegram( $request, $runtime, $config, $actor, $request_id, $headers );
     }
 
     if ( '/api/admin/providers' === $path ) {
@@ -612,6 +621,218 @@ function tonbankcard_api_admin_update_mini_app( array $request, array $runtime, 
             'actor'         => tonbankcard_api_admin_public_actor( $actor ),
             'mini_app'      => $state['mini_app'],
             'feature_flags' => $state['feature_flags'],
+        ],
+        $request_id,
+        $headers
+    );
+}
+
+/**
+ * Checks the Telegram bot token and registers Mini App webhook automation.
+ *
+ * @param array $request
+ * @param array $runtime
+ * @param array $config
+ * @param array $actor
+ * @param string $request_id
+ * @param array $headers
+ * @return array
+ */
+function tonbankcard_api_admin_setup_mini_app_telegram( array $request, array $runtime, array $config, array $actor, string $request_id, array $headers ) {
+    $body = tonbankcard_api_json_body( $request );
+    $input = isset( $body['mini_app'] ) && is_array( $body['mini_app'] ) ? $body['mini_app'] : $body;
+    $state = tonbankcard_api_admin_load_state( $runtime, $config );
+    $before = $state['mini_app'];
+
+    $mini_app = tonbankcard_api_admin_enrich_mini_app_state(
+        tonbankcard_api_admin_merge_mini_app( $state['mini_app'], $input )
+    );
+    $bot_token = tonbankcard_api_admin_mini_app_secret_value( $input, 'bot_token', [ 'telegram', 'bot_token' ], 'TONBANKCARD_BOT_TOKEN' );
+    if ( '' === $bot_token ) {
+        return tonbankcard_api_error_response(
+            400,
+            'telegram_bot_token_required',
+            'Enter a Telegram bot token before checking and registering the Mini App webhook.',
+            [ 'field' => 'bot_token' ],
+            $request_id,
+            $headers
+        );
+    }
+    if ( ! tonbankcard_api_admin_valid_telegram_bot_token( $bot_token ) ) {
+        return tonbankcard_api_error_response(
+            400,
+            'telegram_bot_token_invalid',
+            'The Telegram bot token format is invalid.',
+            [ 'field' => 'bot_token' ],
+            $request_id,
+            $headers
+        );
+    }
+
+    if ( ! tonbankcard_api_admin_is_https_url( $mini_app['runtime']['telegram_base_url'] ) ) {
+        return tonbankcard_api_error_response(
+            400,
+            'telegram_mini_app_https_required',
+            'Telegram Mini App URL must be an HTTPS URL before registering a webhook.',
+            [ 'field' => 'telegram_base_url' ],
+            $request_id,
+            $headers
+        );
+    }
+
+    $webhook_url = isset( $mini_app['launch']['webhook_url'] ) ? (string) $mini_app['launch']['webhook_url'] : '';
+    if ( '' === $webhook_url || ! tonbankcard_api_admin_is_https_url( $webhook_url ) ) {
+        return tonbankcard_api_error_response(
+            400,
+            'telegram_webhook_https_required',
+            'Telegram webhook URL must be an HTTPS URL.',
+            [ 'field' => 'launch.webhook_url' ],
+            $request_id,
+            $headers
+        );
+    }
+
+    $webhook_secret = tonbankcard_api_admin_mini_app_secret_value( $input, 'webhook_secret', [ 'telegram', 'webhook_secret' ], 'TONBANKCARD_BOT_WEBHOOK_SECRET' );
+    if ( '' === $webhook_secret ) {
+        $webhook_secret = tonbankcard_api_admin_generate_telegram_webhook_secret();
+    }
+    if ( ! tonbankcard_api_admin_valid_telegram_webhook_secret( $webhook_secret ) ) {
+        return tonbankcard_api_error_response(
+            400,
+            'telegram_webhook_secret_invalid',
+            'Telegram webhook secret must contain only letters, digits, underscore, or hyphen.',
+            [ 'field' => 'webhook_secret' ],
+            $request_id,
+            $headers
+        );
+    }
+
+    $get_me = tonbankcard_api_admin_telegram_api_call( 'getMe', $bot_token, [], $config );
+    if ( empty( $get_me['ok'] ) ) {
+        return tonbankcard_api_admin_telegram_call_error_response(
+            $get_me,
+            'telegram_bot_check_failed',
+            'Telegram did not accept the bot token.',
+            $request_id,
+            $headers
+        );
+    }
+
+    $bot = tonbankcard_api_admin_telegram_public_bot( isset( $get_me['result'] ) && is_array( $get_me['result'] ) ? $get_me['result'] : [] );
+    if ( empty( $bot['is_bot'] ) ) {
+        return tonbankcard_api_error_response(
+            502,
+            'telegram_bot_identity_invalid',
+            'Telegram getMe did not return a bot identity.',
+            [ 'method' => 'getMe' ],
+            $request_id,
+            $headers
+        );
+    }
+
+    if ( '' !== $bot['username'] ) {
+        $mini_app['telegram']['bot_username'] = $bot['username'];
+    }
+    $mini_app['telegram']['bot_token'] = tonbankcard_api_admin_secret_metadata( $bot_token, 'TONBANKCARD_BOT_TOKEN' );
+    $mini_app['telegram']['webhook_secret'] = tonbankcard_api_admin_secret_metadata( $webhook_secret, 'TONBANKCARD_BOT_WEBHOOK_SECRET' );
+    $mini_app = tonbankcard_api_admin_enrich_mini_app_state( $mini_app );
+
+    $allowed_updates = tonbankcard_api_admin_telegram_allowed_updates();
+    $set_webhook = tonbankcard_api_admin_telegram_api_call(
+        'setWebhook',
+        $bot_token,
+        [
+            'url'                  => $mini_app['launch']['webhook_url'],
+            'secret_token'         => $webhook_secret,
+            'allowed_updates'      => $allowed_updates,
+            'drop_pending_updates' => FALSE,
+        ],
+        $config
+    );
+    if ( empty( $set_webhook['ok'] ) ) {
+        return tonbankcard_api_admin_telegram_call_error_response(
+            $set_webhook,
+            'telegram_webhook_registration_failed',
+            'Telegram webhook registration failed.',
+            $request_id,
+            $headers
+        );
+    }
+
+    $commands = tonbankcard_api_admin_telegram_bot_commands();
+    $set_commands = tonbankcard_api_admin_telegram_api_call( 'setMyCommands', $bot_token, [ 'commands' => $commands ], $config );
+    if ( empty( $set_commands['ok'] ) ) {
+        return tonbankcard_api_admin_telegram_call_error_response(
+            $set_commands,
+            'telegram_commands_registration_failed',
+            'Telegram bot command registration failed.',
+            $request_id,
+            $headers
+        );
+    }
+
+    $menu_button = [
+        'type'    => 'web_app',
+        'text'    => 'Open Mini App',
+        'web_app' => [
+            'url' => $mini_app['launch']['mini_app_url'],
+        ],
+    ];
+    $set_menu = tonbankcard_api_admin_telegram_api_call( 'setChatMenuButton', $bot_token, [ 'menu_button' => $menu_button ], $config );
+    if ( empty( $set_menu['ok'] ) ) {
+        return tonbankcard_api_admin_telegram_call_error_response(
+            $set_menu,
+            'telegram_menu_button_registration_failed',
+            'Telegram Mini App menu button registration failed.',
+            $request_id,
+            $headers
+        );
+    }
+
+    $webhook_info = tonbankcard_api_admin_telegram_api_call( 'getWebhookInfo', $bot_token, [], $config );
+    if ( empty( $webhook_info['ok'] ) ) {
+        return tonbankcard_api_admin_telegram_call_error_response(
+            $webhook_info,
+            'telegram_webhook_info_failed',
+            'Telegram webhook verification failed.',
+            $request_id,
+            $headers
+        );
+    }
+
+    $mini_app['telegram_setup'] = tonbankcard_api_admin_telegram_setup_payload(
+        $bot,
+        $mini_app,
+        $allowed_updates,
+        $commands,
+        $menu_button,
+        isset( $webhook_info['result'] ) && is_array( $webhook_info['result'] ) ? $webhook_info['result'] : []
+    );
+
+    $state['mini_app'] = tonbankcard_api_admin_enrich_mini_app_state( $mini_app );
+    $state['feature_flags'] = tonbankcard_api_admin_feature_flags_from_mini_app( $state['feature_flags'], $state['mini_app'] );
+    $state['providers'] = tonbankcard_api_admin_providers_from_mini_app( $state['providers'], $state['mini_app'] );
+    $state['operations'] = tonbankcard_api_admin_operations_from_mini_app( $state['operations'], $state['mini_app'] );
+    $state = tonbankcard_api_admin_record_write( $state, $actor, 'mini_app.telegram_setup', 'mini_app', $before, $state['mini_app'], $request_id );
+
+    $persist_input = $input;
+    $persist_input['bot_token'] = $bot_token;
+    $persist_input['webhook_secret'] = $webhook_secret;
+    if ( '' !== $bot['username'] ) {
+        $persist_input['bot_username'] = $bot['username'];
+    }
+    $env_updates = tonbankcard_api_admin_mini_app_env_updates( $state['mini_app'], $persist_input );
+    $saved = tonbankcard_api_admin_save_state( $state, $runtime, $config, $env_updates );
+    if ( empty( $saved['ok'] ) ) {
+        return tonbankcard_api_admin_store_error( $saved, $request_id, $headers );
+    }
+
+    return tonbankcard_api_success_response(
+        [
+            'actor'          => tonbankcard_api_admin_public_actor( $actor ),
+            'mini_app'       => $state['mini_app'],
+            'feature_flags'  => $state['feature_flags'],
+            'telegram_setup' => $state['mini_app']['telegram_setup'],
         ],
         $request_id,
         $headers
@@ -1287,6 +1508,7 @@ function tonbankcard_api_admin_merge_mini_app( array $base, array $input ) {
 function tonbankcard_api_admin_mini_app_shape( array $state ) {
     $state['runtime'] = isset( $state['runtime'] ) && is_array( $state['runtime'] ) ? $state['runtime'] : [];
     $state['telegram'] = isset( $state['telegram'] ) && is_array( $state['telegram'] ) ? $state['telegram'] : [];
+    $state['telegram_setup'] = isset( $state['telegram_setup'] ) && is_array( $state['telegram_setup'] ) ? $state['telegram_setup'] : [];
     $state['features'] = isset( $state['features'] ) && is_array( $state['features'] ) ? $state['features'] : [];
     $state['alerts'] = isset( $state['alerts'] ) && is_array( $state['alerts'] ) ? $state['alerts'] : [];
     $state['premium'] = isset( $state['premium'] ) && is_array( $state['premium'] ) ? $state['premium'] : [];
@@ -1306,6 +1528,18 @@ function tonbankcard_api_admin_mini_app_shape( array $state ) {
             'webhook_secret' => tonbankcard_api_admin_secret_metadata_from_config( FALSE, 'env:TONBANKCARD_BOT_WEBHOOK_SECRET' ),
         ],
         $state['telegram']
+    );
+    $state['telegram_setup'] = array_merge(
+        [
+            'status'      => 'not_checked',
+            'checked_at'  => null,
+            'bot'         => null,
+            'webhook'     => null,
+            'commands'    => null,
+            'menu_button' => null,
+            'steps'       => [],
+        ],
+        $state['telegram_setup']
     );
     $state['features'] = array_merge(
         [
@@ -1398,6 +1632,356 @@ function tonbankcard_api_admin_readiness_item( string $key, string $label, bool 
         'status'  => $ok ? 'ok' : 'missing',
         'message' => $ok ? 'Ready.' : $message,
     ];
+}
+
+/**
+ * Returns a raw Mini App secret from request input or current environment.
+ *
+ * @param array $input
+ * @param string $flat_key
+ * @param array $path
+ * @param string $env_key
+ * @return string
+ */
+function tonbankcard_api_admin_mini_app_secret_value( array $input, string $flat_key, array $path, string $env_key ) {
+    $found = FALSE;
+    $value = tonbankcard_api_admin_mini_app_input_value( $input, $flat_key, $path, $found );
+    if ( $found && is_scalar( $value ) && '' !== trim( (string) $value ) ) {
+        return trim( (string) $value );
+    }
+
+    return trim( (string) tonbankcard_env( $env_key, '' ) );
+}
+
+/**
+ * Returns TRUE when a Telegram bot token has the expected public shape.
+ *
+ * @param string $token
+ * @return bool
+ */
+function tonbankcard_api_admin_valid_telegram_bot_token( string $token ) {
+    return 1 === preg_match( '/^[0-9]{4,}:[A-Za-z0-9_-]{20,}$/', $token );
+}
+
+/**
+ * Generates a Telegram-compatible webhook secret token.
+ *
+ * @return string
+ */
+function tonbankcard_api_admin_generate_telegram_webhook_secret() {
+    try {
+        $raw = random_bytes( 32 );
+    } catch ( Exception $exception ) {
+        $raw = hash( 'sha256', uniqid( 'tonbankcard_webhook_', TRUE ), TRUE );
+    }
+
+    return rtrim( strtr( base64_encode( $raw ), '+/', '-_' ), '=' );
+}
+
+/**
+ * Returns TRUE when a secret can be sent as Telegram secret_token.
+ *
+ * @param string $secret
+ * @return bool
+ */
+function tonbankcard_api_admin_valid_telegram_webhook_secret( string $secret ) {
+    return 1 === preg_match( '/^[A-Za-z0-9_-]{1,256}$/', $secret );
+}
+
+/**
+ * Returns update types needed by the bot companion.
+ *
+ * @return array
+ */
+function tonbankcard_api_admin_telegram_allowed_updates() {
+    return [ 'message', 'pre_checkout_query', 'inline_query' ];
+}
+
+/**
+ * Returns the bot command menu configured during automatic setup.
+ *
+ * @return array
+ */
+function tonbankcard_api_admin_telegram_bot_commands() {
+    return [
+        [ 'command' => 'start', 'description' => 'Open the Mini App' ],
+        [ 'command' => 'market', 'description' => 'Open market overview' ],
+        [ 'command' => 'watchlist', 'description' => 'Open watchlist' ],
+        [ 'command' => 'alerts', 'description' => 'Open alerts' ],
+        [ 'command' => 'settings', 'description' => 'Open settings' ],
+        [ 'command' => 'support', 'description' => 'Open support' ],
+    ];
+}
+
+/**
+ * Returns safe bot identity metadata from Telegram getMe.
+ *
+ * @param array $bot
+ * @return array
+ */
+function tonbankcard_api_admin_telegram_public_bot( array $bot ) {
+    return [
+        'id'                       => array_key_exists( 'id', $bot ) ? (string) $bot['id'] : '',
+        'is_bot'                   => ! empty( $bot['is_bot'] ),
+        'first_name'               => isset( $bot['first_name'] ) ? tonbankcard_api_admin_safe_text( $bot['first_name'], 64 ) : '',
+        'username'                 => isset( $bot['username'] ) ? tonbankcard_api_admin_telegram_username( $bot['username'] ) : '',
+        'can_join_groups'          => array_key_exists( 'can_join_groups', $bot ) ? (bool) $bot['can_join_groups'] : null,
+        'supports_inline_queries'  => array_key_exists( 'supports_inline_queries', $bot ) ? (bool) $bot['supports_inline_queries'] : null,
+        'has_main_web_app'         => array_key_exists( 'has_main_web_app', $bot ) ? (bool) $bot['has_main_web_app'] : null,
+    ];
+}
+
+/**
+ * Builds the public automatic Telegram setup result.
+ *
+ * @param array $bot
+ * @param array $mini_app
+ * @param array $allowed_updates
+ * @param array $commands
+ * @param array $menu_button
+ * @param array $webhook_info
+ * @return array
+ */
+function tonbankcard_api_admin_telegram_setup_payload( array $bot, array $mini_app, array $allowed_updates, array $commands, array $menu_button, array $webhook_info ) {
+    $last_error = isset( $webhook_info['last_error_message'] )
+        ? tonbankcard_api_admin_safe_text( tonbankcard_api_admin_redact_value( $webhook_info['last_error_message'] ), 240 )
+        : null;
+
+    return [
+        'status'      => 'configured',
+        'checked_at'  => gmdate( 'c' ),
+        'bot'         => $bot,
+        'webhook'     => [
+            'registered'           => TRUE,
+            'url'                  => isset( $webhook_info['url'] ) && '' !== trim( (string) $webhook_info['url'] ) ? (string) $webhook_info['url'] : $mini_app['launch']['webhook_url'],
+            'allowed_updates'      => isset( $webhook_info['allowed_updates'] ) && is_array( $webhook_info['allowed_updates'] ) ? array_values( $webhook_info['allowed_updates'] ) : $allowed_updates,
+            'pending_update_count' => isset( $webhook_info['pending_update_count'] ) ? max( 0, (int) $webhook_info['pending_update_count'] ) : null,
+            'last_error_message'   => $last_error,
+        ],
+        'commands'    => [
+            'registered' => TRUE,
+            'count'      => count( $commands ),
+        ],
+        'menu_button' => [
+            'registered' => TRUE,
+            'type'       => isset( $menu_button['type'] ) ? (string) $menu_button['type'] : 'web_app',
+            'text'       => isset( $menu_button['text'] ) ? (string) $menu_button['text'] : '',
+            'url'        => isset( $menu_button['web_app']['url'] ) ? (string) $menu_button['web_app']['url'] : '',
+        ],
+        'steps'       => [
+            tonbankcard_api_admin_telegram_setup_step( 'get_me', 'Bot token checked' ),
+            tonbankcard_api_admin_telegram_setup_step( 'set_webhook', 'Webhook registered' ),
+            tonbankcard_api_admin_telegram_setup_step( 'set_my_commands', 'Bot commands registered' ),
+            tonbankcard_api_admin_telegram_setup_step( 'set_chat_menu_button', 'Mini App menu button registered' ),
+            tonbankcard_api_admin_telegram_setup_step( 'get_webhook_info', 'Webhook registration verified' ),
+        ],
+    ];
+}
+
+/**
+ * Returns a single automatic setup step.
+ *
+ * @param string $key
+ * @param string $label
+ * @return array
+ */
+function tonbankcard_api_admin_telegram_setup_step( string $key, string $label ) {
+    return [
+        'key'     => $key,
+        'label'   => $label,
+        'status'  => 'ok',
+        'message' => 'Ready.',
+    ];
+}
+
+/**
+ * Calls the Telegram Bot API or a test transport override.
+ *
+ * @param string $method
+ * @param string $bot_token
+ * @param array $payload
+ * @param array $config
+ * @return array
+ */
+function tonbankcard_api_admin_telegram_api_call( string $method, string $bot_token, array $payload, array $config ) {
+    $telegram = isset( $config['telegram_bot'] ) && is_array( $config['telegram_bot'] ) ? $config['telegram_bot'] : [];
+    if ( isset( $telegram['transport'] ) && is_callable( $telegram['transport'] ) ) {
+        try {
+            return tonbankcard_api_admin_telegram_api_response( $method, call_user_func( $telegram['transport'], $method, $payload ) );
+        } catch ( Exception $exception ) {
+            return [
+                'ok'          => FALSE,
+                'method'      => $method,
+                'status'      => 0,
+                'description' => tonbankcard_api_admin_safe_text( $exception->getMessage(), 240 ),
+            ];
+        }
+    }
+
+    $base_url = isset( $telegram['api_base_url'] ) ? tonbankcard_api_admin_absolute_url( $telegram['api_base_url'] ) : 'https://api.telegram.org/';
+    if ( '' === $base_url ) {
+        $base_url = 'https://api.telegram.org/';
+    }
+    $request = [
+        'url'             => rtrim( $base_url, '/' ) . '/bot' . $bot_token . '/' . rawurlencode( $method ),
+        'payload'         => $payload,
+        'timeout_seconds' => isset( $telegram['timeout_seconds'] ) ? max( 1, min( 15, (int) $telegram['timeout_seconds'] ) ) : 8,
+    ];
+
+    if ( function_exists( 'curl_init' ) ) {
+        return tonbankcard_api_admin_telegram_api_response( $method, tonbankcard_api_admin_telegram_api_call_with_curl( $request ) );
+    }
+
+    return tonbankcard_api_admin_telegram_api_response( $method, tonbankcard_api_admin_telegram_api_call_with_stream( $request ) );
+}
+
+/**
+ * Performs a Telegram Bot API POST with cURL.
+ *
+ * @param array $request
+ * @return array
+ */
+function tonbankcard_api_admin_telegram_api_call_with_curl( array $request ) {
+    $body = json_encode( $request['payload'], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE );
+    if ( FALSE === $body ) {
+        $body = '{}';
+    }
+
+    $handle = curl_init( $request['url'] );
+    if ( FALSE === $handle ) {
+        return [ 'status' => 0, 'body' => '', 'error' => 'telegram_transport_unavailable' ];
+    }
+
+    curl_setopt_array(
+        $handle,
+        [
+            CURLOPT_RETURNTRANSFER => TRUE,
+            CURLOPT_POST           => TRUE,
+            CURLOPT_HTTPHEADER     => [ 'Content-Type: application/json' ],
+            CURLOPT_POSTFIELDS     => $body,
+            CURLOPT_TIMEOUT        => (int) $request['timeout_seconds'],
+            CURLOPT_CONNECTTIMEOUT => min( 5, (int) $request['timeout_seconds'] ),
+        ]
+    );
+    $response_body = curl_exec( $handle );
+    $status = (int) curl_getinfo( $handle, CURLINFO_HTTP_CODE );
+    $error = curl_error( $handle );
+    curl_close( $handle );
+
+    return [
+        'status' => $status,
+        'body'   => FALSE === $response_body ? '' : $response_body,
+        'error'  => $error,
+    ];
+}
+
+/**
+ * Performs a Telegram Bot API POST with PHP streams.
+ *
+ * @param array $request
+ * @return array
+ */
+function tonbankcard_api_admin_telegram_api_call_with_stream( array $request ) {
+    $body = json_encode( $request['payload'], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE );
+    if ( FALSE === $body ) {
+        $body = '{}';
+    }
+
+    $context = stream_context_create(
+        [
+            'http' => [
+                'method'        => 'POST',
+                'header'        => "Content-Type: application/json\r\n",
+                'content'       => $body,
+                'timeout'       => (int) $request['timeout_seconds'],
+                'ignore_errors' => TRUE,
+            ],
+        ]
+    );
+    $response_body = @file_get_contents( $request['url'], FALSE, $context );
+    $status = 0;
+    if ( isset( $http_response_header ) && is_array( $http_response_header ) ) {
+        foreach ( $http_response_header as $line ) {
+            if ( preg_match( '#^HTTP/\S+\s+([0-9]{3})#', $line, $matches ) ) {
+                $status = (int) $matches[1];
+                break;
+            }
+        }
+    }
+
+    return [
+        'status' => $status,
+        'body'   => FALSE === $response_body ? '' : $response_body,
+        'error'  => FALSE === $response_body ? 'telegram_transport_failed' : '',
+    ];
+}
+
+/**
+ * Normalizes Telegram Bot API transport results.
+ *
+ * @param string $method
+ * @param mixed $response
+ * @return array
+ */
+function tonbankcard_api_admin_telegram_api_response( string $method, $response ) {
+    if ( is_array( $response ) && array_key_exists( 'ok', $response ) && ! array_key_exists( 'body', $response ) ) {
+        return [
+            'ok'          => ! empty( $response['ok'] ),
+            'method'      => $method,
+            'status'      => isset( $response['status'] ) ? (int) $response['status'] : ( ! empty( $response['ok'] ) ? 200 : 502 ),
+            'result'      => isset( $response['result'] ) ? $response['result'] : null,
+            'error_code'  => isset( $response['error_code'] ) ? (int) $response['error_code'] : null,
+            'description' => isset( $response['description'] ) ? tonbankcard_api_admin_safe_text( tonbankcard_api_admin_redact_value( $response['description'] ), 240 ) : '',
+        ];
+    }
+
+    $status = is_array( $response ) && isset( $response['status'] ) ? (int) $response['status'] : 0;
+    $body = is_array( $response ) && isset( $response['body'] ) ? (string) $response['body'] : '';
+    $decoded = '' !== $body ? json_decode( $body, TRUE ) : null;
+    if ( is_array( $decoded ) ) {
+        return [
+            'ok'          => 200 <= $status && 300 > $status && ! empty( $decoded['ok'] ),
+            'method'      => $method,
+            'status'      => $status,
+            'result'      => isset( $decoded['result'] ) ? $decoded['result'] : null,
+            'error_code'  => isset( $decoded['error_code'] ) ? (int) $decoded['error_code'] : null,
+            'description' => isset( $decoded['description'] ) ? tonbankcard_api_admin_safe_text( tonbankcard_api_admin_redact_value( $decoded['description'] ), 240 ) : '',
+        ];
+    }
+
+    return [
+        'ok'          => FALSE,
+        'method'      => $method,
+        'status'      => $status,
+        'result'      => null,
+        'error_code'  => null,
+        'description' => is_array( $response ) && ! empty( $response['error'] ) ? tonbankcard_api_admin_safe_text( $response['error'], 240 ) : 'Telegram API response was not valid JSON.',
+    ];
+}
+
+/**
+ * Converts Telegram call failures to a safe admin API response.
+ *
+ * @param array $call
+ * @param string $code
+ * @param string $message
+ * @param string $request_id
+ * @param array $headers
+ * @return array
+ */
+function tonbankcard_api_admin_telegram_call_error_response( array $call, string $code, string $message, string $request_id, array $headers ) {
+    $details = [
+        'method' => isset( $call['method'] ) ? (string) $call['method'] : 'telegram',
+        'status' => isset( $call['status'] ) ? (int) $call['status'] : 0,
+    ];
+    if ( isset( $call['error_code'] ) && null !== $call['error_code'] ) {
+        $details['telegram_error_code'] = (int) $call['error_code'];
+    }
+    if ( ! empty( $call['description'] ) ) {
+        $details['description'] = tonbankcard_api_admin_safe_text( tonbankcard_api_admin_redact_value( $call['description'] ), 240 );
+    }
+
+    return tonbankcard_api_error_response( 502, $code, $message, $details, $request_id, $headers );
 }
 
 /**

@@ -115,6 +115,15 @@
                 set_webhook_command: '',
                 alert_worker_command: ''
             },
+            telegram_setup: {
+                status: 'not_checked',
+                checked_at: null,
+                bot: null,
+                webhook: null,
+                commands: null,
+                menu_button: null,
+                steps: []
+            },
             readiness: []
         };
     }
@@ -150,6 +159,7 @@
                     auditLog: [],
                     loading: false,
                     saving: false,
+                    telegramSetupLoading: false,
                     notice: '',
                     noticeType: 'info',
                     cacheScope: 'all'
@@ -256,6 +266,21 @@
                 },
                 miniAppReadiness: function () {
                     return this.miniApp.readiness || [];
+                },
+                telegramSetupAvailable: function () {
+                    const hasToken = !!this.miniAppSecrets.bot_token || _.get(this.miniApp, 'telegram.bot_token.configured') === true;
+                    const hasUrl = !!_.get(this.miniApp, 'runtime.telegram_base_url');
+                    return this.canWrite && hasToken && hasUrl && !this.saving && !this.telegramSetupLoading;
+                },
+                telegramSetupStatusLabel: function () {
+                    const setup = this.miniApp.telegram_setup || {};
+                    if (_.get(setup, 'status') === 'configured') {
+                        const username = _.get(setup, 'bot.username');
+                        const checkedAt = setup.checked_at ? this.formatDate(setup.checked_at) : '';
+                        return (username ? '@' + username : 'Telegram bot') + (checkedAt ? ' checked at ' + checkedAt : ' checked');
+                    }
+
+                    return 'not checked';
                 }
             },
             methods: {
@@ -393,6 +418,35 @@
                 saveMiniApp: function () {
                     if (!this.canWrite) return;
 
+                    const payload = this.buildMiniAppPayload();
+
+                    this.write('/mini-app', {mini_app: payload}, 'Mini App setup saved.')
+                        .then(data => {
+                            if (data.mini_app) this.miniApp = _.merge(defaultMiniApp(), clone(data.mini_app));
+                            if (data.feature_flags) this.featureFlags = clone(data.feature_flags);
+                            this.clearMiniAppSecrets();
+                        });
+                },
+                setupMiniAppTelegram: function () {
+                    if (!this.telegramSetupAvailable) return;
+
+                    const payload = this.buildMiniAppPayload();
+                    this.telegramSetupLoading = true;
+                    this.notice = '';
+
+                    this.client().post('/mini-app/telegram-setup', {mini_app: payload})
+                        .then(response => {
+                            const data = _.get(response, 'data.data') || {};
+                            if (data.mini_app) this.miniApp = _.merge(defaultMiniApp(), clone(data.mini_app));
+                            if (data.feature_flags) this.featureFlags = clone(data.feature_flags);
+                            this.clearMiniAppSecrets();
+                            this.loadAuditLog();
+                            this.showNotice('Telegram bot checked and webhook registered.', 'success');
+                        })
+                        .catch(error => this.handleError(error, 'Telegram bot could not be checked or registered.'))
+                        .finally(() => this.telegramSetupLoading = false);
+                },
+                buildMiniAppPayload: function () {
                     const payload = {
                         profile: _.get(this.miniApp, 'runtime.profile'),
                         public_base_url: _.get(this.miniApp, 'runtime.public_base_url'),
@@ -416,12 +470,7 @@
                     if (this.miniAppSecrets.alert_worker_token) payload.alert_worker_token = this.miniAppSecrets.alert_worker_token;
                     if (this.miniAppSecrets.premium_signing_secret) payload.premium_signing_secret = this.miniAppSecrets.premium_signing_secret;
 
-                    this.write('/mini-app', {mini_app: payload}, 'Mini App setup saved.')
-                        .then(data => {
-                            if (data.mini_app) this.miniApp = _.merge(defaultMiniApp(), clone(data.mini_app));
-                            if (data.feature_flags) this.featureFlags = clone(data.feature_flags);
-                            this.clearMiniAppSecrets();
-                        });
+                    return payload;
                 },
                 saveContent: function () {
                     if (!this.canWrite) return;

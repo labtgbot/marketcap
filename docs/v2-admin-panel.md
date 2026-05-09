@@ -19,7 +19,7 @@ The admin store path is configured with `TONBANKCARD_ADMIN_STORE`. The store con
 - Cache provider: Upstash status and write-only REST token metadata.
 - Exchange widget: ChangeNOW link id.
 - Feature flags: `/api/admin/feature-flags` can independently disable AI, alerts, widget, TON Connect, gamification, referrals, and premium controls.
-- Mini App setup: a separate `/admin/mini-app` tab writes the Telegram runtime profile, public and Mini App URLs, bot username, bot token metadata, webhook secret metadata, alert worker token metadata, Telegram Stars premium settings, and launch feature flags from one operator workflow.
+- Mini App setup: a separate `/admin/mini-app` tab writes the Telegram runtime profile, public and Mini App URLs, bot username, bot token metadata, webhook secret metadata, alert worker token metadata, Telegram Stars premium settings, and launch feature flags from one operator workflow. Operators can also check a bot token and automatically register the Telegram webhook, bot commands, and Mini App menu button.
 - Content: legal copy for the global disclaimer and curated TON assets merged into `/api/ton/assets`.
 - Operations: cache stale mode, purge requests, alert thresholds, and achievement settings.
 
@@ -41,6 +41,7 @@ Every write is appended to the audit log with actor, role, action, subject type,
 - `POST /api/admin/session`: validates an owner or support token.
 - `GET /api/admin/config`: returns safe current admin state.
 - `PUT /api/admin/mini-app`: updates Telegram Mini App deployment settings, writes the allowed `.env` keys, returns readiness status, launch URL, webhook URL, and a safe `setWebhook` command template.
+- `POST /api/admin/mini-app/telegram-setup`: checks the Telegram bot token, generates and persists a webhook secret when needed, registers the webhook, commands, and Mini App menu button, and returns redacted setup status.
 - `PUT /api/admin/providers`: updates provider metadata and secret references.
 - `PUT /api/admin/feature-flags`: updates runtime feature flags.
 - `PUT /api/admin/content`: updates legal copy and curated TON assets.
