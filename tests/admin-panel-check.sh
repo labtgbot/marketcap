@@ -62,6 +62,7 @@ assert_file dev/js/src/routes/admin.js
 assert_contains "$doc" '^# TONBANKCARD V2 Admin Panel$' 'the admin panel documentation title'
 assert_contains "$doc" 'Issue: \[#35\]' 'the issue reference'
 assert_contains "$doc" '/api/admin/feature-flags' 'feature flag admin endpoint'
+assert_contains "$doc" '/api/admin/mini-app' 'Mini App setup admin endpoint'
 assert_contains "$doc" 'support role' 'read-only support role behavior'
 assert_contains "$doc" 'Secrets are write-only' 'write-only secret handling'
 assert_contains "$doc" 'audit log' 'admin audit log behavior'
@@ -72,12 +73,19 @@ assert_contains .env.example '^TONBANKCARD_ADMIN_SUPPORT_TOKEN=' 'the support to
 assert_contains package.json '"test:admin-panel"' 'the admin panel npm script'
 assert_contains package.json 'test:admin-panel' 'the aggregate admin panel check'
 assert_contains api/router.php '/api/admin/feature-flags' 'the API route index entry'
+assert_contains api/router.php '/api/admin/mini-app' 'the Mini App setup API route index entry'
 assert_contains api/router.php 'tonbankcard_api_admin_handle' 'admin route dispatch'
 assert_contains config/runtime.php 'TONBANKCARD_ADMIN_STORE' 'runtime admin store integration'
 assert_contains config/routes.php "'admin'" 'admin route registration'
+assert_contains config/routes.php "'admin-mini-app'" 'Mini App setup admin route registration'
 assert_contains config/routes-v2.php "'admin'" 'admin route metadata'
+assert_contains config/routes-v2.php "'admin-mini-app'" 'Mini App setup admin route metadata'
 assert_contains dev/js/source.json '"routes/admin.js"' 'admin route source bundle entry'
+assert_contains dev/js/src/routes/admin.js 'admin-mini-app' 'the Mini App setup client route'
 assert_contains templates/routes/admin.php 'admin-secret-input' 'write-only secret field markup'
+assert_contains templates/routes/admin.php 'Mini App Setup' 'the Mini App setup tab'
+assert_contains templates/routes/admin.php 'Register Webhook' 'the Mini App webhook registration control'
+assert_contains templates/routes/admin.php 'Launch URL' 'the Mini App launch URL output'
 assert_contains templates/routes/admin.php 'Yandex Metrica' 'Yandex Metrica admin controls'
 assert_contains views/app-head.php 'mc\.yandex\.ru/metrika/tag\.js' 'Yandex Metrica public embed'
 assert_contains assets/css/style.css 'admin-shell' 'admin panel styling'
@@ -580,6 +588,117 @@ if ( FALSE !== strpos( $admin_head, 'mc.yandex.ru/metrika/tag.js' ) || FALSE !==
 
 $response = call_admin_api(
     [
+        'method'  => 'PUT',
+        'path'    => '/api/admin/mini-app',
+        'headers' => [
+            'content-type' => 'application/json',
+            'x-request-id' => 'admin-mini-app-write',
+            'authorization' => 'Bearer owner-secret-token',
+        ],
+        'body'    => json_encode(
+            [
+                'mini_app' => [
+                    'profile'                       => 'telegram',
+                    'public_base_url'               => 'https://marketcap.example.com/',
+                    'telegram_base_url'             => 'https://miniapp.example.com/',
+                    'bot_username'                  => '@tonbankcard_admin_bot',
+                    'bot_token'                     => '123456:mini-app-bot-token-secret',
+                    'webhook_secret'                => 'mini-app-webhook-secret-value',
+                    'alert_worker_token'            => 'mini-app-alert-worker-secret-value',
+                    'feature_alerts'                => TRUE,
+                    'feature_premium'               => TRUE,
+                    'feature_referrals'             => TRUE,
+                    'premium_plan_code'             => 'premium_monthly',
+                    'premium_monthly_stars'         => 299,
+                    'premium_subscription_period'   => 2592000,
+                    'premium_signing_secret'        => 'mini-app-premium-signing-secret-value',
+                ],
+            ]
+        ),
+    ],
+    $runtime,
+    $api
+);
+$payload = json_payload( $response );
+if ( 200 !== $response['status'] || TRUE !== $payload['ok'] ) {
+    fwrite( STDERR, "Admin Mini App setup write failed: {$response['body']}\n" );
+    exit( 1 );
+}
+if (
+    'telegram' !== $payload['data']['mini_app']['runtime']['profile'] ||
+    'https://marketcap.example.com/' !== $payload['data']['mini_app']['runtime']['public_base_url'] ||
+    'https://miniapp.example.com/' !== $payload['data']['mini_app']['runtime']['telegram_base_url'] ||
+    'tonbankcard_admin_bot' !== $payload['data']['mini_app']['telegram']['bot_username']
+) {
+    fwrite( STDERR, "Admin Mini App setup did not normalize runtime URLs and bot username\n" );
+    exit( 1 );
+}
+if (
+    empty( $payload['data']['mini_app']['telegram']['bot_token']['configured'] ) ||
+    empty( $payload['data']['mini_app']['telegram']['webhook_secret']['configured'] ) ||
+    empty( $payload['data']['mini_app']['alerts']['worker_token']['configured'] ) ||
+    empty( $payload['data']['mini_app']['premium']['signing_secret']['configured'] )
+) {
+    fwrite( STDERR, "Admin Mini App setup did not return redacted configured secret metadata\n" );
+    exit( 1 );
+}
+if (
+    'https://t.me/tonbankcard_admin_bot?startapp' !== $payload['data']['mini_app']['launch']['telegram_launch_url'] ||
+    'https://miniapp.example.com/api/telegram/bot' !== $payload['data']['mini_app']['launch']['webhook_url'] ||
+    FALSE === strpos( $payload['data']['mini_app']['launch']['set_webhook_command'], 'setWebhook' )
+) {
+    fwrite( STDERR, "Admin Mini App setup did not build launch and webhook helpers\n" );
+    exit( 1 );
+}
+$mini_app_body = $response['body'];
+foreach ( [ '123456:mini-app-bot-token-secret', 'mini-app-webhook-secret-value', 'mini-app-alert-worker-secret-value', 'mini-app-premium-signing-secret-value' ] as $secret ) {
+    if ( FALSE !== strpos( $mini_app_body, $secret ) ) {
+        fwrite( STDERR, "Admin Mini App setup response leaked a submitted secret\n" );
+        exit( 1 );
+    }
+}
+$env_after_mini_app = file_get_contents( $env_path );
+foreach (
+    [
+        'TONBANKCARD_PROFILE=telegram',
+        'TONBANKCARD_PUBLIC_BASE_URL=https://marketcap.example.com/',
+        'TONBANKCARD_TELEGRAM_BASE_URL=https://miniapp.example.com/',
+        'TONBANKCARD_BOT_USERNAME=tonbankcard_admin_bot',
+        'TONBANKCARD_BOT_TOKEN=123456:mini-app-bot-token-secret',
+        'TONBANKCARD_BOT_WEBHOOK_SECRET=mini-app-webhook-secret-value',
+        'TONBANKCARD_ALERT_WORKER_TOKEN=mini-app-alert-worker-secret-value',
+        'TONBANKCARD_FEATURE_ALERTS=true',
+        'TONBANKCARD_FEATURE_PREMIUM=true',
+        'TONBANKCARD_FEATURE_REFERRALS=true',
+        'TONBANKCARD_PREMIUM_PLAN_CODE=premium_monthly',
+        'TONBANKCARD_PREMIUM_MONTHLY_STARS=299',
+        'TONBANKCARD_PREMIUM_SUBSCRIPTION_PERIOD_SECONDS=2592000',
+        'TONBANKCARD_PREMIUM_SIGNING_SECRET=mini-app-premium-signing-secret-value',
+    ] as $line
+) {
+    if ( FALSE === strpos( $env_after_mini_app, $line ) ) {
+        fwrite( STDERR, "Admin Mini App setup did not update .env line: {$line}\n" );
+        exit( 1 );
+    }
+}
+$reloaded_after_mini_app = tonbankcard_runtime_config();
+if (
+    'telegram' !== $reloaded_after_mini_app['profile'] ||
+    'https://marketcap.example.com/' !== $reloaded_after_mini_app['urls']['public'] ||
+    'https://miniapp.example.com/' !== $reloaded_after_mini_app['urls']['telegram'] ||
+    'tonbankcard_admin_bot' !== $reloaded_after_mini_app['telegram']['bot_username'] ||
+    '123456:mini-app-bot-token-secret' !== $reloaded_after_mini_app['telegram']['bot_token'] ||
+    'mini-app-webhook-secret-value' !== $reloaded_after_mini_app['telegram']['webhook_secret'] ||
+    TRUE !== $reloaded_after_mini_app['feature_flags']['alerts'] ||
+    TRUE !== $reloaded_after_mini_app['feature_flags']['premium'] ||
+    TRUE !== $reloaded_after_mini_app['feature_flags']['referrals']
+) {
+    fwrite( STDERR, "Runtime config did not reload Mini App setup values saved through admin .env persistence\n" );
+    exit( 1 );
+}
+
+$response = call_admin_api(
+    [
         'method'  => 'GET',
         'path'    => '/api/admin/audit-log',
         'headers' => [
@@ -591,16 +710,16 @@ $response = call_admin_api(
     $api
 );
 $payload = json_payload( $response );
-if ( 200 !== $response['status'] || count( $payload['data']['audit_log'] ) < 4 ) {
+if ( 200 !== $response['status'] || count( $payload['data']['audit_log'] ) < 5 ) {
     fwrite( STDERR, "Admin audit log did not record writes\n" );
     exit( 1 );
 }
 $audit = json_encode( $payload['data']['audit_log'] );
-if ( FALSE === strpos( $audit, 'owner' ) || FALSE === strpos( $audit, 'feature_flags.updated' ) || FALSE === strpos( $audit, 'providers.updated' ) || FALSE === strpos( $audit, 'cache.purge_requested' ) ) {
+if ( FALSE === strpos( $audit, 'owner' ) || FALSE === strpos( $audit, 'feature_flags.updated' ) || FALSE === strpos( $audit, 'providers.updated' ) || FALSE === strpos( $audit, 'mini_app.updated' ) || FALSE === strpos( $audit, 'cache.purge_requested' ) ) {
     fwrite( STDERR, "Admin audit log is missing actor, timestamp, or expected actions\n" );
     exit( 1 );
 }
-foreach ( [ 'groq-secret-value-that-must-not-return', 'coingecko-secret-value-that-must-not-return', 'redis-secret-value-that-must-not-return', 'owner-secret-token' ] as $secret ) {
+foreach ( [ 'groq-secret-value-that-must-not-return', 'coingecko-secret-value-that-must-not-return', 'redis-secret-value-that-must-not-return', '123456:mini-app-bot-token-secret', 'mini-app-webhook-secret-value', 'mini-app-alert-worker-secret-value', 'mini-app-premium-signing-secret-value', 'owner-secret-token' ] as $secret ) {
     if ( FALSE !== strpos( $audit, $secret ) ) {
         fwrite( STDERR, "Admin audit log leaked a submitted secret or token\n" );
         exit( 1 );
@@ -612,7 +731,7 @@ if ( ! is_array( $stored ) || empty( $stored['audit_log'][0]['created_at'] ) || 
     fwrite( STDERR, "Admin store did not persist audit entries with actor and timestamp\n" );
     exit( 1 );
 }
-foreach ( [ 'groq-secret-value-that-must-not-return', 'coingecko-secret-value-that-must-not-return', 'redis-secret-value-that-must-not-return' ] as $secret ) {
+foreach ( [ 'groq-secret-value-that-must-not-return', 'coingecko-secret-value-that-must-not-return', 'redis-secret-value-that-must-not-return', '123456:mini-app-bot-token-secret', 'mini-app-webhook-secret-value', 'mini-app-alert-worker-secret-value', 'mini-app-premium-signing-secret-value' ] as $secret ) {
     if ( FALSE !== strpos( json_encode( $stored ), $secret ) ) {
         fwrite( STDERR, "Admin store persisted a raw secret value\n" );
         exit( 1 );

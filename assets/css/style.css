@@ -780,6 +780,15 @@ v-app {
         gap: 4px;
     }
 
+    .admin-command-actions .v-spacer {
+        display: none;
+    }
+
+    .admin-command-actions .v-btn {
+        flex: 1 1 100%;
+        margin-left: 0 !important;
+    }
+
     .tbc-top-search {
         flex: 0 0 auto;
         margin-right: 4px !important;
@@ -1589,6 +1598,15 @@ v-app {
 }
 .admin-secret-input input {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+.admin-command-output textarea {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+}
+.admin-command-actions {
+    flex-wrap: wrap;
+    gap: 8px;
 }
 .admin-ton-card {
     border: 1px solid rgba(0, 0, 0, 0.12);

@@ -292,6 +292,7 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
                             '/api/admin',
                             '/api/admin/session',
                             '/api/admin/config',
+                            '/api/admin/mini-app',
                             '/api/admin/providers',
                             '/api/admin/feature-flags',
                             '/api/admin/content',

@@ -161,6 +161,12 @@ $routes['admin-feature-flags'] = [
     'template' => 'admin',
 ];
 
+$routes['admin-mini-app'] = [
+    'path' => '/admin/mini-app',
+    'enabled' => TRUE,
+    'template' => 'admin',
+];
+
 $routes['admin-ton-assets'] = [
     'path' => '/admin/ton-assets',
     'enabled' => TRUE,

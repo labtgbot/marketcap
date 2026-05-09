@@ -7576,6 +7576,7 @@
         'admin',
         'admin-providers',
         'admin-feature-flags',
+        'admin-mini-app',
         'admin-ton-assets',
         'admin-legal-copy',
         'admin-alerts',
@@ -7642,6 +7643,48 @@
         };
     }
 
+    function defaultMiniApp() {
+        return {
+            runtime: {
+                profile: 'local',
+                public_base_url: '',
+                telegram_base_url: ''
+            },
+            telegram: {
+                bot_username: '',
+                bot_token: {configured: false},
+                webhook_secret: {configured: false}
+            },
+            features: {
+                alerts: false,
+                premium: false,
+                referrals: false,
+                ton_connect: false
+            },
+            alerts: {
+                worker_token: {configured: false},
+                max_alerts_per_user: 20,
+                default_frequency_cap_seconds: 3600,
+                default_max_deliveries_per_day: 8,
+                evaluation_interval_seconds: 300
+            },
+            premium: {
+                plan_code: 'premium_monthly',
+                monthly_stars: 199,
+                subscription_period_seconds: 2592000,
+                signing_secret: {configured: false}
+            },
+            launch: {
+                mini_app_url: '',
+                telegram_launch_url: '',
+                webhook_url: '',
+                set_webhook_command: '',
+                alert_worker_command: ''
+            },
+            readiness: []
+        };
+    }
+
     function component() {
         return {
             template: '#route-admin',
@@ -7663,6 +7706,13 @@
                     content: defaultContent(),
                     operations: defaultOperations(),
                     analytics: defaultAnalytics(),
+                    miniApp: defaultMiniApp(),
+                    miniAppSecrets: {
+                        bot_token: '',
+                        webhook_secret: '',
+                        alert_worker_token: '',
+                        premium_signing_secret: ''
+                    },
                     auditLog: [],
                     loading: false,
                     saving: false,
@@ -7688,6 +7738,7 @@
                         'admin': 'overview',
                         'admin-providers': 'providers',
                         'admin-feature-flags': 'flags',
+                        'admin-mini-app': 'mini-app',
                         'admin-ton-assets': 'ton-assets',
                         'admin-legal-copy': 'legal-copy',
                         'admin-alerts': 'operations',
@@ -7725,6 +7776,9 @@
                 },
                 providerStatusOptions: function () {
                     return ['not_configured', 'configured', 'enabled', 'degraded', 'disabled'];
+                },
+                runtimeProfileOptions: function () {
+                    return ['local', 'staging', 'production', 'telegram'];
                 },
                 cacheModeOptions: function () {
                     return ['serve_stale', 'strict', 'bypass'];
@@ -7765,6 +7819,9 @@
                         {text: 'Subject', value: 'subject_type'},
                         {text: 'Request', value: 'request_id'}
                     ];
+                },
+                miniAppReadiness: function () {
+                    return this.miniApp.readiness || [];
                 }
             },
             methods: {
@@ -7819,6 +7876,7 @@
                     const content = _.merge(defaultContent(), clone(data.content));
                     const operations = _.merge(defaultOperations(), clone(data.operations));
                     const analytics = _.merge(defaultAnalytics(), clone(data.analytics));
+                    const miniApp = _.merge(defaultMiniApp(), clone(data.mini_app));
 
                     content.ton_assets = (content.ton_assets || []).map((asset, index) => {
                         asset.local_id = asset.local_id || ('ton-asset-' + index + '-' + Date.now());
@@ -7833,8 +7891,10 @@
                     this.content = content;
                     this.operations = operations;
                     this.analytics = analytics;
+                    this.miniApp = miniApp;
                     this.auditLog = clone(data.audit_log || []);
                     this.clearProviderSecrets();
+                    this.clearMiniAppSecrets();
                 },
                 clearProviderSecrets: function () {
                     this.providerSecrets = {
@@ -7843,6 +7903,14 @@
                         upstash: {rest_token: ''},
                         tonapi: {api_key: ''},
                         telegram: {bot_token: ''}
+                    };
+                },
+                clearMiniAppSecrets: function () {
+                    this.miniAppSecrets = {
+                        bot_token: '',
+                        webhook_secret: '',
+                        alert_worker_token: '',
+                        premium_signing_secret: ''
                     };
                 },
                 saveFeatureFlags: function () {
@@ -7886,6 +7954,39 @@
                             if (data.providers) this.providers = _.merge(defaultProviders(), clone(data.providers));
                             if (data.analytics) this.analytics = _.merge(defaultAnalytics(), clone(data.analytics));
                             this.clearProviderSecrets();
+                        });
+                },
+                saveMiniApp: function () {
+                    if (!this.canWrite) return;
+
+                    const payload = {
+                        profile: _.get(this.miniApp, 'runtime.profile'),
+                        public_base_url: _.get(this.miniApp, 'runtime.public_base_url'),
+                        telegram_base_url: _.get(this.miniApp, 'runtime.telegram_base_url'),
+                        bot_username: _.get(this.miniApp, 'telegram.bot_username'),
+                        feature_alerts: _.get(this.miniApp, 'features.alerts') === true,
+                        feature_premium: _.get(this.miniApp, 'features.premium') === true,
+                        feature_referrals: _.get(this.miniApp, 'features.referrals') === true,
+                        feature_ton_connect: _.get(this.miniApp, 'features.ton_connect') === true,
+                        max_alerts_per_user: _.get(this.miniApp, 'alerts.max_alerts_per_user'),
+                        default_frequency_cap_seconds: _.get(this.miniApp, 'alerts.default_frequency_cap_seconds'),
+                        default_max_deliveries_per_day: _.get(this.miniApp, 'alerts.default_max_deliveries_per_day'),
+                        evaluation_interval_seconds: _.get(this.miniApp, 'alerts.evaluation_interval_seconds'),
+                        premium_plan_code: _.get(this.miniApp, 'premium.plan_code'),
+                        premium_monthly_stars: _.get(this.miniApp, 'premium.monthly_stars'),
+                        premium_subscription_period_seconds: _.get(this.miniApp, 'premium.subscription_period_seconds')
+                    };
+
+                    if (this.miniAppSecrets.bot_token) payload.bot_token = this.miniAppSecrets.bot_token;
+                    if (this.miniAppSecrets.webhook_secret) payload.webhook_secret = this.miniAppSecrets.webhook_secret;
+                    if (this.miniAppSecrets.alert_worker_token) payload.alert_worker_token = this.miniAppSecrets.alert_worker_token;
+                    if (this.miniAppSecrets.premium_signing_secret) payload.premium_signing_secret = this.miniAppSecrets.premium_signing_secret;
+
+                    this.write('/mini-app', {mini_app: payload}, 'Mini App setup saved.')
+                        .then(data => {
+                            if (data.mini_app) this.miniApp = _.merge(defaultMiniApp(), clone(data.mini_app));
+                            if (data.feature_flags) this.featureFlags = clone(data.feature_flags);
+                            this.clearMiniAppSecrets();
                         });
                 },
                 saveContent: function () {
@@ -7991,6 +8092,16 @@
                 secretPlaceholder: function (metadata) {
                     if (_.get(metadata, 'configured')) return '[redacted]';
                     return '';
+                },
+                copyText: function (value, message) {
+                    if (!value) return;
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(value)
+                            .then(() => this.showNotice(message || 'Copied.', 'success'))
+                            .catch(() => this.showNotice(value, 'info'));
+                        return;
+                    }
+                    this.showNotice(value, 'info');
                 },
                 formatDate: function (value) {
                     const date = new Date(value || 0);

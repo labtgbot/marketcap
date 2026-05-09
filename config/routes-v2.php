@@ -245,6 +245,13 @@ $routes_v2['admin'] = [
         'sitemap'     => FALSE,
         'robots'      => 'noindex,nofollow',
     ],
+    'admin-mini-app' => [
+        'path'        => '/admin/mini-app',
+        'title'       => 'Admin Mini App Setup',
+        'description' => 'Authenticated Telegram Mini App deployment setup and launch helpers.',
+        'sitemap'     => FALSE,
+        'robots'      => 'noindex,nofollow',
+    ],
     'admin-audit-log' => [
         'path'        => '/admin/audit-log',
         'title'       => 'Admin Audit Log',
