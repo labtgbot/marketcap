@@ -19,6 +19,7 @@ The admin store path is configured with `TONBANKCARD_ADMIN_STORE`. The store con
 - Cache provider: Upstash status and write-only REST token metadata.
 - Exchange widget: ChangeNOW link id.
 - Feature flags: `/api/admin/feature-flags` can independently disable AI, alerts, widget, TON Connect, gamification, referrals, and premium controls.
+- Mini App setup: a separate `/admin/mini-app` tab writes the Telegram runtime profile, public and Mini App URLs, bot username, bot token metadata, webhook secret metadata, alert worker token metadata, Telegram Stars premium settings, and launch feature flags from one operator workflow. Operators can also check a bot token and automatically register the Telegram webhook, bot commands, and Mini App menu button.
 - Content: legal copy for the global disclaimer and curated TON assets merged into `/api/ton/assets`.
 - Operations: cache stale mode, purge requests, alert thresholds, and achievement settings.
 
@@ -27,6 +28,8 @@ The admin store path is configured with `TONBANKCARD_ADMIN_STORE`. The store con
 Secrets are write-only. Submitted values are converted into metadata with a configured flag, redacted display value, source, fingerprint, and timestamp. Full values are never returned by the API, stored in the admin JSON file, or written into audit entries.
 
 Existing environment-backed secrets appear only as configured metadata, for example `env:GROQ_API_KEY`.
+
+The Mini App setup tab follows the same rule for `TONBANKCARD_BOT_TOKEN`, `TONBANKCARD_BOT_WEBHOOK_SECRET`, `TONBANKCARD_ALERT_WORKER_TOKEN`, and `TONBANKCARD_PREMIUM_SIGNING_SECRET`. It can persist those values into `.env`, but API responses, admin store JSON, and audit entries expose only configured/redacted metadata.
 
 ## Audit Log
 
@@ -37,6 +40,8 @@ Every write is appended to the audit log with actor, role, action, subject type,
 - `GET /api/admin`: route discovery for authenticated operators.
 - `POST /api/admin/session`: validates an owner or support token.
 - `GET /api/admin/config`: returns safe current admin state.
+- `PUT /api/admin/mini-app`: updates Telegram Mini App deployment settings, writes the allowed `.env` keys, returns readiness status, launch URL, webhook URL, and a safe `setWebhook` command template.
+- `POST /api/admin/mini-app/telegram-setup`: checks the Telegram bot token, generates and persists a webhook secret when needed, registers the webhook, commands, and Mini App menu button, and returns redacted setup status.
 - `PUT /api/admin/providers`: updates provider metadata and secret references.
 - `PUT /api/admin/feature-flags`: updates runtime feature flags.
 - `PUT /api/admin/content`: updates legal copy and curated TON assets.

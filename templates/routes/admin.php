@@ -95,6 +95,10 @@ $frontend_options['admin']['apiBaseUrl'] = site_url( 'api/admin' );
                     <v-icon left>mdi-toggle-switch-outline</v-icon>
                     <?php echo esc_html( __( 'Flags' ) ); ?>
                 </v-tab>
+                <v-tab :to="{name:'admin-mini-app'}">
+                    <v-icon left>mdi-cellphone-cog</v-icon>
+                    <?php echo esc_html( __( 'Mini App Setup' ) ); ?>
+                </v-tab>
                 <v-tab :to="{name:'admin-ton-assets'}">
                     <v-icon left>mdi-diamond-stone</v-icon>
                     <?php echo esc_html( __( 'TON Assets' ) ); ?>
@@ -418,6 +422,250 @@ $frontend_options['admin']['apiBaseUrl'] = site_url( 'api/admin' );
                     </v-btn>
                 </v-card-actions>
             </v-card>
+
+            <v-row dense v-if="activeSection === 'mini-app'">
+                <v-col cols="12" lg="6">
+                    <v-card outlined>
+                        <v-card-title class="text-subtitle-1 font-weight-bold">
+                            <v-icon left color="primary">mdi-web-cog</v-icon>
+                            <?php echo esc_html( __( 'Runtime And URLs' ) ); ?>
+                        </v-card-title>
+                        <v-card-text>
+                            <v-select
+                                v-model="miniApp.runtime.profile"
+                                :items="runtimeProfileOptions"
+                                label="<?php echo esc_attr( __( 'Runtime profile' ) ); ?>"
+                                outlined
+                                dense
+                                hide-details="auto"
+                                :disabled="!canWrite"
+                            ></v-select>
+                            <v-text-field
+                                v-model.trim="miniApp.runtime.public_base_url"
+                                label="<?php echo esc_attr( __( 'Public website URL' ) ); ?>"
+                                outlined
+                                dense
+                                hide-details="auto"
+                                class="mt-3"
+                                :disabled="!canWrite"
+                            ></v-text-field>
+                            <v-text-field
+                                v-model.trim="miniApp.runtime.telegram_base_url"
+                                label="<?php echo esc_attr( __( 'Telegram Mini App URL' ) ); ?>"
+                                outlined
+                                dense
+                                hide-details="auto"
+                                class="mt-3"
+                                :disabled="!canWrite"
+                            ></v-text-field>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+                <v-col cols="12" lg="6">
+                    <v-card outlined>
+                        <v-card-title class="text-subtitle-1 font-weight-bold">
+                            <v-icon left color="primary">mdi-telegram</v-icon>
+                            <?php echo esc_html( __( 'Telegram Bot' ) ); ?>
+                        </v-card-title>
+                        <v-card-text>
+                            <v-text-field
+                                v-model.trim="miniApp.telegram.bot_username"
+                                label="<?php echo esc_attr( __( 'Bot username' ) ); ?>"
+                                outlined
+                                dense
+                                hide-details="auto"
+                                :disabled="!canWrite"
+                            ></v-text-field>
+                            <v-text-field
+                                v-model.trim="miniAppSecrets.bot_token"
+                                class="admin-secret-input mt-3"
+                                label="<?php echo esc_attr( __( 'Bot token' ) ); ?>"
+                                type="password"
+                                outlined
+                                dense
+                                hide-details="auto"
+                                autocomplete="off"
+                                :placeholder="secretPlaceholder(miniApp.telegram.bot_token)"
+                                :disabled="!canWrite"
+                            ></v-text-field>
+                            <div class="admin-telegram-setup-row mt-3">
+                                <v-btn
+                                    outlined
+                                    small
+                                    color="primary"
+                                    :disabled="!telegramSetupAvailable"
+                                    :loading="telegramSetupLoading"
+                                    @click="setupMiniAppTelegram"
+                                >
+                                    <v-icon left>mdi-robot-outline</v-icon>
+                                    <?php echo esc_html( __( 'Check Bot' ) ); ?>
+                                </v-btn>
+                                <span class="admin-meta-line">
+                                    <?php echo esc_html( __( 'Setup' ) ); ?>: {{ telegramSetupStatusLabel }}
+                                </span>
+                            </div>
+                            <v-text-field
+                                v-model.trim="miniAppSecrets.webhook_secret"
+                                class="admin-secret-input mt-3"
+                                label="<?php echo esc_attr( __( 'Webhook secret' ) ); ?>"
+                                type="password"
+                                outlined
+                                dense
+                                hide-details="auto"
+                                autocomplete="off"
+                                :placeholder="secretPlaceholder(miniApp.telegram.webhook_secret)"
+                                :disabled="!canWrite"
+                            ></v-text-field>
+                            <div class="admin-meta-line mt-3">
+                                <?php echo esc_html( __( 'Launch URL' ) ); ?>:
+                                <a v-if="miniApp.launch.telegram_launch_url" :href="miniApp.launch.telegram_launch_url" target="_blank" rel="noopener">{{ miniApp.launch.telegram_launch_url }}</a>
+                                <span v-else>not ready</span>
+                            </div>
+                            <div class="admin-meta-line mt-2">
+                                <?php echo esc_html( __( 'Webhook URL' ) ); ?>:
+                                <code>{{ miniApp.launch.webhook_url || 'not ready' }}</code>
+                            </div>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+                <v-col cols="12" lg="6">
+                    <v-card outlined>
+                        <v-card-title class="text-subtitle-1 font-weight-bold">
+                            <v-icon left color="primary">mdi-bell-badge-outline</v-icon>
+                            <?php echo esc_html( __( 'Alerts And Launch Features' ) ); ?>
+                        </v-card-title>
+                        <v-card-text>
+                            <div class="admin-flag-grid">
+                                <v-switch v-model="miniApp.features.alerts" label="<?php echo esc_attr( __( 'Smart alerts' ) ); ?>" inset hide-details :disabled="!canWrite"></v-switch>
+                                <v-switch v-model="miniApp.features.premium" label="<?php echo esc_attr( __( 'Premium' ) ); ?>" inset hide-details :disabled="!canWrite"></v-switch>
+                                <v-switch v-model="miniApp.features.referrals" label="<?php echo esc_attr( __( 'Referrals' ) ); ?>" inset hide-details :disabled="!canWrite"></v-switch>
+                                <v-switch v-model="miniApp.features.ton_connect" label="<?php echo esc_attr( __( 'TON Connect' ) ); ?>" inset hide-details :disabled="!canWrite"></v-switch>
+                            </div>
+                            <v-text-field
+                                v-model.trim="miniAppSecrets.alert_worker_token"
+                                class="admin-secret-input mt-3"
+                                label="<?php echo esc_attr( __( 'Alert worker token' ) ); ?>"
+                                type="password"
+                                outlined
+                                dense
+                                hide-details="auto"
+                                autocomplete="off"
+                                :placeholder="secretPlaceholder(miniApp.alerts.worker_token)"
+                                :disabled="!canWrite"
+                            ></v-text-field>
+                            <v-row dense class="mt-1">
+                                <v-col cols="12" sm="6">
+                                    <v-text-field v-model.number="miniApp.alerts.max_alerts_per_user" label="<?php echo esc_attr( __( 'Max alerts' ) ); ?>" type="number" min="1" outlined dense hide-details="auto" :disabled="!canWrite"></v-text-field>
+                                </v-col>
+                                <v-col cols="12" sm="6">
+                                    <v-text-field v-model.number="miniApp.alerts.default_frequency_cap_seconds" label="<?php echo esc_attr( __( 'Frequency cap' ) ); ?>" type="number" min="300" outlined dense hide-details="auto" :disabled="!canWrite"></v-text-field>
+                                </v-col>
+                                <v-col cols="12" sm="6">
+                                    <v-text-field v-model.number="miniApp.alerts.default_max_deliveries_per_day" label="<?php echo esc_attr( __( 'Daily deliveries' ) ); ?>" type="number" min="1" outlined dense hide-details="auto" :disabled="!canWrite"></v-text-field>
+                                </v-col>
+                                <v-col cols="12" sm="6">
+                                    <v-text-field v-model.number="miniApp.alerts.evaluation_interval_seconds" label="<?php echo esc_attr( __( 'Evaluate every' ) ); ?>" type="number" min="60" outlined dense hide-details="auto" :disabled="!canWrite"></v-text-field>
+                                </v-col>
+                            </v-row>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+                <v-col cols="12" lg="6">
+                    <v-card outlined>
+                        <v-card-title class="text-subtitle-1 font-weight-bold">
+                            <v-icon left color="primary">mdi-star-four-points-outline</v-icon>
+                            <?php echo esc_html( __( 'Telegram Stars Premium' ) ); ?>
+                        </v-card-title>
+                        <v-card-text>
+                            <v-row dense>
+                                <v-col cols="12" sm="6">
+                                    <v-text-field v-model.trim="miniApp.premium.plan_code" label="<?php echo esc_attr( __( 'Plan code' ) ); ?>" outlined dense hide-details="auto" :disabled="!canWrite"></v-text-field>
+                                </v-col>
+                                <v-col cols="12" sm="6">
+                                    <v-text-field v-model.number="miniApp.premium.monthly_stars" label="<?php echo esc_attr( __( 'Monthly Stars' ) ); ?>" type="number" min="1" outlined dense hide-details="auto" :disabled="!canWrite"></v-text-field>
+                                </v-col>
+                                <v-col cols="12" sm="6">
+                                    <v-text-field v-model.number="miniApp.premium.subscription_period_seconds" label="<?php echo esc_attr( __( 'Period seconds' ) ); ?>" type="number" min="2592000" outlined dense hide-details="auto" :disabled="!canWrite"></v-text-field>
+                                </v-col>
+                                <v-col cols="12" sm="6">
+                                    <v-text-field
+                                        v-model.trim="miniAppSecrets.premium_signing_secret"
+                                        class="admin-secret-input"
+                                        label="<?php echo esc_attr( __( 'Signing secret' ) ); ?>"
+                                        type="password"
+                                        outlined
+                                        dense
+                                        hide-details="auto"
+                                        autocomplete="off"
+                                        :placeholder="secretPlaceholder(miniApp.premium.signing_secret)"
+                                        :disabled="!canWrite"
+                                    ></v-text-field>
+                                </v-col>
+                            </v-row>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+                <v-col cols="12" lg="7">
+                    <v-card outlined>
+                        <v-card-title class="text-subtitle-1 font-weight-bold">
+                            <v-icon left color="primary">mdi-rocket-launch-outline</v-icon>
+                            <?php echo esc_html( __( 'Launch Commands' ) ); ?>
+                        </v-card-title>
+                        <v-card-text>
+                            <v-textarea
+                                v-model="miniApp.launch.set_webhook_command"
+                                label="<?php echo esc_attr( __( 'Register Webhook' ) ); ?>"
+                                outlined
+                                dense
+                                readonly
+                                rows="3"
+                                hide-details="auto"
+                                class="admin-command-output"
+                            ></v-textarea>
+                            <v-textarea
+                                v-model="miniApp.launch.alert_worker_command"
+                                label="<?php echo esc_attr( __( 'Alert worker check' ) ); ?>"
+                                outlined
+                                dense
+                                readonly
+                                rows="2"
+                                hide-details="auto"
+                                class="admin-command-output mt-3"
+                            ></v-textarea>
+                        </v-card-text>
+                        <v-card-actions class="admin-command-actions">
+                            <v-btn outlined color="primary" :disabled="!miniApp.launch.set_webhook_command" @click="copyText(miniApp.launch.set_webhook_command, 'Webhook command copied.')">
+                                <v-icon left>mdi-content-copy</v-icon>
+                                <?php echo esc_html( __( 'Register Webhook' ) ); ?>
+                            </v-btn>
+                            <v-spacer></v-spacer>
+                            <v-btn color="primary" depressed :disabled="!canWrite" :loading="saving" @click="saveMiniApp">
+                                <v-icon left>mdi-content-save-outline</v-icon>
+                                <?php echo esc_html( __( 'Save Mini App Setup' ) ); ?>
+                            </v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-col>
+                <v-col cols="12" lg="5">
+                    <v-card outlined>
+                        <v-card-title class="text-subtitle-1 font-weight-bold">
+                            <v-icon left color="primary">mdi-clipboard-check-outline</v-icon>
+                            <?php echo esc_html( __( 'Readiness' ) ); ?>
+                        </v-card-title>
+                        <v-list dense>
+                            <v-list-item v-for="item in miniAppReadiness" :key="item.key">
+                                <v-list-item-icon>
+                                    <v-icon :color="item.status === 'ok' ? 'success' : 'warning'">{{ item.status === 'ok' ? 'mdi-check-circle-outline' : 'mdi-alert-circle-outline' }}</v-icon>
+                                </v-list-item-icon>
+                                <v-list-item-content>
+                                    <v-list-item-title>{{ item.label }}</v-list-item-title>
+                                    <v-list-item-subtitle>{{ item.message }}</v-list-item-subtitle>
+                                </v-list-item-content>
+                            </v-list-item>
+                        </v-list>
+                    </v-card>
+                </v-col>
+            </v-row>
 
             <v-card v-if="activeSection === 'ton-assets'" outlined>
                 <v-card-title class="text-subtitle-1 font-weight-bold">
