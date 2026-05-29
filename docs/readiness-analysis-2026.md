@@ -184,5 +184,15 @@ and changelog.
 The recommendations above are filed as individual, labeled GitHub issues so each
 can be scheduled and tracked independently. They are grouped under the
 `stage-6-readiness` label with `roadmap` + `enhancement`, mirroring the existing
-staged-roadmap convention. See the issue tracker for the
-`[Stage 6]` series opened from this audit.
+staged-roadmap convention.
+
+| # | Priority | Issue |
+| --- | --- | --- |
+| #165 | — | [Stage 6] Launch-readiness and SEO-completeness audit follow-ups (tracking epic) |
+| #166 | P0 | [SEO] Generate a complete sitemap covering every cryptocurrency, exchange, and TON asset |
+| #167 | P0 | [SEO] Emit hreflang alternates for all supported languages in head and sitemap |
+| #168 | P1 | [SEO] Add a sitemap index, caching/ETag, and data-derived lastmod |
+| #169 | P1 | [SEO] Add an automated test asserting full sitemap coverage and schema validity |
+| #170 | P2 | [Quality] Accessibility (a11y) audit and automated check for public pages |
+| #171 | P2 | [Ops] Production error-monitoring and uptime alerting integration |
+| #172 | P3 | [Release] Add CHANGELOG.md and a package version trigger |
