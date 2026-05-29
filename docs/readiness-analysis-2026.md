@@ -215,18 +215,62 @@ Stage 6 follow-up pull request:
 | 6 — no error monitoring / uptime alerting | #171 | Resolved | Flag-driven, default-off error-aggregation forwarding in the observability layer plus a documented uptime/alert-routing matrix in `docs/release-checklist.md`. |
 | 7 — no CHANGELOG / version trigger | #172 | Resolved | `package.json` carries `version` `2.0.0`, `CHANGELOG.md` follows Keep a Changelog, and SemVer is documented as a release gate. |
 
+### Accessibility audit scope (Finding 5)
+
+`tests/accessibility-check.js` injects axe-core (WCAG 2.1 A/AA + best-practice
+rules) into a headless Chromium via Playwright and audits nine public routes with
+deterministic, offline network fixtures shared with the smoke test
+(`tests/lib/browser-fixtures.js`): `/`, `/markets`, `/coins/bitcoin`,
+`/exchanges`, `/ton`, `/screener`, `/premium`, `/support`, and `/watchlist`. The
+check fails the build on any **critical** or **serious** violation outside the
+documented allowlist below, so regressions break CI.
+
+Fixes landed alongside the audit:
+
+- **App-bar/system-bar contrast** — the top bar moved to `primary darken-3`
+  (`views/app-top-bar.php`) so nav links and the stats bar clear the WCAG AA
+  4.5:1 target. Companion token tweaks live in `assets/css/style.css`.
+- **Readonly 24h-range slider name** — the price-position `v-slider` on the coin
+  detail page now forwards an `:aria-label` to its `role="slider"` thumb
+  (`templates/routes/currency.php`), fixing `aria-input-field-name`.
+- **Loading progress name** — the exchanges table's loading bar gets a named
+  `progress` slot with an `aria-label` (`templates/routes/exchanges.php`), fixing
+  `aria-progressbar-name`.
+- **Screener filter landmark** — the desktop filter `<aside>` is now a named
+  `role="search"` landmark (`templates/routes/screener.php`), clearing the
+  best-practice `landmark-complementary-is-top-level` finding.
+- **Decorative asset icons** — coin/exchange logos that sit beside their visible
+  name are now `alt=""` across the listing/table/detail templates, clearing
+  `image-redundant-alt`.
+
+Keyboard navigation is exercised end-to-end (not just static rules): tab order
+and a visible focus outline on the home shell, the global search field opening
+its results menu from typed input, a named primary nav link, the theme toggle,
+the markets watchlist toggle (focusable, `aria-label` flips on Enter and
+restores), and the coin-detail ChangeNOW exchange widget (titled iframe, no
+unnamed controls).
+
 ### Consciously deferred accessibility items (Finding 5)
 
-The automated a11y check fails on critical and serious axe-core violations, with a
-documented allowlist of two design-token-level issues deferred to a dedicated
-design pass rather than blocking the Stage 6 SEO/operations work:
+Two serious axe-core rules are deferred on a narrow, documented allowlist rather
+than blocking the Stage 6 work. Each remaining node is still recorded in the
+accessibility report so the baseline stays visible:
 
-- **`color-contrast`** — white text on the brand primary in the app bar resolves
-  to roughly a 3.4:1 ratio, below the WCAG AA 4.5:1 target. Raising it requires
-  revising the brand color in `config/vuetify.php`, a design-system decision with
-  visual-regression impact, so it is deferred rather than changed unilaterally.
-- **`link-in-text-block`** — inline links that rely on color alone share the same
-  design-token revision.
+- **`color-contrast`** — limited to a fixed allowlist of brand/semantic design
+  tokens (`#1bb2da`, `#12a978`, `#d84a4a`, `#c77800`, `#2f80ed`, `#9e9e9e`). Only
+  nodes whose foreground **and** background both fall in this set are deferred;
+  any other contrast failure still fails the build. Raising these requires
+  revising the palette in `config/vuetify.php`, a design-system decision with
+  visual-regression impact, so it is deferred to a dedicated design pass rather
+  than changed unilaterally.
+- **`nested-interactive`** — Vuetify 2 `v-select`/`v-autocomplete` render an
+  ARIA 1.1 `combobox`/`button` wrapper that owns a focusable input, which axe
+  flags as nested interactive controls. This is a framework-level limitation
+  resolved upstream by the Vuetify 3 / ARIA 1.2 combobox pattern and cannot be
+  fixed without replacing the component, so it is deferred.
 
-Both are tracked in the accessibility report (`test-logs/accessibility-report.json`)
-as warnings so they remain visible until the design pass resolves them.
+The allowlists are encoded as `deferredContrastColors` and `deferredRules` in
+`tests/accessibility-check.js` and mirrored into
+`test-logs/accessibility-report.json`. Minor, non-blocking warnings (e.g.
+`aria-allowed-role` on Vuetify's `v-list` link items) are reported but do not
+fail the build.
