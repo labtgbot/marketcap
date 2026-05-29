@@ -601,6 +601,385 @@ function tonbankcard_xml_escape( string $value ) {
 }
 
 /**
+ * Returns the runtime config array for SEO helpers, with a safe fallback.
+ *
+ * @return array
+ */
+function tonbankcard_seo_runtime_config() {
+    if ( isset( $GLOBALS['runtime_config'] ) && is_array( $GLOBALS['runtime_config'] ) ) {
+        return $GLOBALS['runtime_config'];
+    }
+    return function_exists( 'tonbankcard_runtime_config' ) ? tonbankcard_runtime_config() : [];
+}
+
+/**
+ * Returns the API config array for SEO helpers, with a safe fallback.
+ *
+ * @return array
+ */
+function tonbankcard_seo_api_config() {
+    return isset( $GLOBALS['api'] ) && is_array( $GLOBALS['api'] ) ? $GLOBALS['api'] : [];
+}
+
+/**
+ * Emits a sitemap/SEO data-source degradation through the observability layer.
+ *
+ * @param string $level
+ * @param string $event
+ * @param array $context
+ * @return void
+ */
+function tonbankcard_seo_log( string $level, string $event, array $context = [] ) {
+    if ( function_exists( 'tonbankcard_observability_log' ) ) {
+        tonbankcard_observability_log( tonbankcard_seo_runtime_config(), tonbankcard_seo_api_config(), $level, $event, $context );
+    }
+}
+
+/**
+ * Returns the supported language codes used for crawler hreflang signals.
+ *
+ * Derived from the translation registry so adding a language updates the
+ * signals automatically.
+ *
+ * @return array<int,string>
+ */
+function tonbankcard_seo_languages() {
+    $languages = array_keys( tonbankcard_supported_languages() );
+    return array_values( array_filter( $languages, 'is_string' ) );
+}
+
+/**
+ * Builds the localized variant URL for a canonical URL and language code.
+ *
+ * Uses the `?lang=` query-parameter strategy already honored by
+ * tonbankcard_active_language(): the canonical URL carries no language
+ * parameter (it is the x-default), while each localized alternate appends
+ * `lang=<code>`. The strategy is shared by the head alternates and the
+ * sitemap alternates so the signals stay consistent.
+ *
+ * @param string $canonical_url
+ * @param string $language
+ * @return string
+ */
+function tonbankcard_seo_localized_url( string $canonical_url, string $language ) {
+    $language = tonbankcard_normalize_language( $language );
+
+    $hash_parts = explode( '#', $canonical_url, 2 );
+    $base       = $hash_parts[0];
+    $fragment   = isset( $hash_parts[1] ) ? '#' . $hash_parts[1] : '';
+
+    $separator = ( FALSE === strpos( $base, '?' ) ) ? '?' : '&';
+
+    return $base . $separator . 'lang=' . rawurlencode( $language ) . $fragment;
+}
+
+/**
+ * Returns hreflang alternates (head + sitemap) for a canonical URL.
+ *
+ * @param string $canonical_url
+ * @return array<int,array{hreflang:string,href:string}>
+ */
+function tonbankcard_seo_hreflang_alternates( string $canonical_url ) {
+    $alternates = [];
+
+    foreach ( tonbankcard_seo_languages() as $language ) {
+        $alternates[] = [
+            'hreflang' => $language,
+            'href'     => tonbankcard_seo_localized_url( $canonical_url, $language ),
+        ];
+    }
+
+    $alternates[] = [
+        'hreflang' => 'x-default',
+        'href'     => $canonical_url,
+    ];
+
+    return $alternates;
+}
+
+/**
+ * Validates a CoinGecko-style identifier used in sitemap path segments.
+ *
+ * @param mixed $id
+ * @return string Empty string when invalid.
+ */
+function tonbankcard_sitemap_safe_id( $id ) {
+    $id = is_string( $id ) ? trim( $id ) : '';
+    if ( '' === $id ) {
+        return '';
+    }
+    return preg_match( '/^[A-Za-z0-9._-]{1,160}$/', $id ) ? $id : '';
+}
+
+/**
+ * Loads the bundled, offline-safe SEO discovery universe.
+ *
+ * @return array{coins:array<int,string>,exchanges:array<int,string>}
+ */
+function tonbankcard_sitemap_bundled_universe() {
+    static $universe = null;
+    if ( null !== $universe ) {
+        return $universe;
+    }
+
+    $universe = [ 'coins' => [], 'exchanges' => [] ];
+    $file     = GECKO_CLIENT_CONFIG_DIR . '/seo-universe.php';
+    if ( is_file( $file ) ) {
+        $loaded = require $file;
+        if ( is_array( $loaded ) ) {
+            $universe['coins']     = isset( $loaded['coins'] ) && is_array( $loaded['coins'] ) ? $loaded['coins'] : [];
+            $universe['exchanges'] = isset( $loaded['exchanges'] ) && is_array( $loaded['exchanges'] ) ? $loaded['exchanges'] : [];
+        }
+    }
+
+    return $universe;
+}
+
+/**
+ * Attempts to enumerate live identifiers from the market gateway.
+ *
+ * Guarded behind the TONBANKCARD_SITEMAP_LIVE_SOURCES flag and skipped on the
+ * `local` profile so the test harness and offline self-hosters stay
+ * deterministic. Any failure degrades to an empty list and is logged through
+ * the observability layer, so the sitemap still renders with the bundled
+ * universe.
+ *
+ * @param string $upstream_path
+ * @param array $query
+ * @param string $id_key
+ * @return array<int,string>
+ */
+function tonbankcard_sitemap_live_ids( string $upstream_path, array $query, string $id_key = 'id' ) {
+    if ( ! function_exists( 'tonbankcard_api_market_fetch' ) || ! function_exists( 'tonbankcard_api_market_provider_config' ) ) {
+        return [];
+    }
+    if ( defined( 'TONBANKCARD_PROFILE' ) && 'local' === TONBANKCARD_PROFILE ) {
+        return [];
+    }
+    if ( ! function_exists( 'tonbankcard_env_bool' ) || ! tonbankcard_env_bool( 'TONBANKCARD_SITEMAP_LIVE_SOURCES', FALSE ) ) {
+        return [];
+    }
+
+    $runtime = tonbankcard_seo_runtime_config();
+    $config  = tonbankcard_seo_api_config();
+
+    try {
+        $provider = tonbankcard_api_market_provider_config( $runtime, $config );
+        $response = tonbankcard_api_market_fetch( $upstream_path, $query, $provider, $config );
+
+        if ( ! empty( $response['error'] ) || empty( $response['body'] ) ) {
+            tonbankcard_seo_log( 'warning', 'sitemap.live_source_unavailable', [
+                'source' => $upstream_path,
+                'error'  => isset( $response['error'] ) ? (string) $response['error'] : 'empty_body',
+            ] );
+            return [];
+        }
+
+        $decoded = json_decode( (string) $response['body'], TRUE );
+        if ( ! is_array( $decoded ) ) {
+            return [];
+        }
+
+        $ids = [];
+        foreach ( $decoded as $row ) {
+            if ( is_array( $row ) && isset( $row[ $id_key ] ) ) {
+                $safe = tonbankcard_sitemap_safe_id( (string) $row[ $id_key ] );
+                if ( '' !== $safe ) {
+                    $ids[] = $safe;
+                }
+            }
+        }
+        return $ids;
+    } catch ( Throwable $exception ) {
+        tonbankcard_seo_log( 'error', 'sitemap.live_source_failed', [
+            'source'  => $upstream_path,
+            'message' => $exception->getMessage(),
+        ] );
+        return [];
+    }
+}
+
+/**
+ * Returns the indexable coin identifiers for `/coins/:id` sitemap URLs.
+ *
+ * Merges the live market gateway (when enabled/reachable) on top of the
+ * bundled universe, and finally the hardcoded route params as a last-resort
+ * fallback.
+ *
+ * @return array<int,string>
+ */
+function tonbankcard_sitemap_coin_ids() {
+    $ids = [];
+
+    foreach ( tonbankcard_sitemap_live_ids( 'coins/markets', [
+        'vs_currency' => 'usd',
+        'order'       => 'market_cap_desc',
+        'per_page'    => 250,
+        'page'        => 1,
+    ] ) as $id ) {
+        $ids[ $id ] = TRUE;
+    }
+
+    $bundled = tonbankcard_sitemap_bundled_universe();
+    foreach ( $bundled['coins'] as $id ) {
+        $safe = tonbankcard_sitemap_safe_id( $id );
+        if ( '' !== $safe ) {
+            $ids[ $safe ] = TRUE;
+        }
+    }
+
+    $route = isset( $GLOBALS['routes_v2']['public']['coins'] ) && is_array( $GLOBALS['routes_v2']['public']['coins'] )
+        ? $GLOBALS['routes_v2']['public']['coins']
+        : [];
+    if ( ! empty( $route['sitemap_params'] ) && is_array( $route['sitemap_params'] ) ) {
+        foreach ( $route['sitemap_params'] as $params ) {
+            if ( is_array( $params ) && isset( $params['id'] ) ) {
+                $safe = tonbankcard_sitemap_safe_id( (string) $params['id'] );
+                if ( '' !== $safe ) {
+                    $ids[ $safe ] = TRUE;
+                }
+            }
+        }
+    }
+
+    return array_keys( $ids );
+}
+
+/**
+ * Returns the indexable exchange identifiers for `/exchange/:id` sitemap URLs.
+ *
+ * @return array<int,string>
+ */
+function tonbankcard_sitemap_exchange_ids() {
+    $ids = [];
+
+    foreach ( tonbankcard_sitemap_live_ids( 'exchanges/list', [] ) as $id ) {
+        $ids[ $id ] = TRUE;
+    }
+
+    $bundled = tonbankcard_sitemap_bundled_universe();
+    foreach ( $bundled['exchanges'] as $id ) {
+        $safe = tonbankcard_sitemap_safe_id( $id );
+        if ( '' !== $safe ) {
+            $ids[ $safe ] = TRUE;
+        }
+    }
+
+    return array_keys( $ids );
+}
+
+/**
+ * Returns the indexable TON ecosystem asset detail paths for the sitemap.
+ *
+ * Reads the curated/discovered TON catalog (offline-safe defaults plus any
+ * curation/admin store). Failures degrade to an empty list and are logged.
+ *
+ * @return array<int,string>
+ */
+function tonbankcard_sitemap_ton_paths() {
+    if ( ! function_exists( 'tonbankcard_api_ton_load_state' ) ) {
+        return [];
+    }
+
+    try {
+        $state = tonbankcard_api_ton_load_state( tonbankcard_seo_runtime_config(), tonbankcard_seo_api_config() );
+    } catch ( Throwable $exception ) {
+        tonbankcard_seo_log( 'warning', 'sitemap.ton_catalog_unavailable', [
+            'message' => $exception->getMessage(),
+        ] );
+        return [];
+    }
+
+    $assets = isset( $state['assets'] ) && is_array( $state['assets'] ) ? $state['assets'] : [];
+    $paths  = [];
+    $seen   = [];
+
+    foreach ( $assets as $asset ) {
+        if ( ! is_array( $asset ) ) {
+            continue;
+        }
+        if ( array_key_exists( 'visible', $asset ) && empty( $asset['visible'] ) ) {
+            continue;
+        }
+
+        $path = '';
+        if ( isset( $asset['route']['path'] ) && is_string( $asset['route']['path'] ) ) {
+            $path = $asset['route']['path'];
+        } elseif ( isset( $asset['links']['web'] ) && is_string( $asset['links']['web'] ) ) {
+            $path = $asset['links']['web'];
+        }
+
+        $path = trim( $path );
+        if ( '' === $path || 0 !== strpos( $path, '/' ) ) {
+            continue;
+        }
+        if ( isset( $seen[ $path ] ) ) {
+            continue;
+        }
+
+        $seen[ $path ] = TRUE;
+        $paths[]       = $path;
+    }
+
+    return $paths;
+}
+
+/**
+ * Returns the best data-derived `<lastmod>` for dynamic sitemap sections.
+ *
+ * Reflects the freshness of the underlying TON/market catalog rather than
+ * source-file mtimes.
+ *
+ * @return string Date in `Y-m-d` form.
+ */
+function tonbankcard_sitemap_data_lastmod() {
+    $timestamp = 0;
+
+    if ( function_exists( 'tonbankcard_api_ton_load_state' ) ) {
+        try {
+            $state = tonbankcard_api_ton_load_state( tonbankcard_seo_runtime_config(), tonbankcard_seo_api_config() );
+            foreach ( [ 'updated_at', 'built_at' ] as $key ) {
+                if ( ! empty( $state[ $key ] ) ) {
+                    $candidate = strtotime( (string) $state[ $key ] );
+                    if ( FALSE !== $candidate ) {
+                        $timestamp = max( $timestamp, $candidate );
+                    }
+                }
+            }
+        } catch ( Throwable $exception ) {
+            $timestamp = 0;
+        }
+    }
+
+    if ( $timestamp <= 0 ) {
+        $timestamp = time();
+    }
+
+    return gmdate( 'Y-m-d', $timestamp );
+}
+
+/**
+ * Builds a single sitemap entry (with hreflang alternates) for a path.
+ *
+ * @param string $path
+ * @param string $changefreq
+ * @param string $priority
+ * @param string $lastmod
+ * @return array
+ */
+function tonbankcard_sitemap_make_entry( string $path, string $changefreq, string $priority, string $lastmod ) {
+    $loc = site_url( ltrim( $path, '/' ) );
+
+    return [
+        'loc'        => $loc,
+        'lastmod'    => $lastmod,
+        'changefreq' => $changefreq,
+        'priority'   => $priority,
+        'alternates' => tonbankcard_seo_hreflang_alternates( $loc ),
+    ];
+}
+
+/**
  * Returns the best available modification date for a sitemap route entry.
  *
  * @param array $route
@@ -664,56 +1043,136 @@ function tonbankcard_public_sitemap_entries() {
             continue;
         }
 
+        // Parameterized routes (coins, exchange, …) are enumerated dynamically
+        // by their dedicated sitemap sections, not from hardcoded route params.
+        if ( FALSE !== strpos( $route['path'], ':' ) ) {
+            continue;
+        }
+
         $route['name'] = $name;
 
-        $params_list = [ [] ];
-        if ( FALSE !== strpos( $route['path'], ':' ) ) {
-            if ( empty( $route['sitemap_params'] ) || ! is_array( $route['sitemap_params'] ) ) {
-                continue;
-            }
-            $params_list = $route['sitemap_params'];
+        $path = ! empty( $route['canonical_path'] ) ? $route['canonical_path'] : $route['path'];
+        $path = tonbankcard_fill_route_path( $path, [] );
+        if ( FALSE !== strpos( $path, ':' ) ) {
+            continue;
         }
 
-        foreach ( $params_list as $params ) {
-            $params = is_array( $params ) ? $params : [];
-            $path = ! empty( $route['canonical_path'] ) ? $route['canonical_path'] : $route['path'];
-            $path = tonbankcard_fill_route_path( $path, $params );
-            if ( FALSE !== strpos( $path, ':' ) ) {
-                continue;
-            }
-
-            $loc = site_url( ltrim( $path, '/' ) );
-            if ( isset( $seen[ $loc ] ) ) {
-                continue;
-            }
-
-            $seen[ $loc ] = TRUE;
-            $entries[] = [
-                'loc'        => $loc,
-                'lastmod'    => tonbankcard_public_sitemap_lastmod( $route ),
-                'changefreq' => ! empty( $route['sitemap_changefreq'] ) ? $route['sitemap_changefreq'] : 'weekly',
-                'priority'   => ! empty( $route['sitemap_priority'] ) ? $route['sitemap_priority'] : '0.5',
-            ];
+        $loc = site_url( ltrim( $path, '/' ) );
+        if ( isset( $seen[ $loc ] ) ) {
+            continue;
         }
+
+        $seen[ $loc ] = TRUE;
+        $entries[] = [
+            'loc'        => $loc,
+            'lastmod'    => tonbankcard_public_sitemap_lastmod( $route ),
+            'changefreq' => ! empty( $route['sitemap_changefreq'] ) ? $route['sitemap_changefreq'] : 'weekly',
+            'priority'   => ! empty( $route['sitemap_priority'] ) ? $route['sitemap_priority'] : '0.5',
+            'alternates' => tonbankcard_seo_hreflang_alternates( $loc ),
+        ];
     }
 
     return $entries;
 }
 
 /**
- * Renders the XML sitemap for public website routes.
+ * Returns the indexable sitemap entries grouped by section.
  *
- * @return string
+ * Sections: `pages` (static routes), `coins`, `exchanges`, `ton`. Each entry
+ * carries hreflang alternates. Failures in any dynamic data source degrade
+ * gracefully to an empty section (logged via the observability layer) so the
+ * sitemap still renders with whatever sections are available.
+ *
+ * @return array<string,array<int,array>>
  */
-function tonbankcard_public_sitemap_xml() {
-    $lines = [
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+function tonbankcard_public_sitemap_sections() {
+    $data_lastmod = tonbankcard_sitemap_data_lastmod();
+
+    $sections = [
+        'pages'     => tonbankcard_public_sitemap_entries(),
+        'coins'     => [],
+        'exchanges' => [],
+        'ton'       => [],
     ];
 
-    foreach ( tonbankcard_public_sitemap_entries() as $entry ) {
+    foreach ( tonbankcard_sitemap_coin_ids() as $id ) {
+        $sections['coins'][] = tonbankcard_sitemap_make_entry( '/coins/' . $id, 'hourly', '0.8', $data_lastmod );
+    }
+
+    foreach ( tonbankcard_sitemap_exchange_ids() as $id ) {
+        $sections['exchanges'][] = tonbankcard_sitemap_make_entry( '/exchange/' . $id, 'daily', '0.6', $data_lastmod );
+    }
+
+    foreach ( tonbankcard_sitemap_ton_paths() as $path ) {
+        $sections['ton'][] = tonbankcard_sitemap_make_entry( $path, 'daily', '0.6', $data_lastmod );
+    }
+
+    return $sections;
+}
+
+/**
+ * Maps section sitemap filenames to their entries, paginating large sections
+ * so no single file exceeds the sitemaps.org 50,000-URL limit.
+ *
+ * @return array<string,array<int,array>>
+ */
+function tonbankcard_public_sitemap_file_map() {
+    $max = defined( 'TONBANKCARD_SITEMAP_MAX_URLS' ) ? (int) TONBANKCARD_SITEMAP_MAX_URLS : 50000;
+    $max = $max > 0 ? $max : 50000;
+
+    $defs = [
+        'pages'     => 'sitemap-pages.xml',
+        'coins'     => 'sitemap-coins.xml',
+        'exchanges' => 'sitemap-exchanges.xml',
+        'ton'       => 'sitemap-ton.xml',
+    ];
+
+    $sections = tonbankcard_public_sitemap_sections();
+    $files    = [];
+
+    foreach ( $defs as $key => $basename ) {
+        $entries = isset( $sections[ $key ] ) ? $sections[ $key ] : [];
+        if ( empty( $entries ) ) {
+            continue;
+        }
+
+        $chunks = array_chunk( $entries, $max );
+        if ( count( $chunks ) <= 1 ) {
+            $files[ $basename ] = $entries;
+            continue;
+        }
+
+        $prefix = preg_replace( '/\.xml$/', '', $basename );
+        foreach ( $chunks as $index => $chunk ) {
+            $files[ $prefix . '-' . ( $index + 1 ) . '.xml' ] = $chunk;
+        }
+    }
+
+    return $files;
+}
+
+/**
+ * Renders a `<urlset>` document for a list of sitemap entries.
+ *
+ * @param array<int,array> $entries
+ * @return string
+ */
+function tonbankcard_sitemap_render_urlset( array $entries ) {
+    $lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">',
+    ];
+
+    foreach ( $entries as $entry ) {
         $lines[] = '    <url>';
         $lines[] = '        <loc>' . tonbankcard_xml_escape( $entry['loc'] ) . '</loc>';
+        if ( ! empty( $entry['alternates'] ) && is_array( $entry['alternates'] ) ) {
+            foreach ( $entry['alternates'] as $alternate ) {
+                $lines[] = '        <xhtml:link rel="alternate" hreflang="'
+                    . tonbankcard_xml_escape( $alternate['hreflang'] ) . '" href="'
+                    . tonbankcard_xml_escape( $alternate['href'] ) . '"/>';
+            }
+        }
         $lines[] = '        <lastmod>' . tonbankcard_xml_escape( $entry['lastmod'] ) . '</lastmod>';
         $lines[] = '        <changefreq>' . tonbankcard_xml_escape( $entry['changefreq'] ) . '</changefreq>';
         $lines[] = '        <priority>' . tonbankcard_xml_escape( $entry['priority'] ) . '</priority>';
@@ -722,6 +1181,148 @@ function tonbankcard_public_sitemap_xml() {
 
     $lines[] = '</urlset>';
     return implode( "\n", $lines ) . "\n";
+}
+
+/**
+ * Renders the sitemap index referencing every section sitemap file.
+ *
+ * @return string
+ */
+function tonbankcard_public_sitemap_index_xml() {
+    $lastmod = tonbankcard_sitemap_data_lastmod();
+
+    $lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ];
+
+    foreach ( array_keys( tonbankcard_public_sitemap_file_map() ) as $name ) {
+        $lines[] = '    <sitemap>';
+        $lines[] = '        <loc>' . tonbankcard_xml_escape( site_url( $name ) ) . '</loc>';
+        $lines[] = '        <lastmod>' . tonbankcard_xml_escape( $lastmod ) . '</lastmod>';
+        $lines[] = '    </sitemap>';
+    }
+
+    $lines[] = '</sitemapindex>';
+    return implode( "\n", $lines ) . "\n";
+}
+
+/**
+ * Renders the combined XML sitemap (every section in one `<urlset>`).
+ *
+ * Kept for backwards compatibility: `/sitemap.xml` still serves the full set
+ * of indexable URLs (pages + coins + exchanges + TON), now with hreflang
+ * alternates. Large installs should prefer `/sitemap_index.xml`.
+ *
+ * @return string
+ */
+function tonbankcard_public_sitemap_xml() {
+    $entries = [];
+    foreach ( tonbankcard_public_sitemap_sections() as $section ) {
+        foreach ( $section as $entry ) {
+            $entries[] = $entry;
+        }
+    }
+
+    return tonbankcard_sitemap_render_urlset( $entries );
+}
+
+/**
+ * Returns the renderer for a requested sitemap path (index, section, or the
+ * combined document), or NULL when the path is not a sitemap.
+ *
+ * @param string $path Request path, e.g. `/sitemap-coins.xml`.
+ * @return callable|null
+ */
+function tonbankcard_public_sitemap_renderer_for( string $path ) {
+    $name = ltrim( $path, '/' );
+
+    if ( 'sitemap.xml' === $name ) {
+        return 'tonbankcard_public_sitemap_xml';
+    }
+
+    if ( 'sitemap_index.xml' === $name ) {
+        return 'tonbankcard_public_sitemap_index_xml';
+    }
+
+    if ( preg_match( '/^sitemap-[A-Za-z0-9_-]+\.xml$/', $name ) ) {
+        $files = tonbankcard_public_sitemap_file_map();
+        if ( isset( $files[ $name ] ) ) {
+            $entries = $files[ $name ];
+            return static function () use ( $entries ) {
+                return tonbankcard_sitemap_render_urlset( $entries );
+            };
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Renders a sitemap document, caching it in the shared Upstash Redis store
+ * when caching is enabled (TTL + stale window). Falls back to rendering on
+ * every request when the cache is disabled/unavailable.
+ *
+ * @param string $name Cache-key suffix / sitemap filename.
+ * @param callable $renderer
+ * @return string
+ */
+function tonbankcard_sitemap_cached_render( string $name, callable $renderer ) {
+    if ( ! function_exists( 'tonbankcard_api_cache_get' ) || ! function_exists( 'tonbankcard_api_cache_set' ) ) {
+        return (string) $renderer();
+    }
+
+    $runtime = tonbankcard_seo_runtime_config();
+    $config  = tonbankcard_seo_api_config();
+    $key     = 'tonbankcard:sitemap:' . $name;
+
+    $hit = tonbankcard_api_cache_get( $runtime, $config, $key );
+    if ( in_array( $hit['state'], [ 'hit', 'stale' ], TRUE ) && isset( $hit['entry']['data']['xml'] ) ) {
+        return (string) $hit['entry']['data']['xml'];
+    }
+
+    $xml = (string) $renderer();
+
+    $ttl       = defined( 'TONBANKCARD_SITEMAP_CACHE_TTL' ) ? (int) TONBANKCARD_SITEMAP_CACHE_TTL : 3600;
+    $stale_ttl = defined( 'TONBANKCARD_SITEMAP_CACHE_STALE_TTL' ) ? (int) TONBANKCARD_SITEMAP_CACHE_STALE_TTL : 86400;
+    if ( $ttl > 0 ) {
+        tonbankcard_api_cache_set( $runtime, $config, $key, [ 'xml' => $xml ], [], $ttl, $stale_ttl, time() );
+    }
+
+    return $xml;
+}
+
+/**
+ * Sends an XML sitemap response with conditional-request support.
+ *
+ * Emits a content-hash ETag and a data-derived Last-Modified header, and
+ * answers `If-None-Match` / `If-Modified-Since` with `304 Not Modified` so
+ * crawlers can revalidate cheaply.
+ *
+ * @param string $xml
+ * @return void
+ */
+function tonbankcard_sitemap_send( string $xml ) {
+    $etag          = '"' . md5( $xml ) . '"';
+    $last_modified = gmdate( 'D, d M Y H:i:s', strtotime( tonbankcard_sitemap_data_lastmod() . ' 00:00:00 UTC' ) ?: time() ) . ' GMT';
+
+    header( 'Content-Type: application/xml; charset=UTF-8' );
+    header( 'Cache-Control: public, max-age=3600' );
+    header( 'ETag: ' . $etag );
+    header( 'Last-Modified: ' . $last_modified );
+
+    $if_none_match     = isset( $_SERVER['HTTP_IF_NONE_MATCH'] ) ? trim( (string) $_SERVER['HTTP_IF_NONE_MATCH'] ) : '';
+    $if_modified_since = isset( $_SERVER['HTTP_IF_MODIFIED_SINCE'] ) ? trim( (string) $_SERVER['HTTP_IF_MODIFIED_SINCE'] ) : '';
+
+    $etag_match     = '' !== $if_none_match && ( $if_none_match === $etag || '*' === $if_none_match );
+    $modified_match = '' !== $if_modified_since && @strtotime( $if_modified_since ) >= ( @strtotime( $last_modified ) ?: 0 );
+
+    if ( $etag_match || ( '' === $if_none_match && $modified_match ) ) {
+        http_response_code( 304 );
+        exit;
+    }
+
+    echo $xml;
 }
 
 /**
@@ -741,6 +1342,7 @@ function tonbankcard_public_robots_txt() {
             'Disallow: /dev/',
             'Disallow: /install/',
             'Clean-param: utm_source&utm_medium&utm_campaign&utm_term&utm_content&yclid&gclid&fbclid /',
+            'Sitemap: ' . site_url( 'sitemap_index.xml' ),
             'Sitemap: ' . site_url( 'sitemap.xml' ),
             '',
         ]
@@ -785,9 +1387,10 @@ function tonbankcard_dispatch_public_seo_assets() {
         exit;
     }
 
-    if ( '/sitemap.xml' === $path ) {
-        header( 'Content-Type: application/xml; charset=UTF-8' );
-        echo tonbankcard_public_sitemap_xml();
+    $renderer = tonbankcard_public_sitemap_renderer_for( $path );
+    if ( null !== $renderer ) {
+        $name = ltrim( $path, '/' );
+        tonbankcard_sitemap_send( tonbankcard_sitemap_cached_render( $name, $renderer ) );
         exit;
     }
 }
