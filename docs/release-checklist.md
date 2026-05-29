@@ -124,6 +124,20 @@ See `docs/v2-launch-readiness.md` for the detailed launch runbook.
 - Run `npm test`, including `npm run test:launch-readiness`, before tagging or
   moving the pull request out of draft.
 
+## Versioning and changelog
+
+- Owner: tech lead.
+- Evidence: updated `CHANGELOG.md` entry and the matching `package.json`
+  `version` field.
+- The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
+  bump the MAJOR version for incompatible changes, MINOR for backward-compatible
+  features, and PATCH for backward-compatible fixes.
+- Every release must move the `## [Unreleased]` notes in `CHANGELOG.md` into a new
+  dated, versioned section that matches the `package.json` `version`, and tag the
+  release as `v<version>`.
+- A populated changelog entry for the release version is a required release gate:
+  do not tag or deploy without it.
+
 ## Performance, load, and reliability checkpoint
 
 - Run `npm run test:performance` and keep the
