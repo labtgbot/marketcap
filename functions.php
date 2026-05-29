@@ -2307,6 +2307,17 @@ function validate_constants() {
         ];
     }
 
+    $sitemap_int_ranges = [
+        'TONBANKCARD_SITEMAP_MAX_URLS'         => [ 1, 50000, "Enter the maximum URLs per section sitemap (1-50000, the sitemaps.org limit).", "'50000'" ],
+        'TONBANKCARD_SITEMAP_CACHE_TTL'        => [ 0, 86400, "Enter the sitemap cache TTL in seconds (0-86400; 0 disables caching).", "'3600'" ],
+        'TONBANKCARD_SITEMAP_CACHE_STALE_TTL'  => [ 0, 604800, "Enter the sitemap stale-while-revalidate window in seconds (0-604800).", "'86400'" ],
+    ];
+    foreach ( $sitemap_int_ranges as $name => $spec ) {
+        if ( ! tonbankcard_env_int_is_valid( $name, $spec[0], $spec[1] ) ) {
+            $invalid[] = tonbankcard_env_error( $name, $spec[2], $spec[3] );
+        }
+    }
+
     return $invalid;
 }
 
