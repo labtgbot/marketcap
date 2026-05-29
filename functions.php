@@ -815,17 +815,19 @@ function tonbankcard_sitemap_live_ids( string $upstream_path, array $query, stri
  * bundled universe, and finally the hardcoded route params as a last-resort
  * fallback.
  *
+ * The live source is the gateway's `coins/list` endpoint, which enumerates
+ * *every* coin known to the provider in a single response (CoinGecko's
+ * `/coins/list` returns the full catalogue, not a market-cap-ranked page).
+ * This satisfies the requirement that the sitemap expose a URL for every coin
+ * rather than only the top page. Section files are paginated downstream so no
+ * single sitemap exceeds the sitemaps.org 50,000-URL limit.
+ *
  * @return array<int,string>
  */
 function tonbankcard_sitemap_coin_ids() {
     $ids = [];
 
-    foreach ( tonbankcard_sitemap_live_ids( 'coins/markets', [
-        'vs_currency' => 'usd',
-        'order'       => 'market_cap_desc',
-        'per_page'    => 250,
-        'page'        => 1,
-    ] ) as $id ) {
+    foreach ( tonbankcard_sitemap_live_ids( 'coins/list', [] ) as $id ) {
         $ids[ $id ] = TRUE;
     }
 

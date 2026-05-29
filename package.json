@@ -23,7 +23,7 @@
     "test:premium": "sh tests/premium-check.sh",
     "test:public-shell": "sh tests/public-website-shell-check.sh",
     "test:seo": "sh tests/seo-optimization-check.sh",
-    "test:sitemap-coverage": "sh tests/sitemap-coverage-check.sh",
+    "test:sitemap-coverage": "php tests/sitemap-live-source-check.php && sh tests/sitemap-coverage-check.sh",
     "test:accessibility": "node tests/accessibility-check.js",
     "test:ai-provider": "sh tests/ai-provider-check.sh",
     "test:ai-insights": "sh tests/ai-insight-cards-check.sh",

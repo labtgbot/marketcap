@@ -14,7 +14,10 @@ Stage 6 — launch-readiness and SEO-completeness audit follow-ups
 
 - Dynamic sitemap covering the full coin universe plus exchanges and TON assets,
   with live data and a hardcoded fallback, graceful degradation, and
-  observability logging (#166).
+  observability logging (#166). The live coin source now reads the gateway's
+  `coins/list` endpoint, enumerating every coin known to the provider instead of
+  a single 250-coin market-cap page, with a `tests/sitemap-live-source-check.php`
+  regression test wired into `npm test` and CI.
 - `hreflang` alternates for every supported language (en, ru, fr, ar, zh) plus
   `x-default`, emitted in the document head and as `xhtml:link` entries in the
   sitemap (#167).
