@@ -676,16 +676,25 @@ function tonbankcard_seo_localized_url( string $canonical_url, string $language 
 /**
  * Returns hreflang alternates (head + sitemap) for a canonical URL.
  *
+ * The default language (`en`) shares the canonical URL: the bare URL already
+ * serves English content, so its alternate points at the canonical URL rather
+ * than a `?lang=en` duplicate. This keeps every hreflang target on a canonical
+ * URL and matches the `x-default` and `<link rel="canonical">` signals. Other
+ * languages append `lang=<code>`.
+ *
  * @param string $canonical_url
  * @return array<int,array{hreflang:string,href:string}>
  */
 function tonbankcard_seo_hreflang_alternates( string $canonical_url ) {
     $alternates = [];
+    $default    = tonbankcard_normalize_language( '' );
 
     foreach ( tonbankcard_seo_languages() as $language ) {
         $alternates[] = [
             'hreflang' => $language,
-            'href'     => tonbankcard_seo_localized_url( $canonical_url, $language ),
+            'href'     => ( $language === $default )
+                ? $canonical_url
+                : tonbankcard_seo_localized_url( $canonical_url, $language ),
         ];
     }
 
