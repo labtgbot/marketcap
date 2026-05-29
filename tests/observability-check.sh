@@ -59,6 +59,12 @@ assert_contains README.md 'docs/v2-observability-operational-logging\.md' 'the o
 assert_contains .env.example '^TONBANKCARD_OBSERVABILITY_LOG_LEVEL=warning$' 'default warning log level'
 assert_contains .env.example '^TONBANKCARD_VERBOSE_TRACING=false$' 'default-off verbose tracing'
 assert_contains .env.example '^TONBANKCARD_CLIENT_ERROR_REPORTING=true$' 'frontend error reporting flag'
+assert_contains .env.example '^TONBANKCARD_ERROR_MONITORING_ENABLED=false$' 'default-off error monitoring'
+assert_contains .env.example '^TONBANKCARD_ERROR_MONITORING_DSN=$' 'empty error monitoring DSN default'
+assert_contains .env.example '^TONBANKCARD_ERROR_MONITORING_MIN_LEVEL=error$' 'error monitoring severity threshold'
+assert_contains docs/release-checklist.md 'TONBANKCARD_ERROR_MONITORING_ENABLED' 'error monitoring flag in the release checklist'
+assert_contains docs/release-checklist.md '/api/ready' 'uptime monitor target in the release checklist'
+assert_contains docs/release-checklist.md 'Monitoring owner' 'monitoring ownership in the production verification matrix'
 assert_contains package.json '"test:observability"' 'the observability npm script'
 assert_contains package.json 'test:observability' 'the aggregate observability check'
 assert_contains dev/js/source.json 'observability\.js' 'the generated bundle source list entry'
@@ -283,6 +289,115 @@ foreach ( [ 'queue-secret-token', 'bot-secret-token' ] as $secret ) {
         fwrite( STDERR, "Operational helper logs leaked a secret value\n" );
         exit( 1 );
     }
+}
+PHP
+
+php_check 'error-aggregation forwarding stays disabled by default and only forwards severe redacted events when enabled' \
+    env -i PATH="$PATH" \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require __DIR__ . '/api/observability.php';
+
+$captured = [];
+$transport = function ( $request ) use ( &$captured ) {
+    $captured[] = $request;
+    return TRUE;
+};
+
+// Disabled by default: no DSN, no transport invocation even for critical events.
+$runtime = [ 'observability' => [] ];
+$config = [ 'observability' => [] ];
+tonbankcard_observability_log( $runtime, $config, 'critical', 'forward.default', [ 'request_id' => 'default-1' ] );
+if ( ! empty( $captured ) ) {
+    fwrite( STDERR, "Forwarding must stay disabled when no DSN is configured\n" );
+    exit( 1 );
+}
+
+$monitored = [
+    'observability' => [
+        'log_level'        => 'warning',
+        'error_monitoring' => [
+            'enabled'     => TRUE,
+            'dsn'         => 'https://public-key@sentry.example.com/42',
+            'min_level'   => 'error',
+            'environment' => 'staging',
+            'transport'   => $transport,
+        ],
+    ],
+];
+
+// Below-threshold warnings are logged locally but not forwarded.
+tonbankcard_observability_log( $runtime, $monitored, 'warning', 'forward.warning', [ 'request_id' => 'warn-1' ] );
+if ( ! empty( $captured ) ) {
+    fwrite( STDERR, "Warnings below the min level must not be forwarded\n" );
+    exit( 1 );
+}
+
+// Error-level events forward a Sentry-store request with redacted context only.
+tonbankcard_observability_log(
+    $monitored,
+    $monitored,
+    'error',
+    'forward.error',
+    [ 'request_id' => 'error-1', 'bot_token' => 'forward-secret-token', 'note' => 'token=inline-secret-token' ]
+);
+
+if ( 1 !== count( $captured ) ) {
+    fwrite( STDERR, 'Expected exactly one forwarded request, got ' . count( $captured ) . "\n" );
+    exit( 1 );
+}
+
+$request = $captured[0];
+if ( 'sentry' !== $request['transport'] ) {
+    fwrite( STDERR, "Sentry DSN should select the sentry transport\n" );
+    exit( 1 );
+}
+if ( 'https://sentry.example.com/api/42/store/' !== $request['url'] ) {
+    fwrite( STDERR, 'Unexpected Sentry store endpoint: ' . $request['url'] . "\n" );
+    exit( 1 );
+}
+if ( FALSE === strpos( implode( "\n", $request['headers'] ), 'sentry_key=public-key' ) ) {
+    fwrite( STDERR, "Sentry auth header must carry the public key\n" );
+    exit( 1 );
+}
+foreach ( [ 'forward.error', 'error-1', 'staging' ] as $needle ) {
+    if ( FALSE === strpos( $request['body'], $needle ) ) {
+        fwrite( STDERR, "Forwarded payload is missing $needle\n" );
+        exit( 1 );
+    }
+}
+foreach ( [ 'forward-secret-token', 'inline-secret-token' ] as $secret ) {
+    if ( FALSE !== strpos( $request['body'], $secret ) ) {
+        fwrite( STDERR, "Forwarded payload leaked a secret value\n" );
+        exit( 1 );
+    }
+}
+
+// Plain webhook DSNs forward a generic JSON envelope.
+$webhook_captured = [];
+$webhook = [
+    'observability' => [
+        'log_level'        => 'warning',
+        'error_monitoring' => [
+            'enabled'   => TRUE,
+            'dsn'       => 'https://hooks.example.com/ingest/123',
+            'min_level' => 'error',
+            'transport' => function ( $request ) use ( &$webhook_captured ) {
+                $webhook_captured[] = $request;
+                return TRUE;
+            },
+        ],
+    ],
+];
+tonbankcard_observability_log( $webhook, $webhook, 'critical', 'forward.webhook', [ 'request_id' => 'hook-1' ] );
+if ( 1 !== count( $webhook_captured ) || 'webhook' !== $webhook_captured[0]['transport'] ) {
+    fwrite( STDERR, "Plain HTTP DSN should select the webhook transport\n" );
+    exit( 1 );
+}
+if ( FALSE === strpos( $webhook_captured[0]['body'], 'hook-1' ) ) {
+    fwrite( STDERR, "Webhook payload is missing the forwarded entry\n" );
+    exit( 1 );
 }
 PHP
 

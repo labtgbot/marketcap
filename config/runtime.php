@@ -504,6 +504,13 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
                 'verbose_tracing'        => tonbankcard_env_bool( 'TONBANKCARD_VERBOSE_TRACING', FALSE ),
                 'client_error_reporting' => tonbankcard_env_bool( 'TONBANKCARD_CLIENT_ERROR_REPORTING', TRUE ),
                 'sink'                   => 'error_log',
+                'error_monitoring'       => [
+                    'enabled'      => tonbankcard_env_bool( 'TONBANKCARD_ERROR_MONITORING_ENABLED', FALSE ),
+                    'dsn'          => (string) tonbankcard_env( 'TONBANKCARD_ERROR_MONITORING_DSN', '' ),
+                    'min_level'    => strtolower( trim( (string) tonbankcard_env( 'TONBANKCARD_ERROR_MONITORING_MIN_LEVEL', 'error' ) ) ),
+                    'environment'  => (string) tonbankcard_env( 'TONBANKCARD_ERROR_MONITORING_ENVIRONMENT', $profile ),
+                    'timeout_ms'   => tonbankcard_env_int( 'TONBANKCARD_ERROR_MONITORING_TIMEOUT_MS', 2000, 100, 15000 ),
+                ],
             ],
             'analytics'     => [
                 'yandex_metrica' => [

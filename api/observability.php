@@ -40,6 +40,47 @@ if ( ! function_exists( 'tonbankcard_observability_config' ) ) {
                 ? (bool) $api_observability['client_error_reporting']
                 : ( ! array_key_exists( 'client_error_reporting', $runtime_observability ) || (bool) $runtime_observability['client_error_reporting'] ),
             'sink'                   => isset( $api_observability['sink'] ) ? (string) $api_observability['sink'] : 'error_log',
+            'error_monitoring'       => tonbankcard_observability_error_monitoring_settings( $runtime_observability, $api_observability ),
+        ];
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_observability_error_monitoring_settings' ) ) {
+    /**
+     * Returns the normalized error-aggregation forwarding settings.
+     *
+     * Forwarding is disabled by default and only activates when both a flag is
+     * enabled and a destination DSN is configured, so no events leave the host
+     * unless an operator explicitly opts in.
+     *
+     * @param array $runtime_observability
+     * @param array $api_observability
+     * @return array
+     */
+    function tonbankcard_observability_error_monitoring_settings( array $runtime_observability = [], array $api_observability = [] ) {
+        $runtime_monitoring = isset( $runtime_observability['error_monitoring'] ) && is_array( $runtime_observability['error_monitoring'] ) ? $runtime_observability['error_monitoring'] : [];
+        $api_monitoring = isset( $api_observability['error_monitoring'] ) && is_array( $api_observability['error_monitoring'] ) ? $api_observability['error_monitoring'] : [];
+        $merged = array_merge( $runtime_monitoring, $api_monitoring );
+
+        $min_level = isset( $merged['min_level'] ) ? tonbankcard_observability_normalize_level( (string) $merged['min_level'] ) : 'error';
+        if ( 'off' === $min_level ) {
+            $min_level = 'error';
+        }
+
+        $timeout_ms = isset( $merged['timeout_ms'] ) ? (int) $merged['timeout_ms'] : 2000;
+        if ( $timeout_ms < 100 ) {
+            $timeout_ms = 100;
+        } elseif ( $timeout_ms > 15000 ) {
+            $timeout_ms = 15000;
+        }
+
+        return [
+            'enabled'     => ! empty( $merged['enabled'] ),
+            'dsn'         => isset( $merged['dsn'] ) ? trim( (string) $merged['dsn'] ) : '',
+            'min_level'   => $min_level,
+            'environment' => isset( $merged['environment'] ) ? (string) $merged['environment'] : '',
+            'timeout_ms'  => $timeout_ms,
+            'transport'   => isset( $merged['transport'] ) && is_callable( $merged['transport'] ) ? $merged['transport'] : null,
         ];
     }
 }
@@ -138,10 +179,274 @@ if ( ! function_exists( 'tonbankcard_observability_log' ) ) {
 
         if ( 'stderr' === $settings['sink'] ) {
             file_put_contents( 'php://stderr', $json . PHP_EOL );
-            return;
+        } else {
+            error_log( $json );
         }
 
-        error_log( $json );
+        if ( isset( $settings['error_monitoring'] ) && is_array( $settings['error_monitoring'] ) ) {
+            tonbankcard_observability_forward_event( $settings['error_monitoring'], $level, $entry );
+        }
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_observability_should_forward' ) ) {
+    /**
+     * Returns TRUE when an event should be forwarded to the aggregation sink.
+     *
+     * @param array $settings
+     * @param string $level
+     * @return bool
+     */
+    function tonbankcard_observability_should_forward( array $settings, string $level ) {
+        if ( empty( $settings['enabled'] ) || empty( $settings['dsn'] ) ) {
+            return FALSE;
+        }
+
+        return tonbankcard_observability_level_rank( $level ) >= tonbankcard_observability_level_rank( $settings['min_level'] );
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_observability_forward_event' ) ) {
+    /**
+     * Forwards an already-redacted log entry to the configured aggregation sink.
+     *
+     * Failures never interrupt request handling: the dispatch is best-effort and
+     * any transport error is logged locally without re-forwarding.
+     *
+     * @param array $settings
+     * @param string $level
+     * @param array $entry Redacted log entry as emitted to the local sink.
+     * @return bool TRUE when a dispatch was attempted and reported success.
+     */
+    function tonbankcard_observability_forward_event( array $settings, string $level, array $entry ) {
+        if ( ! tonbankcard_observability_should_forward( $settings, $level ) ) {
+            return FALSE;
+        }
+
+        $request = tonbankcard_observability_build_forward_request( $settings, $level, $entry );
+        if ( null === $request ) {
+            return FALSE;
+        }
+
+        $transport = isset( $settings['transport'] ) && is_callable( $settings['transport'] )
+            ? $settings['transport']
+            : 'tonbankcard_observability_http_dispatch';
+
+        try {
+            return (bool) call_user_func( $transport, $request );
+        } catch ( Throwable $error ) {
+            error_log( json_encode(
+                [
+                    'timestamp' => gmdate( 'c' ),
+                    'level'     => 'warning',
+                    'event'     => 'observability.forward_failed',
+                    'service'   => 'tonbankcard-marketcap',
+                    'transport' => $request['transport'],
+                ],
+                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+            ) );
+            return FALSE;
+        }
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_observability_build_forward_request' ) ) {
+    /**
+     * Builds the HTTP request descriptor for an aggregation destination.
+     *
+     * Supports Sentry-style DSNs (`https://<key>@<host>/<project>`) and plain
+     * HTTP(S) webhooks. Returns NULL for unsupported or malformed destinations.
+     *
+     * @param array $settings
+     * @param string $level
+     * @param array $entry
+     * @return array|null
+     */
+    function tonbankcard_observability_build_forward_request( array $settings, string $level, array $entry ) {
+        $dsn = trim( (string) $settings['dsn'] );
+        if ( '' === $dsn ) {
+            return null;
+        }
+
+        $parts = parse_url( $dsn );
+        if ( ! is_array( $parts ) || empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
+            return null;
+        }
+
+        $scheme = strtolower( (string) $parts['scheme'] );
+        if ( 'http' !== $scheme && 'https' !== $scheme ) {
+            return null;
+        }
+
+        $environment = '' !== (string) $settings['environment'] ? (string) $settings['environment'] : 'production';
+
+        // Sentry DSNs embed a public key in the userinfo component.
+        if ( ! empty( $parts['user'] ) ) {
+            $sentry = tonbankcard_observability_sentry_endpoint( $parts );
+            if ( null === $sentry ) {
+                return null;
+            }
+
+            $body = json_encode(
+                tonbankcard_observability_sentry_payload( $level, $entry, $environment ),
+                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
+            );
+
+            return [
+                'transport'   => 'sentry',
+                'url'         => $sentry['url'],
+                'headers'     => [
+                    'Content-Type: application/json',
+                    'X-Sentry-Auth: Sentry sentry_version=7, sentry_client=tonbankcard-observability/1.0, sentry_key=' . $sentry['public_key'],
+                ],
+                'body'        => FALSE === $body ? '{}' : $body,
+                'timeout_ms'  => (int) $settings['timeout_ms'],
+            ];
+        }
+
+        $body = json_encode(
+            [
+                'environment' => $environment,
+                'level'       => $level,
+                'entry'       => $entry,
+            ],
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
+        );
+
+        return [
+            'transport'   => 'webhook',
+            'url'         => $dsn,
+            'headers'     => [ 'Content-Type: application/json' ],
+            'body'        => FALSE === $body ? '{}' : $body,
+            'timeout_ms'  => (int) $settings['timeout_ms'],
+        ];
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_observability_sentry_endpoint' ) ) {
+    /**
+     * Derives the Sentry store endpoint and public key from DSN URL parts.
+     *
+     * @param array $parts Result of parse_url() on the DSN.
+     * @return array|null
+     */
+    function tonbankcard_observability_sentry_endpoint( array $parts ) {
+        $path = isset( $parts['path'] ) ? trim( (string) $parts['path'], '/' ) : '';
+        if ( '' === $path ) {
+            return null;
+        }
+
+        $segments = explode( '/', $path );
+        $project_id = array_pop( $segments );
+        if ( '' === (string) $project_id || ! preg_match( '/^[A-Za-z0-9_-]+$/', (string) $project_id ) ) {
+            return null;
+        }
+
+        $prefix = empty( $segments ) ? '' : '/' . implode( '/', $segments );
+        $authority = strtolower( (string) $parts['scheme'] ) . '://' . $parts['host'];
+        if ( ! empty( $parts['port'] ) ) {
+            $authority .= ':' . (int) $parts['port'];
+        }
+
+        return [
+            'url'        => $authority . $prefix . '/api/' . $project_id . '/store/',
+            'public_key' => (string) $parts['user'],
+        ];
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_observability_sentry_payload' ) ) {
+    /**
+     * Builds a minimal Sentry store-API event from a redacted log entry.
+     *
+     * @param string $level
+     * @param array $entry
+     * @param string $environment
+     * @return array
+     */
+    function tonbankcard_observability_sentry_payload( string $level, array $entry, string $environment ) {
+        $sentry_levels = [
+            'debug'    => 'debug',
+            'info'     => 'info',
+            'warning'  => 'warning',
+            'error'    => 'error',
+            'critical' => 'fatal',
+        ];
+
+        $message = isset( $entry['message'] ) && '' !== (string) $entry['message']
+            ? (string) $entry['message']
+            : ( isset( $entry['event'] ) ? (string) $entry['event'] : 'observability.event' );
+
+        return [
+            'event_id'    => bin2hex( random_bytes( 16 ) ),
+            'timestamp'   => isset( $entry['timestamp'] ) ? (string) $entry['timestamp'] : gmdate( 'c' ),
+            'platform'    => 'php',
+            'level'       => isset( $sentry_levels[ $level ] ) ? $sentry_levels[ $level ] : 'error',
+            'logger'      => 'tonbankcard-observability',
+            'server_name' => isset( $entry['service'] ) ? (string) $entry['service'] : 'tonbankcard-marketcap',
+            'release'     => isset( $entry['version'] ) ? (string) $entry['version'] : '',
+            'environment' => $environment,
+            'transaction' => isset( $entry['event'] ) ? (string) $entry['event'] : '',
+            'message'     => [ 'formatted' => $message ],
+            'tags'        => [
+                'event' => isset( $entry['event'] ) ? (string) $entry['event'] : '',
+            ],
+            'extra'       => $entry,
+        ];
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_observability_http_dispatch' ) ) {
+    /**
+     * Best-effort HTTP POST transport for forwarded events.
+     *
+     * @param array $request Descriptor from tonbankcard_observability_build_forward_request().
+     * @return bool TRUE when the destination accepted the event (2xx).
+     */
+    function tonbankcard_observability_http_dispatch( array $request ) {
+        $url = isset( $request['url'] ) ? (string) $request['url'] : '';
+        if ( '' === $url ) {
+            return FALSE;
+        }
+
+        $headers = isset( $request['headers'] ) && is_array( $request['headers'] ) ? $request['headers'] : [];
+        $body = isset( $request['body'] ) ? (string) $request['body'] : '';
+        $timeout_ms = isset( $request['timeout_ms'] ) ? (int) $request['timeout_ms'] : 2000;
+
+        if ( function_exists( 'curl_init' ) ) {
+            $handle = curl_init( $url );
+            if ( FALSE === $handle ) {
+                return FALSE;
+            }
+
+            curl_setopt( $handle, CURLOPT_POST, TRUE );
+            curl_setopt( $handle, CURLOPT_POSTFIELDS, $body );
+            curl_setopt( $handle, CURLOPT_HTTPHEADER, $headers );
+            curl_setopt( $handle, CURLOPT_RETURNTRANSFER, TRUE );
+            curl_setopt( $handle, CURLOPT_TIMEOUT_MS, $timeout_ms );
+            curl_setopt( $handle, CURLOPT_CONNECTTIMEOUT_MS, $timeout_ms );
+            curl_exec( $handle );
+            $status = (int) curl_getinfo( $handle, CURLINFO_HTTP_CODE );
+            curl_close( $handle );
+
+            return $status >= 200 && $status < 300;
+        }
+
+        $context = stream_context_create(
+            [
+                'http' => [
+                    'method'        => 'POST',
+                    'header'        => implode( "\r\n", $headers ),
+                    'content'       => $body,
+                    'timeout'       => max( 1, (int) ceil( $timeout_ms / 1000 ) ),
+                    'ignore_errors' => TRUE,
+                ],
+            ]
+        );
+
+        $result = @file_get_contents( $url, FALSE, $context );
+
+        return FALSE !== $result;
     }
 }
 

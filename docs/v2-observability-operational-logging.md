@@ -17,6 +17,11 @@ API envelopes, server logs, and provider diagnostics.
 | `TONBANKCARD_OBSERVABILITY_LOG_LEVEL` | `warning` | Minimum emitted server log level: `debug`, `info`, `warning`, `error`, `critical`, or `off`. |
 | `TONBANKCARD_VERBOSE_TRACING` | `false` | Default-off verbose tracing. When `true`, safe debug/info records are emitted without logging secrets or request bodies. |
 | `TONBANKCARD_CLIENT_ERROR_REPORTING` | `true` | Allows browser boot, Vue, unhandled promise, and API error reports to post to `/api/observability/client-error`. |
+| `TONBANKCARD_ERROR_MONITORING_ENABLED` | `false` | Default-off error-aggregation forwarding. When `true` with a DSN set, severe redacted events are forwarded to an external aggregator. |
+| `TONBANKCARD_ERROR_MONITORING_DSN` | empty | Sentry-compatible DSN (`https://<key>@<host>/<project>`) or plain HTTP(S) webhook URL. Keep this secret out of the repo and set it only in the deployment environment. |
+| `TONBANKCARD_ERROR_MONITORING_MIN_LEVEL` | `error` | Minimum severity to forward. Forwarding never fires below this level. |
+| `TONBANKCARD_ERROR_MONITORING_ENVIRONMENT` | profile | Environment tag attached to forwarded events. Defaults to the active `TONBANKCARD_PROFILE`. |
+| `TONBANKCARD_ERROR_MONITORING_TIMEOUT_MS` | `2000` | Best-effort dispatch timeout. Forwarding never blocks or fails the originating request. |
 
 Operational logs are JSON lines written to the PHP `error_log` sink by default.
 Secrets, authorization headers, cookies, session tokens, bot tokens, provider
@@ -96,6 +101,27 @@ jq -r 'select(.event=="queue.failure" or .event=="bot.delivery_failure") | [.tim
 | `/api/ready` returns `503`. | Inspect readiness JSON and recent `api.request_completed` logs for `/api/ready`. | `not_ready` plus safe dependency check names. |
 | Queue failure. | Search `queue.failure` by `request_id`, queue, or operation. | Redacted queue context and safe job identifiers. |
 | Telegram bot delivery failure. | Search `bot.delivery_failure` by `request_id`, provider, or operation. | Redacted delivery context and hashed user identifiers where available. |
+
+## Error Aggregation And Uptime Monitoring
+
+- Error-aggregation forwarding is disabled by default. It only activates when
+  `TONBANKCARD_ERROR_MONITORING_ENABLED=true` and a non-empty
+  `TONBANKCARD_ERROR_MONITORING_DSN` are both set, so no events leave the host
+  unless an operator opts in.
+- When enabled, `tonbankcard_observability_log` forwards events at or above
+  `TONBANKCARD_ERROR_MONITORING_MIN_LEVEL` (default `error`) to the destination.
+  Only the already-redacted log entry is forwarded; the same privacy rules below
+  apply, so secrets are never shipped to the aggregator.
+- Sentry-compatible DSNs are posted to the Sentry store API; plain HTTP(S) DSNs
+  receive a generic JSON envelope. Dispatch is best-effort with a short timeout
+  and never blocks or fails the originating request.
+- Browser errors reuse `TONBANKCARD_CLIENT_ERROR_REPORTING` and post to
+  `/api/observability/client-error`, which logs through the same hook so frontend
+  errors reach the aggregator alongside server events.
+- Pair forwarding with an external uptime monitor that polls `/api/health` and
+  `/api/ready` and routes failures to the operations Telegram alert channel. See
+  `docs/release-checklist.md` for the monitoring owner, tool, and alert-routing
+  matrix.
 
 ## Privacy Rules
 
