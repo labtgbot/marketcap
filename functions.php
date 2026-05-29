@@ -638,8 +638,8 @@ function tonbankcard_seo_log( string $level, string $event, array $context = [] 
 /**
  * Returns the supported language codes used for crawler hreflang signals.
  *
- * Derived from the translation registry so adding a language updates the
- * signals automatically.
+ * Derived from the translation registry (via tonbankcard_supported_languages())
+ * so adding a translation dictionary updates the signals automatically.
  *
  * @return array<int,string>
  */
@@ -1689,21 +1689,107 @@ function __( string $text ) {
 }
 
 /**
+ * Returns the language codes registered in the translation registry.
+ *
+ * The registry is the dictionary map produced by
+ * `config/translations/index.php` and exposed at runtime as
+ * `$GLOBALS['tonbankcard_translations']` (populated by
+ * `config/translation.php`). When that global is unavailable — e.g. a CLI or
+ * unit context that has not bootstrapped the config — the codes are discovered
+ * by scanning the `config/translations` directory for `<code>.php`
+ * dictionaries.
+ *
+ * Deriving language signals from this list — rather than from a separate
+ * hardcoded array — means adding a translation dictionary updates the language
+ * switcher, request-time resolution, and the SEO hreflang signals together.
+ *
+ * @return array<int,string>
+ */
+function tonbankcard_translation_registry_languages() {
+    $codes = [];
+
+    if ( isset( $GLOBALS['tonbankcard_translations'] ) && is_array( $GLOBALS['tonbankcard_translations'] ) ) {
+        foreach ( array_keys( $GLOBALS['tonbankcard_translations'] ) as $code ) {
+            if ( is_string( $code ) && '' !== $code ) {
+                $codes[] = strtolower( $code );
+            }
+        }
+    }
+
+    if ( empty( $codes ) && defined( 'GECKO_CLIENT_CONFIG_DIR' ) ) {
+        $dir = GECKO_CLIENT_CONFIG_DIR . '/translations';
+        if ( is_dir( $dir ) ) {
+            $files = glob( $dir . '/*.php' );
+            if ( is_array( $files ) ) {
+                sort( $files );
+                foreach ( $files as $file ) {
+                    $base = strtolower( basename( $file, '.php' ) );
+                    if ( 'index' !== $base && preg_match( '/^[a-z]{2,3}(-[a-z0-9]{2,8})?$/', $base ) ) {
+                        $codes[] = $base;
+                    }
+                }
+            }
+        }
+    }
+
+    return array_values( array_unique( $codes ) );
+}
+
+/**
  * Returns the supported public languages keyed by ISO 639-1 code.
  *
- * The values are the language's endonym (native name) used in the
- * language switcher UI.
+ * The codes are derived from the translation registry (see
+ * tonbankcard_translation_registry_languages()), so adding a translation
+ * dictionary surfaces the language automatically. The values are the
+ * language's endonym (native name) used in the language switcher UI; a
+ * registered language without a known endonym falls back to its uppercased
+ * code so it still renders. English is always present and listed first because
+ * it is the app-wide default fallback.
  *
  * @return array<string,string>
  */
 function tonbankcard_supported_languages() {
-    return [
+    $endonyms = [
         'en' => 'English',
         'ru' => 'Русский',
         'fr' => 'Français',
         'ar' => 'العربية',
         'zh' => '中文',
     ];
+
+    $codes = tonbankcard_translation_registry_languages();
+    if ( empty( $codes ) ) {
+        $codes = array_keys( $endonyms );
+    }
+
+    $available = [];
+    foreach ( $codes as $code ) {
+        if ( is_string( $code ) && '' !== $code ) {
+            $available[ $code ] = TRUE;
+        }
+    }
+
+    $languages = [];
+
+    // List the bundled languages first in a stable, curated order so the
+    // switcher UI stays predictable, then append any additional registered
+    // dictionaries (e.g. a freshly added language) after them.
+    foreach ( $endonyms as $code => $name ) {
+        if ( isset( $available[ $code ] ) ) {
+            $languages[ $code ] = $name;
+            unset( $available[ $code ] );
+        }
+    }
+    foreach ( array_keys( $available ) as $code ) {
+        $languages[ $code ] = strtoupper( $code );
+    }
+
+    // English is the app-wide default fallback, so guarantee it is present and
+    // listed first regardless of registry discovery.
+    $english = isset( $languages['en'] ) ? $languages['en'] : $endonyms['en'];
+    unset( $languages['en'] );
+
+    return array_merge( [ 'en' => $english ], $languages );
 }
 
 /**

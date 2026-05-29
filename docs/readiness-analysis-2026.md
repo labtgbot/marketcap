@@ -208,7 +208,7 @@ Stage 6 follow-up pull request:
 | --- | --- | --- | --- |
 | 1 — sitemap exposes only three hardcoded coins | #166 | Resolved | `tonbankcard_public_sitemap_entries()` now derives the full coin universe from the market gateway with a bundled fallback. |
 | 2 — exchanges and TON assets excluded | #166 | Resolved | Exchange and TON-asset detail pages are enumerated into the sitemap. |
-| 3 — no hreflang alternates | #167 | Resolved | Per-language `hreflang` alternates (en, ru, fr, ar, zh) plus `x-default` in `views/app-head.php` and as sitemap `xhtml:link` entries. |
+| 3 — no hreflang alternates | #167 | Resolved | Per-language `hreflang` alternates plus `x-default` in `views/app-head.php` and as sitemap `xhtml:link` entries, using the `?lang=` URL strategy. The language list is derived from the translation registry (`config/translations/`), so adding a dictionary updates the signals automatically. |
 | 4 — no sitemap index / caching / data-derived lastmod | #168 | Resolved | `sitemap_index.xml` with paginated sections, `robots.txt` advertising the index, Upstash caching with `ETag`/`Last-Modified`/`304`, and data-derived `lastmod`. |
 | 4 (test) — coverage regression risk | #169 | Resolved | `tests/sitemap-coverage-check.sh` asserts full coverage and sitemaps.org schema validity, wired into `npm test` and CI. |
 | 5 — no accessibility audit | #170 | Resolved (with deferrals) | `tests/accessibility-check.js` runs axe-core via Playwright against key public routes in `npm test` and CI; critical/serious violations fail the build. See deferrals below. |
