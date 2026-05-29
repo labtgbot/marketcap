@@ -16,7 +16,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 <v-container class="gc-page-loader" v-if="loading">
     <v-row class="fill-height" align-content="center" justify="center">
         <v-col cols="6">
-            <v-progress-linear indeterminate height="8"></v-progress-linear>
+            <v-progress-linear indeterminate height="8" aria-label="<?php echo esc_attr( __( 'Loading' ) ); ?>"></v-progress-linear>
         </v-col>
     </v-row>
 </v-container>

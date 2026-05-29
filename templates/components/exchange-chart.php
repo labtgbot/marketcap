@@ -21,7 +21,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
         <v-select class="d-flex d-sm-none" dense filled v-model="selectedInterval" :items="intervals" @change="updateChart"></v-select>
     </v-card-text>
     <div v-if="loading" class="gc-exchange-chart-loader d-flex align-center justify-center">
-        <v-progress-circular :size="70" :width="7" indeterminate color="primary"></v-progress-circular>
+        <v-progress-circular :size="70" :width="7" indeterminate color="primary" aria-label="<?php echo esc_attr( __( 'Loading' ) ); ?>"></v-progress-circular>
     </div>
     <div v-else class="gc-exchange-chart-container" ref="chartContainer"></div>
 </v-card>

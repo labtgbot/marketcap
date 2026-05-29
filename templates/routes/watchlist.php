@@ -76,7 +76,7 @@ $frontend_options['watchlist']['title'] = __( 'Watchlist' );
             </v-btn>
         </div>
 
-        <v-progress-linear v-if="loading" indeterminate color="primary" height="3" class="mb-4"></v-progress-linear>
+        <v-progress-linear v-if="loading" indeterminate color="primary" height="3" class="mb-4" aria-label="<?php echo esc_attr( __( 'Loading' ) ); ?>"></v-progress-linear>
 
         <v-alert v-if="marketError && !isEmpty" type="warning" outlined class="mb-4">
             <?php echo esc_html( __( 'Market data is temporarily unavailable. Saved watchlist entries remain visible.' ) ); ?>

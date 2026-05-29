@@ -117,7 +117,7 @@ $frontend_options['admin']['apiBaseUrl'] = site_url( 'api/admin' );
                 </v-tab>
             </v-tabs>
 
-            <v-progress-linear v-if="loading" indeterminate color="primary" height="3" class="mb-4"></v-progress-linear>
+            <v-progress-linear v-if="loading" indeterminate color="primary" height="3" class="mb-4" aria-label="<?php echo esc_attr( __( 'Loading' ) ); ?>"></v-progress-linear>
 
             <v-row dense v-if="activeSection === 'overview'">
                 <v-col cols="12" md="3" v-for="metric in overviewMetrics" :key="metric.label">

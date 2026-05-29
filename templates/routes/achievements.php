@@ -168,6 +168,7 @@ $frontend_options['achievements']['title'] = __( 'Achievements' );
                         height="8"
                         rounded
                         class="mb-2"
+                        :aria-label="definition.title"
                     ></v-progress-linear>
                     <div class="d-flex align-center">
                         <v-chip x-small label outlined>

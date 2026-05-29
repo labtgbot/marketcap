@@ -135,7 +135,7 @@ $frontend_options['ton']['apiBaseUrl'] = site_url( 'api/ton/assets' );
         </span>
     </div>
 
-    <v-progress-linear v-if="loadingCuration" indeterminate color="primary" class="mb-4"></v-progress-linear>
+    <v-progress-linear v-if="loadingCuration" indeterminate color="primary" class="mb-4" aria-label="<?php echo esc_attr( __( 'Loading' ) ); ?>"></v-progress-linear>
 
     <v-row class="ton-asset-grid">
         <v-col v-for="asset in filteredAssets" :key="asset.id" cols="12" sm="6" lg="4">

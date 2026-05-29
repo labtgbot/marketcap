@@ -15,7 +15,7 @@ $frontend_options['ton-asset']['apiBaseUrl'] = site_url( 'api/ton/assets' );
         <?php echo esc_html( __( 'Back to TON catalog' ) ); ?>
     </v-btn>
 
-    <v-progress-linear v-if="loadingCuration" indeterminate color="primary" class="mb-4"></v-progress-linear>
+    <v-progress-linear v-if="loadingCuration" indeterminate color="primary" class="mb-4" aria-label="<?php echo esc_attr( __( 'Loading' ) ); ?>"></v-progress-linear>
 
     <v-alert v-if="adminNotice" :type="adminNoticeType" dense text class="mb-4" v-text="adminNotice"></v-alert>
     <v-alert v-if="loadError" type="warning" dense text class="mb-4" v-text="loadError"></v-alert>

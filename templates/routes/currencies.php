@@ -77,7 +77,7 @@ $frontend_options['currencies']['tonApiBaseUrl'] = site_url( 'api/ton/assets' );
             </v-chip>
         </div>
 
-        <v-progress-linear v-if="loading" indeterminate color="primary" height="3" class="mb-4"></v-progress-linear>
+        <v-progress-linear v-if="loading" indeterminate color="primary" height="3" class="mb-4" aria-label="<?php echo esc_attr( __( 'Loading' ) ); ?>"></v-progress-linear>
 
         <v-alert v-if="upstreamError" type="error" outlined class="mb-4">
             <?php echo esc_html( __( 'Upstream market data is unavailable. Try again after the provider recovers.' ) ); ?>

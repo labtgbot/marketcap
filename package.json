@@ -1,5 +1,6 @@
 {
   "name": "marketcap",
+  "version": "2.0.0",
   "private": true,
   "scripts": {
     "lint:php": "sh tests/php-lint.sh",
@@ -22,6 +23,8 @@
     "test:premium": "sh tests/premium-check.sh",
     "test:public-shell": "sh tests/public-website-shell-check.sh",
     "test:seo": "sh tests/seo-optimization-check.sh",
+    "test:sitemap-coverage": "sh tests/sitemap-coverage-check.sh",
+    "test:accessibility": "node tests/accessibility-check.js",
     "test:ai-provider": "sh tests/ai-provider-check.sh",
     "test:ai-insights": "sh tests/ai-insight-cards-check.sh",
     "test:ai-sentiment": "sh tests/ai-sentiment-check.sh",
@@ -40,9 +43,10 @@
     "test:workflow": "sh tests/development-workflow-check.sh",
     "test:design-system": "sh tests/design-system-check.sh",
     "test:smoke": "node tests/browser-smoke.js",
-    "test": "npm run test:workflow && npm run lint:php && npm run test:content && npm run test:architecture && npm run test:analytics && npm run test:database && npm run test:api && npm run test:market-gateway && npm run test:cache-rate-limit && npm run test:search-api && npm run test:ton-ecosystem && npm run test:telegram-session && npm run test:telegram-bot && npm run test:watchlist && npm run test:screener && npm run test:alerts && npm run test:share-referrals && npm run test:achievements && npm run test:premium && npm run test:public-shell && npm run test:seo && npm run test:ai-provider && npm run test:ai-sentiment && npm run test:ai-insights && npm run test:observability && npm run test:performance && npm run test:design-system && npm run test:charts && npm run test:pwa-telegram && npm run test:mini-app-setup-guide && npm run test:ton-connect && npm run test:admin-panel && npm run test:security-compliance && npm run test:launch-readiness && npm run test:hosting-installation && npm run test:automatic-installer && npm run validate:bundle && npm run test:smoke"
+    "test": "npm run test:workflow && npm run lint:php && npm run test:content && npm run test:architecture && npm run test:analytics && npm run test:database && npm run test:api && npm run test:market-gateway && npm run test:cache-rate-limit && npm run test:search-api && npm run test:ton-ecosystem && npm run test:telegram-session && npm run test:telegram-bot && npm run test:watchlist && npm run test:screener && npm run test:alerts && npm run test:share-referrals && npm run test:achievements && npm run test:premium && npm run test:public-shell && npm run test:seo && npm run test:sitemap-coverage && npm run test:ai-provider && npm run test:ai-sentiment && npm run test:ai-insights && npm run test:observability && npm run test:performance && npm run test:design-system && npm run test:charts && npm run test:pwa-telegram && npm run test:mini-app-setup-guide && npm run test:ton-connect && npm run test:admin-panel && npm run test:security-compliance && npm run test:launch-readiness && npm run test:hosting-installation && npm run test:automatic-installer && npm run validate:bundle && npm run test:accessibility && npm run test:smoke"
   },
   "devDependencies": {
+    "axe-core": "^4.10.2",
     "playwright": "^1.59.1",
     "uglify-js": "^3.19.3"
   }
