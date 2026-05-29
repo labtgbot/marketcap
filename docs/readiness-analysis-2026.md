@@ -196,3 +196,37 @@ staged-roadmap convention.
 | #170 | P2 | [Quality] Accessibility (a11y) audit and automated check for public pages |
 | #171 | P2 | [Ops] Production error-monitoring and uptime alerting integration |
 | #172 | P3 | [Release] Add CHANGELOG.md and a package version trigger |
+
+---
+
+## 5. Resolution status (Stage 6 follow-ups)
+
+All findings above were addressed under the tracking epic #165. Status as of the
+Stage 6 follow-up pull request:
+
+| Finding | Issue | Status | Resolution |
+| --- | --- | --- | --- |
+| 1 — sitemap exposes only three hardcoded coins | #166 | Resolved | `tonbankcard_public_sitemap_entries()` now derives the full coin universe from the market gateway with a bundled fallback. |
+| 2 — exchanges and TON assets excluded | #166 | Resolved | Exchange and TON-asset detail pages are enumerated into the sitemap. |
+| 3 — no hreflang alternates | #167 | Resolved | Per-language `hreflang` alternates (en, ru, fr, ar, zh) plus `x-default` in `views/app-head.php` and as sitemap `xhtml:link` entries. |
+| 4 — no sitemap index / caching / data-derived lastmod | #168 | Resolved | `sitemap_index.xml` with paginated sections, `robots.txt` advertising the index, Upstash caching with `ETag`/`Last-Modified`/`304`, and data-derived `lastmod`. |
+| 4 (test) — coverage regression risk | #169 | Resolved | `tests/sitemap-coverage-check.sh` asserts full coverage and sitemaps.org schema validity, wired into `npm test` and CI. |
+| 5 — no accessibility audit | #170 | Resolved (with deferrals) | `tests/accessibility-check.js` runs axe-core via Playwright against key public routes in `npm test` and CI; critical/serious violations fail the build. See deferrals below. |
+| 6 — no error monitoring / uptime alerting | #171 | Resolved | Flag-driven, default-off error-aggregation forwarding in the observability layer plus a documented uptime/alert-routing matrix in `docs/release-checklist.md`. |
+| 7 — no CHANGELOG / version trigger | #172 | Resolved | `package.json` carries `version` `2.0.0`, `CHANGELOG.md` follows Keep a Changelog, and SemVer is documented as a release gate. |
+
+### Consciously deferred accessibility items (Finding 5)
+
+The automated a11y check fails on critical and serious axe-core violations, with a
+documented allowlist of two design-token-level issues deferred to a dedicated
+design pass rather than blocking the Stage 6 SEO/operations work:
+
+- **`color-contrast`** — white text on the brand primary in the app bar resolves
+  to roughly a 3.4:1 ratio, below the WCAG AA 4.5:1 target. Raising it requires
+  revising the brand color in `config/vuetify.php`, a design-system decision with
+  visual-regression impact, so it is deferred rather than changed unilaterally.
+- **`link-in-text-block`** — inline links that rely on color alone share the same
+  design-token revision.
+
+Both are tracked in the accessibility report (`test-logs/accessibility-report.json`)
+as warnings so they remain visible until the design pass resolves them.
