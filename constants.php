@@ -87,3 +87,27 @@ define( 'GECKO_CLIENT_APP_MINIFIED', (bool) $GLOBALS['runtime_config']['assets']
 define( 'GECKO_CLIENT_PRECONNECT', (bool) $GLOBALS['runtime_config']['assets']['preconnect'] );
 
 define( 'GECKO_CLIENT_CDN', (bool) $GLOBALS['runtime_config']['assets']['cdn'] );
+
+/*
+| -------------------------------------------------------------------------
+| SITEMAP
+| -------------------------------------------------------------------------
+| TONBANKCARD_SITEMAP_MAX_URLS:
+|   Maximum number of URLs in a single section sitemap before it is split
+|   across paginated files (sitemap-coins-1.xml, …). Capped at the
+|   sitemaps.org hard limit of 50,000 URLs per file.
+|
+| TONBANKCARD_SITEMAP_CACHE_TTL:
+|   Fresh TTL (seconds) for cached sitemap documents in the shared Upstash
+|   Redis store. 0 disables sitemap caching (render on every request).
+|
+| TONBANKCARD_SITEMAP_CACHE_STALE_TTL:
+|   Additional stale-while-revalidate window (seconds) after the fresh TTL
+|   expires, so crawlers keep getting a document while it is regenerated.
+| -------------------------------------------------------------------------
+*/
+define( 'TONBANKCARD_SITEMAP_MAX_URLS', tonbankcard_env_int( 'TONBANKCARD_SITEMAP_MAX_URLS', 50000, 1, 50000 ) );
+
+define( 'TONBANKCARD_SITEMAP_CACHE_TTL', tonbankcard_env_int( 'TONBANKCARD_SITEMAP_CACHE_TTL', 3600, 0, 86400 ) );
+
+define( 'TONBANKCARD_SITEMAP_CACHE_STALE_TTL', tonbankcard_env_int( 'TONBANKCARD_SITEMAP_CACHE_STALE_TTL', 86400, 0, 604800 ) );

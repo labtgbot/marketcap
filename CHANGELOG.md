@@ -26,7 +26,14 @@ Stage 6 — launch-readiness and SEO-completeness audit follow-ups
   resolution, and the SEO signals together.
 - Sitemap index with paginated sections, `robots.txt` advertising the index,
   Upstash Redis caching with `ETag`/`Last-Modified`/`304` handling, and
-  data-derived `lastmod` values (#168).
+  data-derived `lastmod` values (#168). Pagination, cache TTL, and the
+  stale-while-revalidate window are now configurable through the
+  `TONBANKCARD_SITEMAP_MAX_URLS`, `TONBANKCARD_SITEMAP_CACHE_TTL`, and
+  `TONBANKCARD_SITEMAP_CACHE_STALE_TTL` environment variables (validated on
+  boot and documented in `.env.example`), and a deterministic
+  `tests/sitemap-index-cache-check.sh` regression test exercises automatic
+  pagination, conditional-request revalidation, and the data-derived `lastmod`,
+  wired into `npm test` and CI.
 - Deterministic sitemap coverage test (`tests/sitemap-coverage-check.sh`) wired
   into `npm test` and CI (#169).
 - Automated accessibility audit (`tests/accessibility-check.js`) running axe-core
