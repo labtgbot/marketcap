@@ -18,9 +18,12 @@ Stage 6 — launch-readiness and SEO-completeness audit follow-ups
   `coins/list` endpoint, enumerating every coin known to the provider instead of
   a single 250-coin market-cap page, with a `tests/sitemap-live-source-check.php`
   regression test wired into `npm test` and CI.
-- `hreflang` alternates for every supported language (en, ru, fr, ar, zh) plus
-  `x-default`, emitted in the document head and as `xhtml:link` entries in the
-  sitemap (#167).
+- `hreflang` alternates for every supported language plus `x-default`, emitted
+  in the document head and as `xhtml:link` entries in the sitemap, using the
+  `?lang=` localized-URL strategy (#167). The language list is derived from the
+  translation registry (`config/translations/`), which now discovers dictionary
+  files dynamically, so adding a translation updates the switcher, request-time
+  resolution, and the SEO signals together.
 - Sitemap index with paginated sections, `robots.txt` advertising the index,
   Upstash Redis caching with `ETag`/`Last-Modified`/`304` handling, and
   data-derived `lastmod` values (#168).

@@ -11,6 +11,13 @@ base_url="http://$host:$port"
 server_pid=""
 failures=0
 
+# A throwaway translation dictionary used to prove the hreflang language list
+# is derived from the translation registry: dropping in a `<code>.php`
+# dictionary must surface the language in the head and sitemap alternates
+# automatically (issue #167). Removed again in cleanup().
+temp_lang_code="xt"
+temp_lang_file="$root/config/translations/$temp_lang_code.php"
+
 mkdir -p "$log_dir"
 : > "$log_file"
 : > "$server_log"
@@ -29,8 +36,18 @@ cleanup() {
         kill "$server_pid" 2>/dev/null || true
         wait "$server_pid" 2>/dev/null || true
     fi
+    rm -f "$temp_lang_file"
 }
 trap cleanup EXIT INT TERM
+
+# Register a temporary language by dropping a dictionary into the registry
+# directory before the server boots. Nothing else is touched, so the language
+# can only appear in the SEO signals if the language list is registry-derived.
+cat > "$temp_lang_file" <<'PHP'
+<?php
+defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
+return [ 'Rank' => 'Rank' ];
+PHP
 
 start_server() {
     log "Starting PHP server at $base_url"
@@ -137,6 +154,7 @@ assert_contains "$sitemap_xml" '<lastmod>[0-9]{4}-[0-9]{2}-[0-9]{2}</lastmod>' '
 assert_contains "$sitemap_xml" '<xhtml:link rel="alternate" hreflang="en" href="[^"]+"/>' 'sitemap hreflang alternate (en)'
 assert_contains "$sitemap_xml" '<xhtml:link rel="alternate" hreflang="ru" href="[^"]+"/>' 'sitemap hreflang alternate (ru)'
 assert_contains "$sitemap_xml" '<xhtml:link rel="alternate" hreflang="x-default" href="[^"]+"/>' 'sitemap hreflang x-default alternate'
+assert_contains "$sitemap_xml" "<xhtml:link rel=\"alternate\" hreflang=\"$temp_lang_code\" href=\"[^\"]+\"/>" 'sitemap hreflang alternate derived from the translation registry'
 assert_contains "$sitemap_xml" "<loc>$base_url/</loc>" 'home sitemap URL'
 assert_contains "$sitemap_xml" "<loc>$base_url/markets</loc>" 'markets sitemap URL'
 assert_contains "$sitemap_xml" "<loc>$base_url/coins/bitcoin</loc>" 'Bitcoin canonical coin URL'
@@ -161,6 +179,7 @@ assert_contains "$home_html" '<link rel="alternate" hreflang="fr" href="[^"]+"' 
 assert_contains "$home_html" '<link rel="alternate" hreflang="ar" href="[^"]+"' 'head hreflang alternate (ar)'
 assert_contains "$home_html" '<link rel="alternate" hreflang="zh" href="[^"]+"' 'head hreflang alternate (zh)'
 assert_contains "$home_html" '<link rel="alternate" hreflang="x-default" href="[^"]+"' 'head hreflang x-default alternate'
+assert_contains "$home_html" "<link rel=\"alternate\" hreflang=\"$temp_lang_code\" href=\"[^\"]+\"" 'head hreflang alternate derived from the translation registry'
 
 assert_contains "$coin_html" '<link rel="canonical" href="http://127\.0\.0\.1:8893/coins/bitcoin"' 'canonical coin URL'
 assert_contains "$coin_html" '"@type":"BreadcrumbList"' 'coin breadcrumb structured data'

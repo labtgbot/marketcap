@@ -30,6 +30,31 @@ signals.
   route metadata and route template file modification times unless a route
   defines `sitemap_lastmod` explicitly.
 
+## Internationalization (hreflang)
+
+- Every indexable page emits one `<link rel="alternate" hreflang="…">` per
+  supported UI language plus an `x-default` entry, and the XML sitemap mirrors
+  them as `<xhtml:link rel="alternate" hreflang="…" href="…"/>` alternates under
+  the `xhtml` namespace. This lets Google and Yandex discover and serve the
+  correct localized variant per user locale (issue
+  [#167](https://github.com/labtgbot/marketcap/issues/167)).
+- **Localized-URL strategy: `?lang=` query parameter.** The bare canonical URL
+  serves English and is the `x-default`; each other language is addressed by
+  appending `lang=<code>` (e.g. `/coins/bitcoin?lang=ru`). This matches the
+  request-time resolver `tonbankcard_active_language()`, which already honors the
+  `lang` query parameter. The same strategy is used by the head alternates, the
+  sitemap alternates, and the canonical URL so the signals stay consistent. The
+  `en` alternate intentionally points at the bare canonical URL rather than a
+  `?lang=en` duplicate.
+- **Language list is registry-derived.** The supported languages come from the
+  translation registry (`config/translations/index.php`, which discovers every
+  `<code>.php` dictionary in that directory and is exposed at runtime as
+  `$GLOBALS['tonbankcard_translations']`). Adding a translation dictionary
+  therefore updates the language switcher, request-time resolution, and the
+  hreflang signals together — no hardcoded language list to maintain. RTL
+  languages such as Arabic (`ar`) need no special handling here: only the
+  alternate URL is emitted; layout direction is handled elsewhere.
+
 ## Verification
 
 Run the focused SEO check after SEO route changes:
