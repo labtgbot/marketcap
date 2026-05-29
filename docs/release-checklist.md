@@ -78,6 +78,38 @@ See `docs/v2-launch-readiness.md` for the detailed launch runbook.
 | Backups | Operations owner | Confirm backup completion and latest restore drill. | Backup id and restore note. |
 | Secrets | Security owner | Check required secret names against `.env.example` and deployment store. | Checklist with names only. |
 | Legal and support | Legal owner and support owner | Open `/terms`, `/privacy-policy`, `/cookies-policy`, and `/support`. | Browser screenshots. |
+| Uptime monitor | Monitoring owner | Confirm the external probe polls `/api/health` and `/api/ready` and pages the alert channel on failure. | Monitor configuration screenshot and a test alert. |
+| Error aggregation | Monitoring owner | Confirm `TONBANKCARD_ERROR_MONITORING_ENABLED=true` with a configured DSN forwards a redacted test error. | Aggregator event link with secrets redacted. |
+
+## Monitoring and alerting
+
+- Owner: Monitoring owner.
+- Evidence: monitor configuration, alert-routing screenshot, and a test alert
+  delivered end to end.
+- **Uptime/health monitor.** Configure an external uptime tool (for example
+  UptimeRobot, Better Stack, or a self-hosted probe) to poll
+  `https://marketcap.tonbankcard.com/api/health` and `/api/ready` on a short
+  interval. `/api/health` confirms the app boots; `/api/ready` confirms cache and
+  provider readiness, so alert on either a non-200 status or a `ready: false`
+  body.
+- **Alert routing.** Route monitor failures to the operations Telegram alert
+  channel (the same channel used by the alerts worker) and page the incident
+  commander after a sustained outage. Record the channel id, escalation policy,
+  and on-call owner in the release notes.
+- **Error aggregation.** Forwarding to a Sentry-compatible DSN (or plain webhook)
+  is gated behind `TONBANKCARD_ERROR_MONITORING_ENABLED` and disabled by default.
+  When enabled, the observability layer forwards `error` and `critical` events —
+  already redacted — to the configured `TONBANKCARD_ERROR_MONITORING_DSN`. The
+  client side reuses `TONBANKCARD_CLIENT_ERROR_REPORTING` to ship browser errors
+  to `/api/observability/client-error`, which then flow through the same hook.
+- **Monitoring matrix.** Record the monitoring owner, the uptime tool, the error
+  aggregation tool, and the alert routing destination with the release notes
+  before the go or no-go decision.
+
+| Monitoring concern | Owner | Tool | Alert routing |
+| --- | --- | --- | --- |
+| Uptime and readiness | Monitoring owner | External uptime probe against `/api/health` and `/api/ready` | Operations Telegram alert channel, then incident commander page |
+| Server and client errors | Monitoring owner | Error aggregator via `TONBANKCARD_ERROR_MONITORING_DSN` | Aggregator project alerts plus operations Telegram channel |
 
 ## Release quality gates
 
@@ -91,6 +123,20 @@ See `docs/v2-launch-readiness.md` for the detailed launch runbook.
   committed.
 - Run `npm test`, including `npm run test:launch-readiness`, before tagging or
   moving the pull request out of draft.
+
+## Versioning and changelog
+
+- Owner: tech lead.
+- Evidence: updated `CHANGELOG.md` entry and the matching `package.json`
+  `version` field.
+- The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
+  bump the MAJOR version for incompatible changes, MINOR for backward-compatible
+  features, and PATCH for backward-compatible fixes.
+- Every release must move the `## [Unreleased]` notes in `CHANGELOG.md` into a new
+  dated, versioned section that matches the `package.json` `version`, and tag the
+  release as `v<version>`.
+- A populated changelog entry for the release version is a required release gate:
+  do not tag or deploy without it.
 
 ## Performance, load, and reliability checkpoint
 

@@ -135,6 +135,13 @@ $api = [
         'verbose_tracing'        => (bool) $api_runtime['observability']['verbose_tracing'],
         'client_error_reporting' => (bool) $api_runtime['observability']['client_error_reporting'],
         'sink'                   => $api_runtime['observability']['sink'],
+        'error_monitoring'       => [
+            'enabled'     => ! empty( $api_runtime['observability']['error_monitoring']['enabled'] ),
+            'dsn'         => isset( $api_runtime['observability']['error_monitoring']['dsn'] ) ? (string) $api_runtime['observability']['error_monitoring']['dsn'] : '',
+            'min_level'   => isset( $api_runtime['observability']['error_monitoring']['min_level'] ) ? (string) $api_runtime['observability']['error_monitoring']['min_level'] : 'error',
+            'environment' => isset( $api_runtime['observability']['error_monitoring']['environment'] ) ? (string) $api_runtime['observability']['error_monitoring']['environment'] : '',
+            'timeout_ms'  => isset( $api_runtime['observability']['error_monitoring']['timeout_ms'] ) ? (int) $api_runtime['observability']['error_monitoring']['timeout_ms'] : 2000,
+        ],
     ],
     'telegram_session' => [
         'init_data_max_age_seconds'     => 86400,

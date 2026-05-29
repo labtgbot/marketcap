@@ -553,6 +553,7 @@ foreach ( $route_currency['tabs'] as $tab ) {
                         v-if="currency.totalSupply"
                         height="8"
                         :value="$root.progressValue(currency.circulatingSupply, currency.totalSupply)"
+                        aria-label="<?php echo esc_attr( __( 'Circulating Supply' ) ); ?>"
                     >
                     </v-progress-linear>
                 </div>

@@ -572,6 +572,14 @@ if ( ! function_exists( 'tonbankcard_public_linked_data' ) ) {
         return [ '@type' => 'WebSite', 'name' => $meta['full_title'] ];
     }
 }
+if ( ! function_exists( 'tonbankcard_seo_hreflang_alternates' ) ) {
+    function tonbankcard_seo_hreflang_alternates( $canonical_url ) {
+        return [
+            [ 'hreflang' => 'en', 'href' => $canonical_url ],
+            [ 'hreflang' => 'x-default', 'href' => $canonical_url ],
+        ];
+    }
+}
 $_SERVER['REQUEST_URI'] = '/currencies';
 ob_start();
 include GECKO_CLIENT_VIEWS_DIR . '/app-head.php';

@@ -34,9 +34,9 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
          */
         if ( ! empty( $site['logo'] ) ) {
             ?>
-            <router-link to="/" v-if="!navigationDrawerModel">
+            <router-link to="/" v-if="!navigationDrawerModel" aria-label="<?php echo esc_attr( $site['name'] ); ?>">
                 <v-avatar tile class="mx-2 d-none d-sm-flex" size="32" to="/">
-                    <v-img src="<?php echo esc_url( get_file_url_for_display( $site['logo'] ) ); ?>"></v-img>
+                    <v-img src="<?php echo esc_url( get_file_url_for_display( $site['logo'] ) ); ?>" alt="<?php echo esc_attr( $site['name'] ); ?>"></v-img>
                 </v-avatar>
             </router-link>
             <?php

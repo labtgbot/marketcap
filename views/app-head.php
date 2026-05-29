@@ -40,8 +40,16 @@ $should_render_yandex_metrica = ! empty( $yandex_metrica['enabled'] ) && '' !== 
     <meta name="color-scheme" content="light dark" />
     <meta name="robots" content="<?php echo esc_attr( $public_meta['robots'] ); ?>" />
     <link rel="canonical" href="<?php echo esc_url( $public_meta['canonical_url'] ); ?>" />
-    <link rel="alternate" hreflang="<?php echo empty( $site['lang'] ) ? 'en' : esc_attr( $site['lang'] ); ?>" href="<?php echo esc_url( $public_meta['canonical_url'] ); ?>" />
-    <link rel="alternate" hreflang="x-default" href="<?php echo esc_url( $public_meta['canonical_url'] ); ?>" />
+    <?php
+        /*
+         * Per-language hreflang alternates (one per supported UI language plus
+         * x-default), derived from the translation registry so crawlers can
+         * discover and serve every localized variant. See #167.
+         */
+        foreach ( tonbankcard_seo_hreflang_alternates( $public_meta['canonical_url'] ) as $hreflang_alternate ) :
+        ?>
+    <link rel="alternate" hreflang="<?php echo esc_attr( $hreflang_alternate['hreflang'] ); ?>" href="<?php echo esc_url( $hreflang_alternate['href'] ); ?>" />
+    <?php endforeach; ?>
     <meta property="og:type" content="<?php echo esc_attr( $public_meta['og_type'] ); ?>" />
     <meta property="og:url" content="<?php echo esc_url( $public_meta['canonical_url'] ); ?>" />
     <meta property="og:locale" content="en_US" />

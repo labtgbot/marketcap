@@ -317,7 +317,7 @@ assert_contains "$robots_txt" '^Disallow: /admin/$' 'robots admin disallow direc
 assert_contains "$robots_txt" '^Clean-param: utm_source&utm_medium&utm_campaign&utm_term&utm_content&yclid&gclid&fbclid /$' 'Yandex tracking parameter cleanup directive'
 assert_contains "$robots_txt" '^Sitemap: http://127\.0\.0\.1:8891/sitemap\.xml$' 'sitemap pointer in robots.txt'
 
-assert_contains "$sitemap_xml" '<urlset xmlns="http://www\.sitemaps\.org/schemas/sitemap/0\.9">' 'sitemap urlset'
+assert_contains "$sitemap_xml" '<urlset xmlns="http://www\.sitemaps\.org/schemas/sitemap/0\.9" xmlns:xhtml="http://www\.w3\.org/1999/xhtml">' 'sitemap urlset with xhtml namespace'
 assert_contains "$sitemap_xml" '<lastmod>[0-9]{4}-[0-9]{2}-[0-9]{2}</lastmod>' 'sitemap lastmod value'
 assert_contains "$sitemap_xml" '<loc>http://127\.0\.0\.1:8891/markets</loc>' 'markets sitemap URL'
 assert_contains "$sitemap_xml" '<loc>http://127\.0\.0\.1:8891/ton</loc>' 'TON sitemap URL'

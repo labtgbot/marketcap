@@ -17,6 +17,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
             size="20"
             width="2"
             color="primary"
+            aria-label="<?php echo esc_attr( __( 'Loading' ) ); ?>"
         ></v-progress-circular>
     </v-card-title>
     <v-divider></v-divider>
