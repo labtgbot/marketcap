@@ -12,6 +12,7 @@ set -eu
 # deterministic in CI.
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+schema_dir="$root/tests/schemas"
 log_dir="$root/test-logs"
 log_file="$log_dir/sitemap-coverage-check.log"
 server_log="$log_dir/sitemap-coverage-server.log"
@@ -103,26 +104,55 @@ assert_well_formed() {
         || fail "$description is not well-formed XML"
 }
 
-# Validates a urlset/sitemapindex document against the sitemaps.org 0.9 schema.
+# Validates a urlset/sitemapindex document against the *official* sitemaps.org
+# 0.9 XSD, bundled offline under tests/schemas/ so the check stays deterministic
+# and never reaches out to the network.
+#
+# The Google hreflang extension emits <xhtml:link> alternates immediately after
+# <loc> — a position the strict sitemaps.org 0.9 schema does not permit for
+# foreign-namespace elements (its <xsd:any> wildcard only sits at the end of the
+# sequence). Those alternates are asserted separately below, so here we strip
+# foreign-namespace nodes and validate the *core* sitemap structure (element
+# order, <loc> as an absolute URI, lastmod date format, changefreq enum, and the
+# 0.0–1.0 priority range) against the real XSD via DOMDocument::schemaValidate().
 assert_schema_valid() {
     file=$1
     description=$2
     php -r '
         libxml_use_internal_errors(true);
-        $doc = new DOMDocument();
-        if (! $doc->load($argv[1])) { exit(1); }
-        $root = $doc->documentElement;
         $ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
-        if ($root->namespaceURI !== $ns) { exit(2); }
-        if (! in_array($root->localName, ["urlset", "sitemapindex"], true)) { exit(3); }
+        $doc = new DOMDocument();
+        if (! $doc->load($argv[1])) { fwrite(STDERR, "not well-formed XML\n"); exit(1); }
+        $root = $doc->documentElement;
+        if ($root->namespaceURI !== $ns) { fwrite(STDERR, "unexpected root namespace\n"); exit(2); }
+        if (! in_array($root->localName, ["urlset", "sitemapindex"], true)) { fwrite(STDERR, "unexpected root element\n"); exit(3); }
         // Every <loc> must be a non-empty absolute http(s) URL.
         foreach ($doc->getElementsByTagNameNS($ns, "loc") as $loc) {
             $value = trim($loc->textContent);
-            if ("" === $value || ! preg_match("#^https?://#", $value)) { exit(4); }
+            if ("" === $value || ! preg_match("#^https?://#", $value)) { fwrite(STDERR, "non-absolute <loc>: $value\n"); exit(4); }
+        }
+        // Drop foreign-namespace extension nodes (xhtml:link hreflang alternates)
+        // so the document validates against the strict official 0.9 schema.
+        $xpath = new DOMXPath($doc);
+        foreach (iterator_to_array($xpath->query("//*[namespace-uri() != \"" . $ns . "\"]")) as $node) {
+            $node->parentNode->removeChild($node);
+        }
+        $schema = $argv[2] . ("sitemapindex" === $root->localName ? "/siteindex.xsd" : "/sitemap.xsd");
+        if (! $doc->schemaValidate($schema)) {
+            foreach (libxml_get_errors() as $e) { fwrite(STDERR, "  " . trim($e->message) . "\n"); }
+            exit(5);
         }
         exit(0);
-    ' "$file" || fail "$description failed sitemaps.org 0.9 schema validation"
+    ' "$file" "$schema_dir" 2>>"$log_file" || fail "$description failed sitemaps.org 0.9 schema validation"
 }
+
+# The bundled, offline copies of the official sitemaps.org 0.9 schemas must be
+# present; without them the schema validation below would silently degrade.
+for schema in sitemap.xsd siteindex.xsd; do
+    if [ ! -f "$schema_dir/$schema" ]; then
+        fail "missing bundled schema $schema_dir/$schema"
+    fi
+done
 
 start_server
 wait_for_server
