@@ -106,7 +106,7 @@ $frontend_options['watchlist']['title'] = __( 'Watchlist' );
                 <v-card class="watchlist-coin-card" outlined>
                     <v-card-title class="text-subtitle-1 font-weight-bold">
                         <v-avatar size="36" color="white" class="mr-3">
-                            <v-img v-if="currency.image" :src="currency.image" :alt="currency.name"></v-img>
+                            <v-img v-if="currency.image" :src="currency.image" alt=""></v-img>
                             <span v-else class="text-uppercase" v-text="currency.symbol || currency.id.charAt(0)"></span>
                         </v-avatar>
                         <div class="watchlist-coin-title">

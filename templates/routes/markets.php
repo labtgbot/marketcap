@@ -241,7 +241,7 @@ $frontend_options['markets']['order'] = 'market_cap_desc';
             <template v-slot:item.name="{ item }">
                 <router-link :to="item.route" class="name-xs d-flex align-center d-sm-none">
                     <v-avatar v-if="item.image" left color="white" size="28">
-                        <v-img :src="item.image" :alt="item.name" :title="item.name"></v-img>
+                        <v-img :src="item.image" alt="" :title="item.name"></v-img>
                     </v-avatar>
                     <div class="c-text d-flex flex-column">
                         <div class="c-name font-weight-medium" v-text="item.name"></div>
@@ -263,7 +263,7 @@ $frontend_options['markets']['order'] = 'market_cap_desc';
                 </router-link>
                 <router-link :to="item.route" class="markets-coin-cell d-none d-sm-inline-flex">
                     <v-avatar v-if="item.image" color="white" size="28">
-                        <v-img :src="item.image" :alt="item.name" :title="item.name"></v-img>
+                        <v-img :src="item.image" alt="" :title="item.name"></v-img>
                     </v-avatar>
                     <div class="min-width-0">
                         <div class="font-weight-medium text-truncate">

@@ -213,7 +213,7 @@ foreach ( $route_currency['tabs'] as $tab ) {
             <v-col cols="12" sm="6" md="4">
                 <h1 class="text-h4 text-sm-h4">
                     <v-avatar tile size="48" v-if="currency.image && currency.image.large">
-                        <img :src="currency.image.large" :alt="currency.name">
+                        <img :src="currency.image.large" alt="">
                     </v-avatar>
                     {{ currency.name }}
                     <v-chip label small class="text-uppercase" v-text="currency.symbol"></v-chip>
@@ -468,6 +468,7 @@ foreach ( $route_currency['tabs'] as $tab ) {
                                 readonly
                                 dense
                                 hide-details
+                                :aria-label="'<?php echo esc_attr( __( 'Current price position within 24h range' ) ); ?>'"
                             ></v-slider>
                         </div>
                         <div class="d-flex justify-start">

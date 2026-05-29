@@ -193,7 +193,7 @@ $frontend_options['screener']['tonTagOptions'] = [
         </v-navigation-drawer>
 
         <div class="screener-shell">
-            <aside class="screener-filter-panel d-none d-md-block">
+            <aside class="screener-filter-panel d-none d-md-block" role="search" aria-label="<?php echo esc_attr( __( 'Screener filters' ) ); ?>">
                 <div class="screener-panel-heading">
                     <strong><?php echo esc_html( __( 'Filters' ) ); ?></strong>
                     <v-btn small text :disabled="!hasActiveFilters" @click="resetFilters">
@@ -312,7 +312,7 @@ $frontend_options['screener']['tonTagOptions'] = [
                     <template v-slot:item.name="{ item }">
                         <router-link :to="currencyRoute(item)" class="screener-coin-cell">
                             <v-avatar v-if="item.image" size="28" color="white">
-                                <v-img :src="item.image" :alt="item.name" :title="item.name"></v-img>
+                                <v-img :src="item.image" alt="" :title="item.name"></v-img>
                             </v-avatar>
                             <div class="min-width-0">
                                 <div class="font-weight-medium text-truncate" v-text="item.name"></div>

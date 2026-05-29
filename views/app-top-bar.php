@@ -18,7 +18,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
  */
 
 ?>
-<v-app-bar app flat absolute dark color="primary darken-1" class="tbc-app-bar public-web-navigation">
+<v-app-bar app flat absolute dark color="primary darken-3" class="tbc-app-bar public-web-navigation">
     <?php
         /*
          * NAV ICON BUTTON
@@ -36,7 +36,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
             ?>
             <router-link to="/" v-if="!navigationDrawerModel" aria-label="<?php echo esc_attr( $site['name'] ); ?>">
                 <v-avatar tile class="mx-2 d-none d-sm-flex" size="32" to="/">
-                    <v-img src="<?php echo esc_url( get_file_url_for_display( $site['logo'] ) ); ?>" alt="<?php echo esc_attr( $site['name'] ); ?>"></v-img>
+                    <v-img src="<?php echo esc_url( get_file_url_for_display( $site['logo'] ) ); ?>" alt=""></v-img>
                 </v-avatar>
             </router-link>
             <?php

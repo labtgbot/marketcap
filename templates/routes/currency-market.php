@@ -92,7 +92,7 @@ $frontend_options['currency-market']['tableHeaders'] = [
             <template v-slot:item.exchangeName="{ item }">
                 <v-chip color="transparent" :to="item.exchangeRoute">
                     <v-avatar left v-if="item.exchangeLogo" color="white">
-                        <v-img :src="item.exchangeLogo" :alt="item.exchangeName" :title="item.exchangeName"></v-img>
+                        <v-img :src="item.exchangeLogo" alt="" :title="item.exchangeName"></v-img>
                     </v-avatar>
                     <span class="font-weight-medium" v-text="item.exchangeName"></span>
                 </v-chip>
