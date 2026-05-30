@@ -22,6 +22,13 @@ API envelopes, server logs, and provider diagnostics.
 | `TONBANKCARD_ERROR_MONITORING_MIN_LEVEL` | `error` | Minimum severity to forward. Forwarding never fires below this level. |
 | `TONBANKCARD_ERROR_MONITORING_ENVIRONMENT` | profile | Environment tag attached to forwarded events. Defaults to the active `TONBANKCARD_PROFILE`. |
 | `TONBANKCARD_ERROR_MONITORING_TIMEOUT_MS` | `2000` | Best-effort dispatch timeout. Forwarding never blocks or fails the originating request. |
+| `TONBANKCARD_UPTIME_MONITOR_ENABLED` | `false` | Default-off bundled uptime monitor (`api/uptime-monitor.php`). When `true`, scheduled runs probe the health endpoints and page Telegram on failure. |
+| `TONBANKCARD_UPTIME_MONITOR_BASE_URL` | active URL | Base URL the monitor polls. Defaults to the active profile base URL. |
+| `TONBANKCARD_UPTIME_MONITOR_TARGETS` | `/api/health,/api/ready` | Comma-separated health paths to probe. A probe fails on a non-200 status or a `ready: false` body. |
+| `TONBANKCARD_UPTIME_MONITOR_TELEGRAM_CHAT_ID` | empty | Telegram chat/channel id paged on failure. Paging is skipped when empty. |
+| `TONBANKCARD_UPTIME_MONITOR_BOT_TOKEN` | bot token | Bot token used to send alerts. Defaults to `TONBANKCARD_BOT_TOKEN` (the alerts worker bot). |
+| `TONBANKCARD_UPTIME_MONITOR_TIMEOUT_MS` | `5000` | Per-probe timeout. Probing is best-effort and never blocks request handling. |
+| `TONBANKCARD_UPTIME_MONITOR_ENVIRONMENT` | profile | Environment tag included in the alert message. Defaults to the active `TONBANKCARD_PROFILE`. |
 
 Operational logs are JSON lines written to the PHP `error_log` sink by default.
 Secrets, authorization headers, cookies, session tokens, bot tokens, provider
@@ -118,10 +125,25 @@ jq -r 'select(.event=="queue.failure" or .event=="bot.delivery_failure") | [.tim
 - Browser errors reuse `TONBANKCARD_CLIENT_ERROR_REPORTING` and post to
   `/api/observability/client-error`, which logs through the same hook so frontend
   errors reach the aggregator alongside server events.
-- Pair forwarding with an external uptime monitor that polls `/api/health` and
+- Pair forwarding with an uptime monitor that polls `/api/health` and
   `/api/ready` and routes failures to the operations Telegram alert channel. See
   `docs/release-checklist.md` for the monitoring owner, tool, and alert-routing
   matrix.
+- A bundled monitor `api/uptime-monitor.php` ships for self-hosters without an
+  external probe. It is disabled by default and enabled with
+  `TONBANKCARD_UPTIME_MONITOR_ENABLED=true`. Schedule it from cron, for example
+  every minute:
+
+  ```cron
+  * * * * * php /path/to/api/uptime-monitor.php >> /var/log/uptime-monitor.log 2>&1
+  ```
+
+  Each run probes `TONBANKCARD_UPTIME_MONITOR_TARGETS` (default `/api/health` and
+  `/api/ready`). A target fails on a non-200 status or a `ready: false` body. On
+  failure it pages `TONBANKCARD_UPTIME_MONITOR_TELEGRAM_CHAT_ID` using the
+  existing bot infrastructure (the bot token defaults to `TONBANKCARD_BOT_TOKEN`).
+  The CLI exits non-zero on failure, and the bot token — embedded only in the
+  Telegram API URL — is never logged or printed in the run summary.
 
 ## Privacy Rules
 

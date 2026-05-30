@@ -86,16 +86,21 @@ See `docs/v2-launch-readiness.md` for the detailed launch runbook.
 - Owner: Monitoring owner.
 - Evidence: monitor configuration, alert-routing screenshot, and a test alert
   delivered end to end.
-- **Uptime/health monitor.** Configure an external uptime tool (for example
-  UptimeRobot, Better Stack, or a self-hosted probe) to poll
+- **Uptime/health monitor.** Either configure an external uptime tool (for
+  example UptimeRobot, Better Stack, or a self-hosted probe) or schedule the
+  bundled monitor `api/uptime-monitor.php` from cron to poll
   `https://marketcap.tonbankcard.com/api/health` and `/api/ready` on a short
   interval. `/api/health` confirms the app boots; `/api/ready` confirms cache and
   provider readiness, so alert on either a non-200 status or a `ready: false`
-  body.
+  body. The bundled monitor is disabled by default and enabled with
+  `TONBANKCARD_UPTIME_MONITOR_ENABLED=true`; the targets are configurable via
+  `TONBANKCARD_UPTIME_MONITOR_TARGETS`.
 - **Alert routing.** Route monitor failures to the operations Telegram alert
   channel (the same channel used by the alerts worker) and page the incident
-  commander after a sustained outage. Record the channel id, escalation policy,
-  and on-call owner in the release notes.
+  commander after a sustained outage. The bundled monitor reuses the existing bot
+  infrastructure: set `TONBANKCARD_UPTIME_MONITOR_TELEGRAM_CHAT_ID` (and, if it
+  differs from the alerts bot, `TONBANKCARD_UPTIME_MONITOR_BOT_TOKEN`). Record the
+  channel id, escalation policy, and on-call owner in the release notes.
 - **Error aggregation.** Forwarding to a Sentry-compatible DSN (or plain webhook)
   is gated behind `TONBANKCARD_ERROR_MONITORING_ENABLED` and disabled by default.
   When enabled, the observability layer forwards `error` and `critical` events —
@@ -108,7 +113,7 @@ See `docs/v2-launch-readiness.md` for the detailed launch runbook.
 
 | Monitoring concern | Owner | Tool | Alert routing |
 | --- | --- | --- | --- |
-| Uptime and readiness | Monitoring owner | External uptime probe against `/api/health` and `/api/ready` | Operations Telegram alert channel, then incident commander page |
+| Uptime and readiness | Monitoring owner | External uptime probe or bundled `api/uptime-monitor.php` (cron) against `/api/health` and `/api/ready` | Operations Telegram alert channel, then incident commander page |
 | Server and client errors | Monitoring owner | Error aggregator via `TONBANKCARD_ERROR_MONITORING_DSN` | Aggregator project alerts plus operations Telegram channel |
 
 ## Release quality gates

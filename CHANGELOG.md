@@ -41,7 +41,11 @@ Stage 6 — launch-readiness and SEO-completeness audit follow-ups
   with accessible names added to navigation and progress indicators (#170).
 - Flag-driven error-aggregation forwarding in the observability layer
   (Sentry-compatible DSN or plain webhook), disabled by default, with an uptime
-  and alert-routing matrix in `docs/release-checklist.md` (#171).
+  and alert-routing matrix in `docs/release-checklist.md` (#171). A bundled,
+  cron-schedulable uptime monitor (`api/uptime-monitor.php`) probes `/api/health`
+  and `/api/ready` and pages a Telegram alert channel on failure, reusing the
+  existing bot infrastructure; it is disabled by default
+  (`TONBANKCARD_UPTIME_MONITOR_ENABLED`) and covered by `tests/observability-check.sh`.
 - `CHANGELOG.md` and a documented Semantic Versioning convention for releases
   (#172).
 
