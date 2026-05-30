@@ -47,7 +47,12 @@ Stage 6 — launch-readiness and SEO-completeness audit follow-ups
   existing bot infrastructure; it is disabled by default
   (`TONBANKCARD_UPTIME_MONITOR_ENABLED`) and covered by `tests/observability-check.sh`.
 - `CHANGELOG.md` and a documented Semantic Versioning convention for releases
-  (#172).
+  (#172). A `Release changelog gate` GitHub Action
+  (`.github/workflows/release-changelog.yml`) now enforces the gate on `v*`
+  release tags: `tests/changelog-check.sh` runs in strict mode and rejects a tag
+  unless the changelog already carries a dated `## [<version>]` section matching
+  the `package.json` `version`, while per-PR runs still accept in-progress
+  `## [Unreleased]` notes.
 
 ## [2.0.0] - 2026-05-02
 

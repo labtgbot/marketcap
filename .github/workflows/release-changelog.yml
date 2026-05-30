@@ -1,0 +1,29 @@
+name: Release changelog gate
+
+# Enforces the changelog release gate from docs/release-checklist.md: a `v*`
+# release tag must already have a dated, versioned section in CHANGELOG.md that
+# matches the package.json version. Unlike the per-PR `npm run test:changelog`
+# run, this gate rejects an Unreleased-only changelog so a tag can never ship
+# without release notes.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  changelog:
+    name: Validate release changelog
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate changelog has a dated entry for the release tag
+        run: sh tests/changelog-check.sh
+        env:
+          CHANGELOG_RELEASE_VERSION: ${{ github.ref_name }}

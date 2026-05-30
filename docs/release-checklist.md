@@ -142,6 +142,13 @@ See `docs/v2-launch-readiness.md` for the detailed launch runbook.
   release as `v<version>`.
 - A populated changelog entry for the release version is a required release gate:
   do not tag or deploy without it.
+- This gate is automated. Every pull request runs `npm run test:changelog`, which
+  accepts in-progress notes under `## [Unreleased]`. When a `v<version>` tag is
+  pushed, the `Release changelog gate` GitHub Action
+  (`.github/workflows/release-changelog.yml`) re-runs the same check in strict
+  mode (`CHANGELOG_RELEASE_VERSION`): the tag must match the `package.json`
+  `version` and the changelog must already carry a dated `## [<version>]` section
+  — an Unreleased-only changelog fails the tag.
 
 ## Performance, load, and reliability checkpoint
 
