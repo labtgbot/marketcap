@@ -45,7 +45,7 @@ $component_trending_coins['title'] = __( 'Trending' );
             <v-chip-group active-class="primary--text" center-active :show-arrows="!$root.isMobileUserAgent">
                 <v-chip class="pa-3" v-for="coin in coins" :key="coin.id" :to="coin.route">
                     <v-avatar left v-if="coin.small" color="white">
-                        <img :src="coin.small" :alt="coin.name">
+                        <img :src="coin.small" alt="">
                     </v-avatar>
                     {{ coin.name }}
                 </v-chip>

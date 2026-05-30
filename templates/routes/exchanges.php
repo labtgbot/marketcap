@@ -124,10 +124,13 @@ $frontend_options['exchanges']['perPage'] = 100;
             :loading="loading"
             @click:row="toExchange"
         >
+            <template v-slot:progress>
+                <v-progress-linear indeterminate aria-label="<?php echo esc_attr( __( 'Loading' ) ); ?>"></v-progress-linear>
+            </template>
             <template v-slot:item.name="{ item }">
                 <v-chip color="transparent" :ripple="false" :to="item.route">
                     <v-avatar left v-if="item.image" color="white">
-                        <v-img :src="item.image" :alt="item.name" :title="item.name"></v-img>
+                        <v-img :src="item.image" alt="" :title="item.name"></v-img>
                     </v-avatar>
                     <span class="font-weight-medium" v-text="item.name"></span>
                 </v-chip>

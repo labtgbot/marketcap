@@ -186,7 +186,7 @@ $frontend_options['exchange']['tableHeaders'] = [
                 ?>
                 <h1 class="text-h4 text-sm-h4">
                     <v-avatar tile size="48" v-if="exchange.image">
-                        <img :src="exchange.image" :alt="exchange.name">
+                        <img :src="exchange.image" alt="">
                     </v-avatar>
                     {{ exchange.name }}
                 </h1>

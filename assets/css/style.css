@@ -418,9 +418,35 @@ v-app {
 }
 
 .gc-stats-bar > span > a {
-    text-decoration: none;
+    text-decoration: underline;
     color: #fff;
     caret-color: #fff;
+}
+/*
+ * Accessibility (issue #170): the system bar renders its non-link label text at
+ * 70% white opacity (~#b3d1dc on the dark-teal bar), which falls to 4.1:1 — just
+ * under the WCAG 2.1 AA 4.5:1 target. Render the labels at full opacity so the
+ * "Dominance / Cryptos / Exchanges …" copy clears AA.
+ */
+.v-application .gc-stats-bar.v-system-bar {
+    color: #fff !important;
+}
+.v-application .gc-stats-bar.v-system-bar .v-icon {
+    color: #fff !important;
+}
+/*
+ * Accessibility (issue #170): the brand-teal `primary--text` colour (#1BB2DA)
+ * reads at only ~2.4:1 on the light canvas/surfaces, so overline labels, outlined
+ * buttons and outlined chips that rely on it fail AA. Use a darkened brand teal
+ * for teal-on-light text in the light theme; it stays recognisably "TON brand"
+ * while clearing the 4.5:1 threshold. The bright #1BB2DA is retained everywhere
+ * it sits on dark backgrounds (app bar, dark theme) and as decorative accents.
+ */
+.theme--light.v-application .primary--text {
+    color: #0C7C99 !important;
+}
+.theme--light.v-application .primary--text.v-btn--outlined {
+    border-color: currentColor !important;
 }
 .gc-disclaimer-message {
     max-width: 1200px;

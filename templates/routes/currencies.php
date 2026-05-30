@@ -120,7 +120,7 @@ $frontend_options['currencies']['tonApiBaseUrl'] = site_url( 'api/ton/assets' );
                     <v-list dense v-if="tonCurrencies.length">
                         <v-list-item v-for="currency in tonCurrencies" :key="currency.id" :to="currency.route">
                             <v-list-item-avatar size="32" color="white">
-                                <v-img v-if="currency.image" :src="currency.image" :alt="currency.name"></v-img>
+                                <v-img v-if="currency.image" :src="currency.image" alt=""></v-img>
                             </v-list-item-avatar>
                             <v-list-item-content>
                                 <v-list-item-title v-text="currency.name"></v-list-item-title>
@@ -160,7 +160,7 @@ $frontend_options['currencies']['tonApiBaseUrl'] = site_url( 'api/ton/assets' );
                     <v-list dense v-if="topGainers.length">
                         <v-list-item v-for="currency in topGainers" :key="currency.id" :to="currency.route">
                             <v-list-item-avatar size="32" color="white">
-                                <v-img v-if="currency.image" :src="currency.image" :alt="currency.name"></v-img>
+                                <v-img v-if="currency.image" :src="currency.image" alt=""></v-img>
                             </v-list-item-avatar>
                             <v-list-item-content>
                                 <v-list-item-title v-text="currency.name"></v-list-item-title>
@@ -200,7 +200,7 @@ $frontend_options['currencies']['tonApiBaseUrl'] = site_url( 'api/ton/assets' );
                     <v-list dense v-if="topLosers.length">
                         <v-list-item v-for="currency in topLosers" :key="currency.id" :to="currency.route">
                             <v-list-item-avatar size="32" color="white">
-                                <v-img v-if="currency.image" :src="currency.image" :alt="currency.name"></v-img>
+                                <v-img v-if="currency.image" :src="currency.image" alt=""></v-img>
                             </v-list-item-avatar>
                             <v-list-item-content>
                                 <v-list-item-title v-text="currency.name"></v-list-item-title>
@@ -240,7 +240,7 @@ $frontend_options['currencies']['tonApiBaseUrl'] = site_url( 'api/ton/assets' );
                     <v-list dense v-if="trendingCoins.length">
                         <v-list-item v-for="coin in trendingCoins" :key="coin.id" :to="coin.route">
                             <v-list-item-avatar size="32" color="white">
-                                <v-img v-if="coin.small || coin.image" :src="coin.small || coin.image" :alt="coin.name"></v-img>
+                                <v-img v-if="coin.small || coin.image" :src="coin.small || coin.image" alt=""></v-img>
                             </v-list-item-avatar>
                             <v-list-item-content>
                                 <v-list-item-title v-text="coin.name"></v-list-item-title>
@@ -281,7 +281,7 @@ $frontend_options['currencies']['tonApiBaseUrl'] = site_url( 'api/ton/assets' );
                     <v-list dense v-if="watchlistCurrencies.length">
                         <v-list-item v-for="currency in watchlistCurrencies" :key="currency.id" :to="currency.route">
                             <v-list-item-avatar size="32" color="white">
-                                <v-img v-if="currency.image" :src="currency.image" :alt="currency.name"></v-img>
+                                <v-img v-if="currency.image" :src="currency.image" alt=""></v-img>
                             </v-list-item-avatar>
                             <v-list-item-content>
                                 <v-list-item-title v-text="currency.name"></v-list-item-title>

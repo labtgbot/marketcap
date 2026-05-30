@@ -93,7 +93,7 @@ assert_contains dev/js/src/ton-connect.js 'disconnect' 'the TON Connect disconne
 assert_contains dev/js/src/ton-connect.js 'TONBANKCARD:ton-connect-wallet:v1' 'the bounded local wallet storage key'
 assert_contains dev/js/src/ton-connect.js 'private_key' 'explicit rejection of private key-shaped payloads'
 assert_contains tests/browser-smoke.js 'ton-connect-wallet-profile\.png' 'the wallet profile screenshot hook'
-assert_contains tests/browser-smoke.js 'TON_CONNECT_UI' 'the Playwright TON Connect SDK stub'
+assert_contains tests/lib/browser-fixtures.js 'TON_CONNECT_UI' 'the Playwright TON Connect SDK stub'
 assert_contains tests/browser-smoke.js 'Connect TON wallet' 'browser wallet connect coverage'
 assert_contains tests/browser-smoke.js 'Telegram Mini App' 'Telegram wallet profile coverage'
 assert_contains assets/css/style.css 'wallet-profile' 'wallet profile styling'
