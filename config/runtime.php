@@ -426,6 +426,25 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
             $observability_log_level = 'warning';
         }
 
+        $uptime_base_url = tonbankcard_normalize_url( (string) tonbankcard_env( 'TONBANKCARD_UPTIME_MONITOR_BASE_URL', $active_url ) );
+        $uptime_targets  = [];
+        foreach ( explode( ',', (string) tonbankcard_env( 'TONBANKCARD_UPTIME_MONITOR_TARGETS', '/api/health,/api/ready' ) ) as $uptime_target ) {
+            $uptime_target = trim( $uptime_target );
+            if ( '' === $uptime_target ) {
+                continue;
+            }
+            if ( '/' !== $uptime_target[0] ) {
+                $uptime_target = '/' . $uptime_target;
+            }
+            if ( ! in_array( $uptime_target, $uptime_targets, TRUE ) ) {
+                $uptime_targets[] = $uptime_target;
+            }
+        }
+        if ( empty( $uptime_targets ) ) {
+            $uptime_targets = [ '/api/health', '/api/ready' ];
+        }
+        $uptime_bot_token = (string) tonbankcard_env( 'TONBANKCARD_UPTIME_MONITOR_BOT_TOKEN', $telegram_bot_token );
+
         return [
             'profile'       => $profile,
             'gecko_env'     => 'local' === $profile ? 'development' : 'production',
@@ -510,6 +529,15 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
                     'min_level'    => strtolower( trim( (string) tonbankcard_env( 'TONBANKCARD_ERROR_MONITORING_MIN_LEVEL', 'error' ) ) ),
                     'environment'  => (string) tonbankcard_env( 'TONBANKCARD_ERROR_MONITORING_ENVIRONMENT', $profile ),
                     'timeout_ms'   => tonbankcard_env_int( 'TONBANKCARD_ERROR_MONITORING_TIMEOUT_MS', 2000, 100, 15000 ),
+                ],
+                'uptime'                 => [
+                    'enabled'     => tonbankcard_env_bool( 'TONBANKCARD_UPTIME_MONITOR_ENABLED', FALSE ),
+                    'base_url'    => $uptime_base_url,
+                    'targets'     => $uptime_targets,
+                    'bot_token'   => $uptime_bot_token,
+                    'chat_id'     => trim( (string) tonbankcard_env( 'TONBANKCARD_UPTIME_MONITOR_TELEGRAM_CHAT_ID', '' ) ),
+                    'timeout_ms'  => tonbankcard_env_int( 'TONBANKCARD_UPTIME_MONITOR_TIMEOUT_MS', 5000, 500, 30000 ),
+                    'environment' => (string) tonbankcard_env( 'TONBANKCARD_UPTIME_MONITOR_ENVIRONMENT', $profile ),
                 ],
             ],
             'analytics'     => [

@@ -142,6 +142,15 @@ $api = [
             'environment' => isset( $api_runtime['observability']['error_monitoring']['environment'] ) ? (string) $api_runtime['observability']['error_monitoring']['environment'] : '',
             'timeout_ms'  => isset( $api_runtime['observability']['error_monitoring']['timeout_ms'] ) ? (int) $api_runtime['observability']['error_monitoring']['timeout_ms'] : 2000,
         ],
+        'uptime'                 => [
+            'enabled'     => ! empty( $api_runtime['observability']['uptime']['enabled'] ),
+            'base_url'    => isset( $api_runtime['observability']['uptime']['base_url'] ) ? (string) $api_runtime['observability']['uptime']['base_url'] : '',
+            'targets'     => isset( $api_runtime['observability']['uptime']['targets'] ) && is_array( $api_runtime['observability']['uptime']['targets'] ) ? $api_runtime['observability']['uptime']['targets'] : [ '/api/health', '/api/ready' ],
+            'bot_token'   => isset( $api_runtime['observability']['uptime']['bot_token'] ) ? (string) $api_runtime['observability']['uptime']['bot_token'] : '',
+            'chat_id'     => isset( $api_runtime['observability']['uptime']['chat_id'] ) ? (string) $api_runtime['observability']['uptime']['chat_id'] : '',
+            'timeout_ms'  => isset( $api_runtime['observability']['uptime']['timeout_ms'] ) ? (int) $api_runtime['observability']['uptime']['timeout_ms'] : 5000,
+            'environment' => isset( $api_runtime['observability']['uptime']['environment'] ) ? (string) $api_runtime['observability']['uptime']['environment'] : '',
+        ],
     ],
     'telegram_session' => [
         'init_data_max_age_seconds'     => 86400,

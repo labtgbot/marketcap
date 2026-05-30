@@ -738,3 +738,296 @@ if ( ! function_exists( 'tonbankcard_observability_log_bot_delivery_failure' ) )
         );
     }
 }
+
+if ( ! function_exists( 'tonbankcard_observability_uptime_settings' ) ) {
+    /**
+     * Returns the normalized uptime/health monitor settings.
+     *
+     * The monitor is disabled by default. When enabled it probes the configured
+     * health endpoints and pages a Telegram alert channel on failure, reusing the
+     * same bot infrastructure as the alerts worker. No probes run unless an
+     * operator explicitly opts in.
+     *
+     * @param array $runtime
+     * @param array $config
+     * @return array
+     */
+    function tonbankcard_observability_uptime_settings( array $runtime = [], array $config = [] ) {
+        $runtime_observability = isset( $runtime['observability'] ) && is_array( $runtime['observability'] ) ? $runtime['observability'] : [];
+        $api_observability     = isset( $config['observability'] ) && is_array( $config['observability'] ) ? $config['observability'] : [];
+        $runtime_uptime        = isset( $runtime_observability['uptime'] ) && is_array( $runtime_observability['uptime'] ) ? $runtime_observability['uptime'] : [];
+        $api_uptime            = isset( $api_observability['uptime'] ) && is_array( $api_observability['uptime'] ) ? $api_observability['uptime'] : [];
+        $merged                = array_merge( $runtime_uptime, $api_uptime );
+
+        $targets = [];
+        if ( isset( $merged['targets'] ) && is_array( $merged['targets'] ) ) {
+            foreach ( $merged['targets'] as $target ) {
+                $target = trim( (string) $target );
+                if ( '' === $target ) {
+                    continue;
+                }
+                if ( '/' !== $target[0] ) {
+                    $target = '/' . $target;
+                }
+                if ( ! in_array( $target, $targets, TRUE ) ) {
+                    $targets[] = $target;
+                }
+            }
+        }
+        if ( empty( $targets ) ) {
+            $targets = [ '/api/health', '/api/ready' ];
+        }
+
+        $timeout_ms = isset( $merged['timeout_ms'] ) ? (int) $merged['timeout_ms'] : 5000;
+        if ( $timeout_ms < 500 ) {
+            $timeout_ms = 500;
+        } elseif ( $timeout_ms > 30000 ) {
+            $timeout_ms = 30000;
+        }
+
+        return [
+            'enabled'     => ! empty( $merged['enabled'] ),
+            'base_url'    => isset( $merged['base_url'] ) ? rtrim( trim( (string) $merged['base_url'] ), '/' ) : '',
+            'targets'     => $targets,
+            'bot_token'   => isset( $merged['bot_token'] ) ? trim( (string) $merged['bot_token'] ) : '',
+            'chat_id'     => isset( $merged['chat_id'] ) ? trim( (string) $merged['chat_id'] ) : '',
+            'timeout_ms'  => $timeout_ms,
+            'environment' => isset( $merged['environment'] ) && '' !== (string) $merged['environment'] ? (string) $merged['environment'] : 'production',
+            'transport'   => isset( $merged['transport'] ) && is_callable( $merged['transport'] ) ? $merged['transport'] : null,
+            'alert_transport' => isset( $merged['alert_transport'] ) && is_callable( $merged['alert_transport'] ) ? $merged['alert_transport'] : null,
+        ];
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_observability_http_get' ) ) {
+    /**
+     * Best-effort HTTP GET transport for health probes.
+     *
+     * @param string $url
+     * @param int $timeout_ms
+     * @return array{status:int,body:string,error:string}
+     */
+    function tonbankcard_observability_http_get( string $url, int $timeout_ms ) {
+        if ( '' === trim( $url ) ) {
+            return [ 'status' => 0, 'body' => '', 'error' => 'empty_url' ];
+        }
+
+        if ( function_exists( 'curl_init' ) ) {
+            $handle = curl_init( $url );
+            if ( FALSE === $handle ) {
+                return [ 'status' => 0, 'body' => '', 'error' => 'curl_init_failed' ];
+            }
+
+            curl_setopt( $handle, CURLOPT_RETURNTRANSFER, TRUE );
+            curl_setopt( $handle, CURLOPT_HTTPHEADER, [ 'Accept: application/json' ] );
+            curl_setopt( $handle, CURLOPT_TIMEOUT_MS, $timeout_ms );
+            curl_setopt( $handle, CURLOPT_CONNECTTIMEOUT_MS, $timeout_ms );
+            $body  = curl_exec( $handle );
+            $error = curl_error( $handle );
+            $status = (int) curl_getinfo( $handle, CURLINFO_HTTP_CODE );
+            curl_close( $handle );
+
+            return [
+                'status' => $status,
+                'body'   => is_string( $body ) ? $body : '',
+                'error'  => $status > 0 ? '' : ( '' !== $error ? $error : 'request_failed' ),
+            ];
+        }
+
+        $context = stream_context_create(
+            [
+                'http' => [
+                    'method'        => 'GET',
+                    'header'        => "Accept: application/json\r\n",
+                    'timeout'       => max( 1, (int) ceil( $timeout_ms / 1000 ) ),
+                    'ignore_errors' => TRUE,
+                ],
+            ]
+        );
+
+        $body   = @file_get_contents( $url, FALSE, $context );
+        $status = 0;
+        if ( isset( $http_response_header ) && is_array( $http_response_header ) ) {
+            foreach ( $http_response_header as $line ) {
+                if ( preg_match( '#^HTTP/\S+\s+([0-9]{3})#', $line, $matches ) ) {
+                    $status = (int) $matches[1];
+                    break;
+                }
+            }
+        }
+
+        return [
+            'status' => $status,
+            'body'   => is_string( $body ) ? $body : '',
+            'error'  => $status > 0 ? '' : 'request_failed',
+        ];
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_observability_uptime_probe' ) ) {
+    /**
+     * Probes a single health endpoint and classifies the outcome.
+     *
+     * A probe is healthy only when the response is 2xx and, when the body exposes
+     * a `ready` flag (as `/api/ready` does), that flag is truthy.
+     *
+     * @param string $base_url Normalized base URL (no trailing slash).
+     * @param string $target Path beginning with a slash.
+     * @param int $timeout_ms
+     * @param callable|null $transport Optional transport for testing.
+     * @return array
+     */
+    function tonbankcard_observability_uptime_probe( string $base_url, string $target, int $timeout_ms, $transport = null ) {
+        $url = $base_url . $target;
+
+        if ( is_callable( $transport ) ) {
+            $result = call_user_func( $transport, $url, $timeout_ms, $target );
+            $result = is_array( $result ) ? $result : [];
+            $status = isset( $result['status'] ) ? (int) $result['status'] : 0;
+            $body   = isset( $result['body'] ) ? (string) $result['body'] : '';
+            $error  = isset( $result['error'] ) ? (string) $result['error'] : ( $status > 0 ? '' : 'request_failed' );
+        } else {
+            $response = tonbankcard_observability_http_get( $url, $timeout_ms );
+            $status   = (int) $response['status'];
+            $body     = (string) $response['body'];
+            $error    = (string) $response['error'];
+        }
+
+        $status_ok = $status >= 200 && $status < 300;
+        $ready     = null;
+        $decoded   = '' !== $body ? json_decode( $body, TRUE ) : null;
+        if ( is_array( $decoded ) ) {
+            $payload = isset( $decoded['data'] ) && is_array( $decoded['data'] ) ? $decoded['data'] : $decoded;
+            if ( array_key_exists( 'ready', $payload ) && null !== $payload['ready'] ) {
+                $ready = (bool) $payload['ready'];
+            }
+        }
+
+        $healthy = $status_ok && ( null === $ready || TRUE === $ready );
+        $reason  = '';
+        if ( ! $status_ok ) {
+            $reason = $status > 0 ? 'status_' . $status : ( '' !== $error ? $error : 'unreachable' );
+        } elseif ( FALSE === $ready ) {
+            $reason = 'not_ready';
+        }
+
+        return [
+            'target'  => $target,
+            'status'  => $status,
+            'ready'   => $ready,
+            'healthy' => $healthy,
+            'reason'  => $reason,
+        ];
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_observability_uptime_alert_text' ) ) {
+    /**
+     * Builds a Telegram alert message from failing probe results.
+     *
+     * @param array $failures
+     * @param string $environment
+     * @return string
+     */
+    function tonbankcard_observability_uptime_alert_text( array $failures, string $environment ) {
+        $lines = [ "\u{1F6A8} Uptime alert (" . $environment . ')' ];
+        foreach ( $failures as $failure ) {
+            $target = isset( $failure['target'] ) ? (string) $failure['target'] : '';
+            $reason = isset( $failure['reason'] ) && '' !== (string) $failure['reason'] ? (string) $failure['reason'] : 'unhealthy';
+            $lines[] = $target . ' — ' . $reason;
+        }
+
+        return implode( "\n", $lines );
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_observability_uptime_send_alert' ) ) {
+    /**
+     * Sends an uptime alert to the configured Telegram channel.
+     *
+     * Best-effort: a missing token/chat id or a transport failure never throws.
+     * The bot token is embedded in the Telegram API URL, so the URL is never
+     * logged anywhere to avoid leaking the secret.
+     *
+     * @param array $settings
+     * @param string $text
+     * @return bool TRUE when the alert was accepted by Telegram.
+     */
+    function tonbankcard_observability_uptime_send_alert( array $settings, string $text ) {
+        if ( empty( $settings['bot_token'] ) || empty( $settings['chat_id'] ) ) {
+            return FALSE;
+        }
+
+        $body = json_encode(
+            [
+                'chat_id'                  => (string) $settings['chat_id'],
+                'text'                     => $text,
+                'disable_web_page_preview' => TRUE,
+            ],
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
+        );
+
+        $request = [
+            'transport'  => 'telegram',
+            'url'        => 'https://api.telegram.org/bot' . $settings['bot_token'] . '/sendMessage',
+            'headers'    => [ 'Content-Type: application/json' ],
+            'body'       => FALSE === $body ? '{}' : $body,
+            'timeout_ms' => (int) $settings['timeout_ms'],
+        ];
+
+        $transport = isset( $settings['alert_transport'] ) && is_callable( $settings['alert_transport'] )
+            ? $settings['alert_transport']
+            : 'tonbankcard_observability_http_dispatch';
+
+        try {
+            return (bool) call_user_func( $transport, $request );
+        } catch ( Throwable $error ) {
+            return FALSE;
+        }
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_observability_uptime_run' ) ) {
+    /**
+     * Runs the uptime monitor: probes every target and alerts on failure.
+     *
+     * @param array $settings Result of tonbankcard_observability_uptime_settings().
+     * @return array Summary describing what was checked and whether it alerted.
+     */
+    function tonbankcard_observability_uptime_run( array $settings ) {
+        if ( empty( $settings['enabled'] ) ) {
+            return [ 'ran' => FALSE, 'reason' => 'disabled', 'checked' => 0, 'failures' => [], 'alerted' => FALSE ];
+        }
+
+        if ( '' === (string) $settings['base_url'] ) {
+            return [ 'ran' => FALSE, 'reason' => 'missing_base_url', 'checked' => 0, 'failures' => [], 'alerted' => FALSE ];
+        }
+
+        $results  = [];
+        $failures = [];
+        foreach ( $settings['targets'] as $target ) {
+            $result    = tonbankcard_observability_uptime_probe( $settings['base_url'], $target, (int) $settings['timeout_ms'], $settings['transport'] );
+            $results[] = $result;
+            if ( empty( $result['healthy'] ) ) {
+                $failures[] = $result;
+            }
+        }
+
+        $alerted          = FALSE;
+        $alert_configured = ! empty( $settings['bot_token'] ) && ! empty( $settings['chat_id'] );
+        if ( ! empty( $failures ) && $alert_configured ) {
+            $text    = tonbankcard_observability_uptime_alert_text( $failures, (string) $settings['environment'] );
+            $alerted = tonbankcard_observability_uptime_send_alert( $settings, $text );
+        }
+
+        return [
+            'ran'              => TRUE,
+            'reason'           => '',
+            'checked'          => count( $results ),
+            'results'          => $results,
+            'failures'         => $failures,
+            'alert_configured' => $alert_configured,
+            'alerted'          => $alerted,
+        ];
+    }
+}

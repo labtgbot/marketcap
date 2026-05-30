@@ -62,8 +62,14 @@ assert_contains .env.example '^TONBANKCARD_CLIENT_ERROR_REPORTING=true$' 'fronte
 assert_contains .env.example '^TONBANKCARD_ERROR_MONITORING_ENABLED=false$' 'default-off error monitoring'
 assert_contains .env.example '^TONBANKCARD_ERROR_MONITORING_DSN=$' 'empty error monitoring DSN default'
 assert_contains .env.example '^TONBANKCARD_ERROR_MONITORING_MIN_LEVEL=error$' 'error monitoring severity threshold'
+assert_contains .env.example '^TONBANKCARD_UPTIME_MONITOR_ENABLED=false$' 'default-off uptime monitor'
+assert_contains .env.example '^TONBANKCARD_UPTIME_MONITOR_TARGETS=/api/health,/api/ready$' 'uptime monitor health targets'
+assert_file api/uptime-monitor.php
+assert_contains "$doc" 'api/uptime-monitor\.php' 'the bundled uptime monitor entrypoint'
+assert_contains "$doc" 'TONBANKCARD_UPTIME_MONITOR_ENABLED' 'the uptime monitor flag'
 assert_contains docs/release-checklist.md 'TONBANKCARD_ERROR_MONITORING_ENABLED' 'error monitoring flag in the release checklist'
 assert_contains docs/release-checklist.md '/api/ready' 'uptime monitor target in the release checklist'
+assert_contains docs/release-checklist.md 'api/uptime-monitor\.php' 'the bundled uptime monitor in the release checklist'
 assert_contains docs/release-checklist.md 'Monitoring owner' 'monitoring ownership in the production verification matrix'
 assert_contains package.json '"test:observability"' 'the observability npm script'
 assert_contains package.json 'test:observability' 'the aggregate observability check'
@@ -397,6 +403,96 @@ if ( 1 !== count( $webhook_captured ) || 'webhook' !== $webhook_captured[0]['tra
 }
 if ( FALSE === strpos( $webhook_captured[0]['body'], 'hook-1' ) ) {
     fwrite( STDERR, "Webhook payload is missing the forwarded entry\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'uptime monitor stays disabled by default and pages Telegram only when a health probe fails' \
+    env -i PATH="$PATH" \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require __DIR__ . '/api/observability.php';
+
+// Disabled by default: no probes, no alert.
+$disabled = tonbankcard_observability_uptime_run(
+    tonbankcard_observability_uptime_settings( [ 'observability' => [] ], [ 'observability' => [] ] )
+);
+if ( ! empty( $disabled['ran'] ) || 'disabled' !== $disabled['reason'] ) {
+    fwrite( STDERR, "Uptime monitor must stay disabled without an explicit opt-in\n" );
+    exit( 1 );
+}
+
+$base_config = function ( $probe, &$alerts ) {
+    return [
+        'observability' => [
+            'uptime' => [
+                'enabled'         => TRUE,
+                'base_url'        => 'https://marketcap.example.com/',
+                'targets'         => [ '/api/health', '/api/ready' ],
+                'bot_token'       => 'uptime-secret-bot-token',
+                'chat_id'         => '-1001234567890',
+                'environment'     => 'production',
+                'transport'       => $probe,
+                'alert_transport' => function ( $request ) use ( &$alerts ) {
+                    $alerts[] = $request;
+                    return TRUE;
+                },
+            ],
+        ],
+    ];
+};
+
+// Healthy probes: no alert is sent.
+$alerts = [];
+$healthy = function ( $url, $timeout_ms, $target ) {
+    return '/api/ready' === $target
+        ? [ 'status' => 200, 'body' => json_encode( [ 'data' => [ 'ready' => TRUE ] ] ) ]
+        : [ 'status' => 200, 'body' => json_encode( [ 'status' => 'ok' ] ) ];
+};
+$config = $base_config( $healthy, $alerts );
+$summary = tonbankcard_observability_uptime_run( tonbankcard_observability_uptime_settings( $config, $config ) );
+if ( 2 !== $summary['checked'] || ! empty( $summary['failures'] ) || ! empty( $summary['alerted'] ) || ! empty( $alerts ) ) {
+    fwrite( STDERR, "Healthy probes must not page the alert channel\n" );
+    exit( 1 );
+}
+
+// A non-200 health endpoint and a ready:false readiness endpoint both fail and page once.
+$alerts = [];
+$unhealthy = function ( $url, $timeout_ms, $target ) {
+    return '/api/ready' === $target
+        ? [ 'status' => 200, 'body' => json_encode( [ 'data' => [ 'ready' => FALSE ] ] ) ]
+        : [ 'status' => 503, 'body' => '' ];
+};
+$config = $base_config( $unhealthy, $alerts );
+$summary = tonbankcard_observability_uptime_run( tonbankcard_observability_uptime_settings( $config, $config ) );
+if ( 2 !== count( $summary['failures'] ) || empty( $summary['alerted'] ) || 1 !== count( $alerts ) ) {
+    fwrite( STDERR, 'Failing probes must page exactly one alert, got ' . count( $alerts ) . "\n" );
+    exit( 1 );
+}
+if ( 'telegram' !== $alerts[0]['transport'] ) {
+    fwrite( STDERR, "Uptime alert must use the telegram transport\n" );
+    exit( 1 );
+}
+foreach ( [ 'status_503', 'not_ready', 'production' ] as $needle ) {
+    if ( FALSE === strpos( $alerts[0]['body'], $needle ) ) {
+        fwrite( STDERR, "Uptime alert body is missing $needle\n" );
+        exit( 1 );
+    }
+}
+// The bot token lives only in the API URL and must never reach the summary output.
+if ( FALSE !== strpos( json_encode( $summary ), 'uptime-secret-bot-token' ) ) {
+    fwrite( STDERR, "Uptime summary leaked the bot token\n" );
+    exit( 1 );
+}
+
+// Failures without a configured Telegram channel are reported but never alert.
+$alerts = [];
+$config = $base_config( $unhealthy, $alerts );
+$config['observability']['uptime']['chat_id'] = '';
+$summary = tonbankcard_observability_uptime_run( tonbankcard_observability_uptime_settings( $config, $config ) );
+if ( empty( $summary['failures'] ) || ! empty( $summary['alerted'] ) || ! empty( $alerts ) || ! empty( $summary['alert_configured'] ) ) {
+    fwrite( STDERR, "Missing Telegram channel must disable paging without throwing\n" );
     exit( 1 );
 }
 PHP
