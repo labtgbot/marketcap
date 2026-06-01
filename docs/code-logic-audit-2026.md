@@ -122,6 +122,16 @@ granted with no Stars spent.
 bot-token fallback), and add replay protection so a payload/charge is redeemable
 once.
 
+**Status:** Resolved (#185). `tonbankcard_api_premium_signing_secret` no longer
+falls back to the bot token — invoice payloads sign and verify only with the
+dedicated `TONBANKCARD_PREMIUM_SIGNING_SECRET`, and signing is disabled when it
+is unset. `tonbankcard_api_premium_successful_payment_response` now rejects any
+payment lacking `telegram_payment_charge_id` and de-duplicates on that charge id
+via `tonbankcard_api_premium_payment_replayed`, so a replayed (or duplicate)
+charge is acknowledged idempotently and never grants or extends an entitlement a
+second time. Combined with F1's fail-closed webhook secret, a forged
+`successful_payment` can no longer self-grant premium.
+
 ### F3 — Reflected XSS in JSON-LD via `JSON_UNESCAPED_SLASHES` (Critical)
 
 `views/app-head.php:256` emits server-rendered structured data with slash-escaping

@@ -928,17 +928,18 @@ function tonbankcard_api_premium_parse_invoice_payload( string $payload, array $
 }
 
 /**
- * Returns the secret used to sign invoice payloads.
+ * Returns the dedicated secret used to sign invoice payloads.
+ *
+ * A dedicated `premium_signing_secret` is required: the bot token is shared with
+ * the webhook trust boundary, so falling back to it would let anyone who can
+ * deliver a webhook also forge a signed invoice payload. When no dedicated
+ * secret is configured, signing and verification are disabled (returns '').
  *
  * @param array $settings
  * @return string
  */
 function tonbankcard_api_premium_signing_secret( array $settings ) {
-    if ( ! empty( $settings['signing_secret'] ) ) {
-        return (string) $settings['signing_secret'];
-    }
-
-    return isset( $settings['bot_token'] ) ? (string) $settings['bot_token'] : '';
+    return ! empty( $settings['signing_secret'] ) ? (string) $settings['signing_secret'] : '';
 }
 
 /**
@@ -1049,8 +1050,24 @@ function tonbankcard_api_premium_successful_payment_response( array $message, ar
     }
     $payment['telegram_user_id'] = $telegram_user_id;
 
+    // A real Telegram Stars charge always carries telegram_payment_charge_id.
+    // Refusing to fulfill without it stops forged webhooks that merely echo a
+    // signed invoice payload with no money actually moved.
+    $telegram_charge_id = isset( $payment['telegram_payment_charge_id'] ) ? trim( (string) $payment['telegram_payment_charge_id'] ) : '';
+    if ( '' === $telegram_charge_id ) {
+        return tonbankcard_api_telegram_bot_update_error(
+            'Premium payment is missing the Telegram charge identifier.',
+            [ 'field' => 'message.successful_payment.telegram_payment_charge_id' ]
+        );
+    }
+
     $premium_config = isset( $config['premium'] ) && is_array( $config['premium'] ) ? $config['premium'] : [];
+
     if ( isset( $premium_config['entitlement_writer'] ) && is_callable( $premium_config['entitlement_writer'] ) ) {
+        if ( tonbankcard_api_premium_payment_replayed( $payload, $payment, $runtime, $config, null ) ) {
+            return tonbankcard_api_premium_payment_replay_ack( $message, $telegram_user_id );
+        }
+
         $entitlement = call_user_func( $premium_config['entitlement_writer'], $message, $payment, $plan, $settings, $parsed );
     } else {
         $database_error = null;
@@ -1063,6 +1080,13 @@ function tonbankcard_api_premium_successful_payment_response( array $message, ar
                 'message' => 'Premium payment fulfillment requires the configured MySQL session store.',
                 'details' => [ 'storage' => 'mysql' ],
             ];
+        }
+
+        // Replay protection: a given telegram_payment_charge_id is redeemable
+        // only once. A captured-and-replayed legitimate payment must not extend
+        // or re-grant the entitlement a second time.
+        if ( tonbankcard_api_premium_payment_replayed( $payload, $payment, $runtime, $config, $pdo ) ) {
+            return tonbankcard_api_premium_payment_replay_ack( $message, $telegram_user_id );
         }
 
         $user_id = tonbankcard_api_premium_ensure_telegram_user( $pdo, $telegram_user_id, isset( $from['language_code'] ) ? (string) $from['language_code'] : null, ! empty( $from['is_premium'] ) );
@@ -1098,6 +1122,82 @@ function tonbankcard_api_premium_successful_payment_response( array $message, ar
             'disable_web_page_preview' => TRUE,
         ],
         'entitlement' => $entitlement,
+    ];
+}
+
+/**
+ * Returns TRUE when a Stars charge has already been redeemed.
+ *
+ * The webhook is never treated as proof of payment on its own: each successful
+ * payment is keyed by its (unique) telegram_payment_charge_id. A duplicate
+ * delivery or a replayed forged webhook echoing an already-redeemed charge is
+ * rejected before any entitlement is granted or extended.
+ *
+ * When a `payment_replay_lookup` callable is configured it is used instead of
+ * the database (tests, alternative stores). Otherwise the audit trail in
+ * premium_payment_events is consulted.
+ *
+ * @param string $payload
+ * @param array $payment
+ * @param array $runtime
+ * @param array $config
+ * @param PDO|null $pdo
+ * @return bool
+ */
+function tonbankcard_api_premium_payment_replayed( string $payload, array $payment, array $runtime, array $config, $pdo = null ) {
+    $premium_config = isset( $config['premium'] ) && is_array( $config['premium'] ) ? $config['premium'] : [];
+    if ( isset( $premium_config['payment_replay_lookup'] ) && is_callable( $premium_config['payment_replay_lookup'] ) ) {
+        return (bool) call_user_func( $premium_config['payment_replay_lookup'], $payload, $payment );
+    }
+
+    if ( ! ( $pdo instanceof PDO ) ) {
+        $database_error = null;
+        $pdo = tonbankcard_api_session_database_connection( $runtime, $database_error );
+        if ( null === $pdo ) {
+            return FALSE;
+        }
+    }
+
+    $telegram_charge_hash = tonbankcard_api_premium_hash_nullable( isset( $payment['telegram_payment_charge_id'] ) ? $payment['telegram_payment_charge_id'] : null );
+    if ( null === $telegram_charge_hash ) {
+        return FALSE;
+    }
+
+    try {
+        $select = $pdo->prepare(
+            "SELECT id
+             FROM premium_payment_events
+             WHERE event_type IN ('payment_succeeded', 'subscription_renewed')
+               AND telegram_payment_charge_id_hash = :telegram_charge_hash
+             LIMIT 1"
+        );
+        $select->execute( [ ':telegram_charge_hash' => $telegram_charge_hash ] );
+
+        return FALSE !== $select->fetchColumn();
+    } catch ( Throwable $exception ) {
+        return FALSE;
+    }
+}
+
+/**
+ * Builds an idempotent acknowledgement for an already-redeemed Stars payment.
+ *
+ * @param array $message
+ * @param int $telegram_user_id
+ * @return array
+ */
+function tonbankcard_api_premium_payment_replay_ack( array $message, int $telegram_user_id ) {
+    $chat = isset( $message['chat'] ) && is_array( $message['chat'] ) ? $message['chat'] : [];
+
+    return [
+        'ok'       => TRUE,
+        'replayed' => TRUE,
+        'payload'  => [
+            'method'                   => 'sendMessage',
+            'chat_id'                  => isset( $chat['id'] ) ? $chat['id'] : $telegram_user_id,
+            'text'                     => 'Premium is already active. This payment was already processed.',
+            'disable_web_page_preview' => TRUE,
+        ],
     ];
 }
 
