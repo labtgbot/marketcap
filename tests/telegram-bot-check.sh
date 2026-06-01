@@ -376,6 +376,7 @@ php_check 'Telegram bot webhook errors should be logged with request IDs' \
     env -i PATH="$PATH" \
         TONBANKCARD_PROFILE=local \
         TONBANKCARD_BOT_USERNAME='MarketCapBot' \
+        TONBANKCARD_BOT_WEBHOOK_SECRET='webhook-secret' \
         php <<'PHP'
 <?php
 require 'constants.php';
@@ -403,6 +404,7 @@ $response = tonbankcard_api_handle(
         'path'    => '/api/telegram/bot',
         'headers' => [
             'content-type' => 'application/json',
+            'x-telegram-bot-api-secret-token' => 'webhook-secret',
             'x-request-id' => 'bot-error-1',
         ],
         'body'    => json_encode( [ 'update_id' => 3001, 'message' => [ 'text' => '/market' ] ], JSON_UNESCAPED_SLASHES ),
@@ -419,6 +421,139 @@ assert_true( 'telegram_bot_invalid_update' === ( $payload['error']['code'] ?? ''
 $logs = file_get_contents( $log_file );
 assert_true( FALSE !== strpos( $logs, 'bot-error-1' ), 'Bot error logs should include the request id.' );
 assert_true( FALSE !== strpos( $logs, 'telegram_bot.webhook_error' ), 'Bot error logs should include the webhook error event.' );
+PHP
+
+php_check 'Telegram bot webhook should reject requests when no secret is configured' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_PROFILE=local \
+        TONBANKCARD_BOT_USERNAME='MarketCapBot' \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+function assert_true( $condition, $message ) {
+    if ( ! $condition ) {
+        fwrite( STDERR, $message . PHP_EOL );
+        exit( 1 );
+    }
+}
+
+$settings = tonbankcard_api_telegram_bot_settings( $GLOBALS['runtime_config'], $GLOBALS['api'] );
+assert_true( FALSE === tonbankcard_api_telegram_bot_secret_configured( $settings ), 'No secret should be reported as unconfigured.' );
+assert_true(
+    FALSE === tonbankcard_api_telegram_bot_secret_allowed( [ 'headers' => [] ], $settings ),
+    'Webhook must fail closed when no secret is configured.'
+);
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'POST',
+        'path'    => '/api/telegram/bot',
+        'headers' => [
+            'content-type' => 'application/json',
+            'x-request-id' => 'bot-secret-unset',
+        ],
+        'body'    => json_encode(
+            [
+                'update_id' => 9001,
+                'message'   => [
+                    'message_id' => 1,
+                    'text'       => '/start',
+                    'chat'       => [ 'id' => 10, 'type' => 'private' ],
+                    'from'       => [ 'id' => 10, 'language_code' => 'en' ],
+                ],
+            ],
+            JSON_UNESCAPED_SLASHES
+        ),
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $GLOBALS['api']
+);
+
+assert_true( 503 === $response['status'], 'Unconfigured webhook secret should return HTTP 503.' );
+$payload = json_decode( $response['body'], TRUE );
+assert_true( 'telegram_bot_secret_unconfigured' === ( $payload['error']['code'] ?? '' ), 'Unconfigured webhook should return telegram_bot_secret_unconfigured.' );
+PHP
+
+php_check 'Telegram bot webhook should validate a configured secret with hash_equals' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_PROFILE=local \
+        TONBANKCARD_BOT_USERNAME='MarketCapBot' \
+        TONBANKCARD_BOT_WEBHOOK_SECRET='webhook-secret' \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+function assert_true( $condition, $message ) {
+    if ( ! $condition ) {
+        fwrite( STDERR, $message . PHP_EOL );
+        exit( 1 );
+    }
+}
+
+$settings = tonbankcard_api_telegram_bot_settings( $GLOBALS['runtime_config'], $GLOBALS['api'] );
+assert_true( TRUE === tonbankcard_api_telegram_bot_secret_configured( $settings ), 'Configured secret should be reported as configured.' );
+assert_true(
+    TRUE === tonbankcard_api_telegram_bot_secret_allowed( [ 'headers' => [ 'x-telegram-bot-api-secret-token' => 'webhook-secret' ] ], $settings ),
+    'A matching secret header should be accepted.'
+);
+assert_true(
+    FALSE === tonbankcard_api_telegram_bot_secret_allowed( [ 'headers' => [ 'x-telegram-bot-api-secret-token' => 'wrong-secret' ] ], $settings ),
+    'A mismatched secret header should be rejected.'
+);
+assert_true(
+    FALSE === tonbankcard_api_telegram_bot_secret_allowed( [ 'headers' => [] ], $settings ),
+    'A missing secret header should be rejected when a secret is configured.'
+);
+
+$make_request = function ( $secret_header ) {
+    $headers = [
+        'content-type' => 'application/json',
+        'x-request-id' => 'bot-secret-configured',
+    ];
+    if ( NULL !== $secret_header ) {
+        $headers['x-telegram-bot-api-secret-token'] = $secret_header;
+    }
+
+    return tonbankcard_api_handle(
+        [
+            'method'  => 'POST',
+            'path'    => '/api/telegram/bot',
+            'headers' => $headers,
+            'body'    => json_encode(
+                [
+                    'update_id' => 9002,
+                    'message'   => [
+                        'message_id' => 2,
+                        'text'       => '/start',
+                        'chat'       => [ 'id' => 11, 'type' => 'private' ],
+                        'from'       => [ 'id' => 11, 'language_code' => 'en' ],
+                    ],
+                ],
+                JSON_UNESCAPED_SLASHES
+            ),
+        ],
+        [],
+        $GLOBALS['runtime_config'],
+        $GLOBALS['api']
+    );
+};
+
+$valid = $make_request( 'webhook-secret' );
+assert_true( 200 === $valid['status'], 'A valid secret header should be accepted (HTTP 200).' );
+
+$invalid = $make_request( 'wrong-secret' );
+assert_true( 401 === $invalid['status'], 'An invalid secret header should return HTTP 401.' );
+$invalid_payload = json_decode( $invalid['body'], TRUE );
+assert_true( 'telegram_bot_unauthorized' === ( $invalid_payload['error']['code'] ?? '' ), 'An invalid secret should return telegram_bot_unauthorized.' );
+
+$missing = $make_request( NULL );
+assert_true( 401 === $missing['status'], 'A missing secret header should return HTTP 401 when a secret is configured.' );
 PHP
 
 if [ "$failures" -gt 0 ]; then

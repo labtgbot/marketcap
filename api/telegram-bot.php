@@ -75,6 +75,19 @@ function tonbankcard_api_telegram_bot_handle( array $request, array $runtime, ar
     }
 
     $settings = tonbankcard_api_telegram_bot_settings( $runtime, $config );
+    if ( ! tonbankcard_api_telegram_bot_secret_configured( $settings ) ) {
+        return tonbankcard_api_telegram_bot_error_response(
+            503,
+            'telegram_bot_secret_unconfigured',
+            'Telegram bot webhook secret is not configured. Set TONBANKCARD_BOT_WEBHOOK_SECRET before exposing the webhook.',
+            [ 'env' => 'TONBANKCARD_BOT_WEBHOOK_SECRET' ],
+            $request_id,
+            $runtime,
+            $config,
+            $headers
+        );
+    }
+
     if ( ! tonbankcard_api_telegram_bot_secret_allowed( $request, $settings ) ) {
         return tonbankcard_api_telegram_bot_error_response(
             401,
@@ -142,7 +155,20 @@ function tonbankcard_api_telegram_bot_settings( array $runtime, array $config ) 
 }
 
 /**
+ * Returns TRUE when a webhook secret is configured.
+ *
+ * @param array $settings
+ * @return bool
+ */
+function tonbankcard_api_telegram_bot_secret_configured( array $settings ) {
+    return '' !== trim( isset( $settings['webhook_secret'] ) ? (string) $settings['webhook_secret'] : '' );
+}
+
+/**
  * Returns TRUE when the webhook secret header is acceptable.
+ *
+ * Fails closed: when no secret is configured the request is rejected so the
+ * webhook can never accept unauthenticated updates out of the box.
  *
  * @param array $request
  * @param array $settings
@@ -151,7 +177,7 @@ function tonbankcard_api_telegram_bot_settings( array $runtime, array $config ) 
 function tonbankcard_api_telegram_bot_secret_allowed( array $request, array $settings ) {
     $configured = trim( isset( $settings['webhook_secret'] ) ? (string) $settings['webhook_secret'] : '' );
     if ( '' === $configured ) {
-        return TRUE;
+        return FALSE;
     }
 
     $provided = isset( $request['headers']['x-telegram-bot-api-secret-token'] )
