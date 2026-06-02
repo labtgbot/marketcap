@@ -317,6 +317,46 @@ if ( 403 !== $response['status'] || ! is_array( $payload ) || 'admin_write_forbi
 }
 PHP
 
+assert_contains views/app-head.php 'JSON_HEX_TAG' 'JSON-LD output should HTML-escape tag characters'
+
+if grep -Eq 'application/ld\+json.*JSON_UNESCAPED_SLASHES' views/app-head.php; then
+    fail 'views/app-head.php still emits JSON-LD with JSON_UNESCAPED_SLASHES (allows </script> breakout)'
+fi
+
+php_check 'JSON-LD output should not allow a </script> breakout via the :id route parameter' \
+    env -i PATH="$PATH" php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/site.php';
+require __DIR__ . '/functions.php';
+
+/*
+ * Reproduces issue #186: a /coins/:id slug carrying "</script>" markup must not
+ * break out of the server-rendered JSON-LD <script> block (views/app-head.php).
+ */
+$payload_id = rawurldecode( '%3C%2Fscript%3E%3Cscript%3Ealert(document.domain)%3C%2Fscript%3E' );
+
+// Defense-in-depth: tonbankcard_slug_title() must strip markup characters.
+$title = tonbankcard_slug_title( $payload_id );
+if ( FALSE !== strpos( $title, '<' ) || FALSE !== strpos( $title, '>' ) || FALSE !== strpos( $title, '/' ) ) {
+    fwrite( STDERR, "tonbankcard_slug_title leaked markup characters: $title\n" );
+    exit( 1 );
+}
+
+// Primary defense: the encoder flags used by views/app-head.php must HTML-escape
+// tag characters even when the subject still contains raw markup.
+$meta = tonbankcard_public_route_meta( '/coins/' . $payload_id );
+$meta['subject'] = $payload_id;
+$meta['title']   = $payload_id;
+$linked_data     = tonbankcard_public_linked_data( $meta );
+$json = json_encode( $linked_data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE );
+
+if ( FALSE !== stripos( $json, '</script>' ) || FALSE !== stripos( $json, '<script>' ) ) {
+    fwrite( STDERR, "JSON-LD output can break out of the <script> block: $json\n" );
+    exit( 1 );
+}
+PHP
+
 if [ "$failures" -gt 0 ]; then
     exit 1
 fi

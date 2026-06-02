@@ -446,7 +446,7 @@ Priority legend: **P0** Critical · **P1** High · **P2** Medium · **P3** Low.
 
 - [x] **[P0]** #184 — F1 Telegram bot webhook fails open when secret is unset
 - [ ] **[P0]** #185 — F2 Premium entitlement self-grant via forged payment webhook
-- [ ] **[P0]** #186 — F3 Reflected XSS in JSON-LD via `JSON_UNESCAPED_SLASHES`
+- [x] **[P0]** #186 — F3 Reflected XSS in JSON-LD via `JSON_UNESCAPED_SLASHES`
 - [ ] **[P1]** #187 — F4 Worker endpoints fail open when token unset
 - [ ] **[P1]** #188 — F5 Open redirect + missing same-origin check on locale-set
 - [ ] **[P1]** #189 — F6 `.env` writer allows env-var injection via newlines
@@ -479,7 +479,7 @@ postponed, with a rationale).
 | --- | --- | --- | --- | --- |
 | F1 — Telegram webhook fails open | #184 | P0 | Resolved | `tonbankcard_api_telegram_bot_secret_allowed()` now fails closed — it returns `FALSE` when no `webhook_secret` is configured, so the webhook can never accept unauthenticated updates out of the box (`api/telegram-bot.php:177`). Merged in #206. |
 | F2 — Premium self-grant via forged payment | #185 | P0 | In progress | De-duplicate and reconcile on `telegram_payment_charge_id`, require a dedicated `premium_signing_secret` (drop the bot-token fallback), add replay protection. PR #207. |
-| F3 — Reflected XSS in JSON-LD | #186 | P0 | Planned | Drop `JSON_UNESCAPED_SLASHES` for in-`<script>` output, add `JSON_HEX_TAG`, and sanitize `tonbankcard_slug_title()`. |
+| F3 — Reflected XSS in JSON-LD | #186 | P0 | In progress | JSON-LD now encodes with `JSON_HEX_TAG \| JSON_HEX_AMP \| JSON_HEX_APOS \| JSON_HEX_QUOT` instead of `JSON_UNESCAPED_SLASHES`, so `</script>` cannot break out of the `<script>` block (`views/app-head.php:256`); defense-in-depth strips non-`[a-z0-9-_ ]` characters in `tonbankcard_slug_title()` (`functions.php:189`). Regression test in `tests/security-compliance-check.sh`. PR #208. |
 | F4 — Worker endpoints fail open | #187 | P1 | Planned | Reject (`401`/`503`) when the worker token is unset; require it for the route to run. |
 | F5 — Open redirect on locale-set | #188 | P1 | Planned | Reject backslashes/control chars in the relative-path branch; enforce the documented same-origin check. |
 | F6 — `.env` writer newline injection | #189 | P1 | Planned | Reject or strip `\r`/`\n` in submitted values before writing `.env`. |
