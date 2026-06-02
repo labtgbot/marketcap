@@ -50,6 +50,29 @@ The latest Telegram subscription charge id is stored server-side so renewal
 cancellation can call Telegram. Public APIs and payment event rows only expose
 SHA-256 hashes for customer, subscription, and payment charge references.
 
+### Payment trust model
+
+The `successful_payment` webhook is never treated as proof of payment on its
+own. Fulfillment requires all of the following:
+
+- A **dedicated** `TONBANKCARD_PREMIUM_SIGNING_SECRET`. Invoice payloads are
+  HMAC-signed and verified with this secret only — there is **no** fallback to
+  the bot token, because the bot token is shared with the webhook trust
+  boundary (anyone able to forge a signed payload could otherwise self-grant
+  premium). When the dedicated secret is unset, checkout and verification are
+  disabled rather than silently downgraded.
+- A non-empty `telegram_payment_charge_id`. A real Stars charge always carries
+  one, so a forged webhook that merely echoes a signed payload with no money
+  moved is rejected.
+- Replay protection: each `telegram_payment_charge_id` is redeemable **at most
+  once**. A duplicate delivery or a captured-and-replayed payment is
+  acknowledged idempotently and never grants or extends the entitlement a
+  second time. A genuine renewal carries a new charge id and is still
+  fulfilled.
+
+These checks complement the webhook secret enforced in `api/telegram-bot.php`
+(`TONBANKCARD_BOT_WEBHOOK_SECRET`), which fails closed when unset.
+
 ## API Surface
 
 | Route | Purpose |
@@ -94,4 +117,7 @@ npm run test:premium
 
 The check covers public pricing, signed Stars invoice payloads, pre-checkout
 validation, successful payment entitlement fulfillment, expired entitlement
-fallback, and backend enforcement hooks in `tests/premium-check.sh`.
+fallback, and backend enforcement hooks in `tests/premium-check.sh`. It also
+covers the payment trust model: the dedicated signing secret has no bot-token
+fallback, a payment missing `telegram_payment_charge_id` is rejected, and a
+replayed charge is acknowledged idempotently without re-granting.

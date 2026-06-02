@@ -104,6 +104,7 @@ function assert_true($condition, $message) {
 
 $lastTelegramCall = null;
 $writerCall = null;
+$redeemedCharges = [];
 $runtime = [
     'feature_flags' => ['premium' => true],
     'telegram' => [
@@ -116,11 +117,20 @@ $config = [
         'monthly_plan_code' => 'premium_monthly',
         'monthly_price_stars' => 199,
         'subscription_period_seconds' => 2592000,
+        'signing_secret' => 'premium-dedicated-signing-secret',
         'transport' => function ($method, $body) use (&$lastTelegramCall) {
             $lastTelegramCall = ['method' => $method, 'body' => $body];
             return ['ok' => true, 'result' => 'https://t.me/$MarketCapBot?start=stars'];
         },
-        'entitlement_writer' => function ($message, $payment, $plan, $settings, $parsed) use (&$writerCall) {
+        'payment_replay_lookup' => function ($payload, $payment) use (&$redeemedCharges) {
+            $chargeId = isset($payment['telegram_payment_charge_id']) ? (string) $payment['telegram_payment_charge_id'] : '';
+            return '' !== $chargeId && isset($redeemedCharges[$chargeId]);
+        },
+        'entitlement_writer' => function ($message, $payment, $plan, $settings, $parsed) use (&$writerCall, &$redeemedCharges) {
+            $chargeId = isset($payment['telegram_payment_charge_id']) ? (string) $payment['telegram_payment_charge_id'] : '';
+            if ('' !== $chargeId) {
+                $redeemedCharges[$chargeId] = true;
+            }
             $writerCall = [
                 'plan' => $plan['code'],
                 'telegram_user_id' => $parsed['telegram_user_id'],
@@ -221,6 +231,84 @@ assert_true($paymentResponse['ok'] === true, 'Successful payment should produce 
 assert_true($paymentResponse['payload']['method'] === 'sendMessage', 'Successful payment should acknowledge the user.');
 assert_true($writerCall['plan'] === 'premium_monthly', 'Successful payment should grant the selected premium plan.');
 assert_true($writerCall['telegram_user_id'] === 987654321, 'Successful payment should grant the paying Telegram user.');
+
+// Security: a dedicated premium signing secret is required; the bot token must
+// not be used as a fallback (it is shared with the webhook trust boundary).
+$settingsWithoutSecret = $settings;
+$settingsWithoutSecret['signing_secret'] = '';
+assert_true(
+    tonbankcard_api_premium_invoice_payload('premium_monthly', 42, 987654321, $settingsWithoutSecret) === null,
+    'Invoice payloads must not be signed without a dedicated premium signing secret.'
+);
+assert_true(
+    tonbankcard_api_premium_parse_invoice_payload($payload, $settingsWithoutSecret) === null,
+    'Invoice payloads must not validate without the dedicated signing secret (no bot-token fallback).'
+);
+
+// Security: a forged successful_payment with no real Stars charge (missing
+// telegram_payment_charge_id) must never grant premium.
+$writerCall = null;
+$forgedPayment = tonbankcard_api_premium_successful_payment_response(
+    [
+        'from' => ['id' => 987654321, 'language_code' => 'en'],
+        'chat' => ['id' => 987654321],
+        'successful_payment' => [
+            'currency' => 'XTR',
+            'total_amount' => 199,
+            'invoice_payload' => $payload,
+        ],
+    ],
+    $runtime,
+    $config,
+    'premium-forged-payment'
+);
+assert_true($forgedPayment['ok'] === false, 'Forged payment without a Telegram charge id must be rejected.');
+assert_true($writerCall === null, 'Forged payment without a Telegram charge id must not grant an entitlement.');
+
+// Security: replay protection. A given telegram_payment_charge_id is redeemable
+// at most once; replaying the same charge must not grant or extend again.
+$writerCall = null;
+$replayResponse = tonbankcard_api_premium_successful_payment_response(
+    [
+        'from' => ['id' => 987654321, 'language_code' => 'en'],
+        'chat' => ['id' => 987654321],
+        'successful_payment' => [
+            'currency' => 'XTR',
+            'total_amount' => 199,
+            'invoice_payload' => $payload,
+            'telegram_payment_charge_id' => 'tg-charge-1',
+            'provider_payment_charge_id' => 'provider-charge-1',
+        ],
+    ],
+    $runtime,
+    $config,
+    'premium-replay-payment'
+);
+assert_true($replayResponse['ok'] === true, 'Replayed payment should be acknowledged idempotently.');
+assert_true(!empty($replayResponse['replayed']), 'Replayed payment should be flagged as already processed.');
+assert_true($writerCall === null, 'Replayed telegram_payment_charge_id must not grant a second entitlement.');
+
+// A genuinely new charge (distinct telegram_payment_charge_id) is still granted.
+$writerCall = null;
+$renewalResponse = tonbankcard_api_premium_successful_payment_response(
+    [
+        'from' => ['id' => 987654321, 'language_code' => 'en'],
+        'chat' => ['id' => 987654321],
+        'successful_payment' => [
+            'currency' => 'XTR',
+            'total_amount' => 199,
+            'invoice_payload' => $payload,
+            'telegram_payment_charge_id' => 'tg-charge-2',
+            'provider_payment_charge_id' => 'provider-charge-2',
+        ],
+    ],
+    $runtime,
+    $config,
+    'premium-renewal-payment'
+);
+assert_true($renewalResponse['ok'] === true, 'A distinct Stars charge should still be fulfilled.');
+assert_true(empty($renewalResponse['replayed']), 'A distinct Stars charge should not be treated as a replay.');
+assert_true($writerCall['telegram_user_id'] === 987654321, 'A distinct Stars charge should grant the entitlement.');
 
 $free = tonbankcard_api_premium_free_state($settings, 'expired');
 assert_true($free['entitled'] === false, 'Expired entitlement fallback should remove premium access.');
