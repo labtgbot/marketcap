@@ -253,7 +253,7 @@ $should_render_yandex_metrica = ! empty( $yandex_metrica['enabled'] ) && '' !== 
          * Print Linked Data (JSON-LD)
          */
         ?>
-        <script type="application/ld+json"><?php echo json_encode( $linked_data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ); ?></script>
+        <script type="application/ld+json"><?php echo json_encode( $linked_data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE ); ?></script>
         <?php if ( $should_render_yandex_metrica ) : ?>
         <!-- Yandex.Metrika counter -->
         <script>

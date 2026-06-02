@@ -186,6 +186,14 @@ function tonbankcard_slug_title( string $slug ) {
         return $known[ $slug ];
     }
 
+    /*
+     * Defense-in-depth: strip any character outside the safe slug alphabet
+     * before the value reaches HTML/JSON-LD output. The :id route parameter is
+     * captured by ([^/]+) and rawurldecode'd, so without this it could carry
+     * markup such as "</script>" into the server-rendered JSON-LD block.
+     */
+    $slug = preg_replace( '/[^a-z0-9\-_ ]+/', '', (string) $slug );
+
     $words = preg_split( '/[-_]+/', $slug );
     $words = array_filter( array_map( 'trim', is_array( $words ) ? $words : [] ) );
     if ( empty( $words ) ) {
