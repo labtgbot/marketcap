@@ -47,9 +47,9 @@ Relevant environment variables:
 
 - `TONBANKCARD_BOT_USERNAME` builds `https://t.me/<bot>?startapp=...` links.
 - `TONBANKCARD_BOT_TOKEN` validates Mini App initData in `/api/telegram/session`.
-- `TONBANKCARD_BOT_WEBHOOK_SECRET` validates Telegram webhook requests through `X-Telegram-Bot-Api-Secret-Token`.
+- `TONBANKCARD_BOT_WEBHOOK_SECRET` validates Telegram webhook requests through `X-Telegram-Bot-Api-Secret-Token`. **Mandatory for any webhook deployment.**
 
-When no webhook secret is configured, local and staging webhook calls are accepted without that header. Production deployments should configure the secret and set the same value in Telegram's webhook settings.
+The webhook fails closed: when no secret is configured, every `/api/telegram/bot` request is rejected with `503 telegram_bot_secret_unconfigured`, so the endpoint can never accept unauthenticated updates out of the box. Configure `TONBANKCARD_BOT_WEBHOOK_SECRET` and set the same value in Telegram's webhook settings before exposing the webhook. Once configured, the header is compared with `hash_equals` and mismatches return `401 telegram_bot_unauthorized`.
 
 ## Errors And Logging
 

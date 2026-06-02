@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Stage 6 — launch-readiness and SEO-completeness audit follow-ups
 (`docs/readiness-analysis-2026.md`).
 
+### Security
+
+- Telegram bot webhook now fails closed: when no webhook secret is configured
+  the `/api/telegram/bot` endpoint rejects every request with
+  `503 telegram_bot_secret_unconfigured` instead of accepting unauthenticated
+  updates, closing the F1 fail-open finding (#184). A configured
+  `TONBANKCARD_BOT_WEBHOOK_SECRET` is still validated with `hash_equals`
+  (`401 telegram_bot_unauthorized` on mismatch), and the secret is documented as
+  mandatory for webhook deployments. Covered by `tests/telegram-bot-check.sh`.
+
 ### Added
 
 - Dynamic sitemap covering the full coin universe plus exchanges and TON assets,

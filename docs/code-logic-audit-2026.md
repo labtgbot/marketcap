@@ -90,6 +90,12 @@ effects.
 **Fix:** fail closed — when no secret is configured, reject the request; document
 the secret as mandatory for webhook deployments.
 
+**Status:** Resolved (#184). `tonbankcard_api_telegram_bot_secret_allowed` now
+returns `FALSE` when no secret is configured, and the handler rejects an
+unconfigured webhook with `503 telegram_bot_secret_unconfigured` before any
+update is processed. A configured secret is still validated with `hash_equals`
+(`401 telegram_bot_unauthorized` on mismatch).
+
 ### F2 — Premium entitlement self-grant via forged payment webhook (Critical)
 
 `api/premium.php:1027` grants the premium entitlement from a `successful_payment`
@@ -428,7 +434,7 @@ Tracking epic: **#183 — [Stage 7] Code-logic & security hardening audit follow
 
 Priority legend: **P0** Critical · **P1** High · **P2** Medium · **P3** Low.
 
-- [ ] **[P0]** #184 — F1 Telegram bot webhook fails open when secret is unset
+- [x] **[P0]** #184 — F1 Telegram bot webhook fails open when secret is unset
 - [ ] **[P0]** #185 — F2 Premium entitlement self-grant via forged payment webhook
 - [ ] **[P0]** #186 — F3 Reflected XSS in JSON-LD via `JSON_UNESCAPED_SLASHES`
 - [ ] **[P1]** #187 — F4 Worker endpoints fail open when token unset
