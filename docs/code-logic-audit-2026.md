@@ -456,7 +456,43 @@ Priority legend: **P0** Critical · **P1** High · **P2** Medium · **P3** Low.
 - [ ] **[P3]** #203 — F20 8 MB `gecko-client.zip` committed to the repo
 - [ ] **[P3]** #204 — F21 Third-party GitHub Action pinned to a mutable tag
 
-## 6. Definition of done
+## 6. Resolution status (Stage 7 follow-ups)
+
+This section is the living tracker for the Stage 7 hardening epic (**#183**).
+Each finding is fixed in its own labeled child issue and pull request; this table
+records the current state so the epic can be closed once every P0/P1 item is
+`Resolved`. Statuses: **Resolved** (merged to `main`), **In progress** (PR open),
+**Planned** (child issue open, not yet started), **Deferred** (consciously
+postponed, with a rationale).
+
+| Finding | Issue | Priority | Status | Resolution / plan |
+| --- | --- | --- | --- | --- |
+| F1 — Telegram webhook fails open | #184 | P0 | Resolved | `tonbankcard_api_telegram_bot_secret_allowed()` now fails closed — it returns `FALSE` when no `webhook_secret` is configured, so the webhook can never accept unauthenticated updates out of the box (`api/telegram-bot.php:177`). Merged in #206. |
+| F2 — Premium self-grant via forged payment | #185 | P0 | In progress | De-duplicate and reconcile on `telegram_payment_charge_id`, require a dedicated `premium_signing_secret` (drop the bot-token fallback), add replay protection. PR #207. |
+| F3 — Reflected XSS in JSON-LD | #186 | P0 | Planned | Drop `JSON_UNESCAPED_SLASHES` for in-`<script>` output, add `JSON_HEX_TAG`, and sanitize `tonbankcard_slug_title()`. |
+| F4 — Worker endpoints fail open | #187 | P1 | Planned | Reject (`401`/`503`) when the worker token is unset; require it for the route to run. |
+| F5 — Open redirect on locale-set | #188 | P1 | Planned | Reject backslashes/control chars in the relative-path branch; enforce the documented same-origin check. |
+| F6 — `.env` writer newline injection | #189 | P1 | Planned | Reject or strip `\r`/`\n` in submitted values before writing `.env`. |
+| F7 — Installer unauthenticated first run | #190 | P1 | Planned | Require an out-of-band secret on first run; ship `install/.htaccess`; persist a strong installer token; generic DB-error UI. |
+| F8 — Sensitive files served over HTTP | #191 | P1 | Planned | Deny `install/`, `database/`, `docs/`, `tests/`, `dev/`, and `*.zip`/`*.sql`/`*.md` at the web layer. |
+| F9 — No HTTPS enforcement / HSTS | #192 | P1 | Planned | Enable HTTPS redirect (default or env-gated) and emit `Strict-Transport-Security` once HTTPS is confirmed. |
+| F10 — Migrations non-transactional | #193 | P1 | Planned | Idempotent up-migrations, a `GET_LOCK` advisory lock per run, and a SQL-aware statement splitter. |
+| F11 — Rate limiter fails open / UA-bypass | #194 | P2 | Planned | Key anonymous identity on IP (coarse prefix), not UA; bounded fallback for Redis outages. |
+| F12 — Unbounded anonymous AI endpoint | #195 | P2 | Planned | Enforce the provider `rate_limit` as a server-side bucket; bound request-body size. |
+| F13 — Weak CSP / missing `X-Frame-Options` | #196 | P2 | Planned | Migrate inline scripts to nonces, drop `'unsafe-inline'`/`'unsafe-eval'`, add `X-Frame-Options: SAMEORIGIN`. |
+| F14 — World-readable temp secret stores | #197 | P2 | Planned | Default secret/state stores to a private `0700`/`0600` app-owned dir; fail closed if not private. |
+| F15 — DB connections never request TLS | #198 | P2 | Planned | Expose SSL options in the installer and set `MYSQL_ATTR_SSL_*` for non-local profiles. |
+| F16 — `validURLString` dangerous schemes | #199 | P2 | Planned | Restrict to `http(s)` (+ intentionally allowed schemes); validate the invoice-link scheme before navigation. |
+| F17 — `debug`/`display_errors` fails open | #200 | P2 | Planned | Default `debug` to `false`; treat unknown/unset profile as production for error display. |
+| F18 — Fatal `implode()` arg-order | #201 | P3 | Planned | Fix the `implode()` argument order and the malformed `:to` location in `to_attr()`/`link_attrs()`. |
+| F19 — Destructive down migrations | #202 | P3 | Planned | Document destructive rollbacks; de-duplicate before re-adding unique keys; guard `DROP`s. |
+| F20 — 8 MB `gecko-client.zip` in repo | #203 | P3 | Planned | Remove from the tree; ship as a release artifact; add `*.zip` to `.gitignore`. |
+| F21 — GitHub Action pinned to mutable tag | #204 | P3 | Planned | Pin `shivammathur/setup-php` to a full commit SHA; enable Dependabot for `actions`. |
+
+No findings are deferred at this time: every P0–P3 item remains tracked in its
+child issue. Update this table (and the checklist in §5) as each child PR merges.
+
+## 7. Definition of done
 
 - All P0/P1 issues resolved with a reproducing test (or documented manual
   verification) and passing CI.
