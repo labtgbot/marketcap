@@ -426,9 +426,9 @@ de-duplicate before re-adding unique keys; guard `DROP`s with existence checks.
 
 ### F20 — 8 MB `gecko-client.zip` committed to the repo (Low)
 
-An 8.1 MB binary archive is tracked at the repo root, bloating clones/CI, unused
-by any build script, web-served (F8), and bundling a third-party licensed product
-into the repo.
+An 8.1 MB binary archive was tracked at the repo root, bloating clones/CI,
+unused by any build script, web-served (F8), and bundling a third-party licensed
+product into the repo.
 
 **Fix:** remove from the tree (and history if it must not be public); ship as a
 release artifact / Git LFS; add `*.zip` to `.gitignore`.
@@ -533,7 +533,7 @@ postponed, with a rationale).
 | F17 — `debug`/`display_errors` fails open | #200 | P2 | Fixed | Unset or unknown profiles no longer enable `GECKO_CLIENT_DISPLAY_ERRORS`; explicit `TONBANKCARD_PROFILE=local` and `TONBANKCARD_DEBUG=true` still support local troubleshooting. Regression coverage in `tests/runtime-configuration-check.sh`. PR #222. |
 | F18 — Fatal `implode()` arg-order | #201 | P3 | Planned | Fix the `implode()` argument order and the malformed `:to` location in `to_attr()`/`link_attrs()`. |
 | F19 — Destructive down migrations | #202 | P3 | Planned | Document destructive rollbacks; de-duplicate before re-adding unique keys; guard `DROP`s. |
-| F20 — 8 MB `gecko-client.zip` in repo | #203 | P3 | Planned | Remove from the tree; ship as a release artifact; add `*.zip` to `.gitignore`. |
+| F20 — 8 MB `gecko-client.zip` in repo | #203 | P3 | In progress | Remove `gecko-client.zip` from the tree, ignore future ZIP archives, document the external GitHub Release artifact / artifact-store provenance source, and cover the repository-hygiene rule in `tests/legal-baseline-check.sh`. PR #225. |
 | F21 — GitHub Action pinned to mutable tag | #204 | P3 | Planned | Pin `shivammathur/setup-php` to a full commit SHA; enable Dependabot for `actions`. |
 
 No findings are deferred at this time: every P0–P3 item remains tracked in its

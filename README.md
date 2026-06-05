@@ -1,6 +1,10 @@
 # marketcap
 
-This repository now includes the extracted Gecko Client project from `gecko-client.zip`.
+This repository contains the extracted Gecko Client project. The original
+`gecko-client.zip` provenance archive is not tracked in this repository; keep
+any required audit copy as a GitHub Release artifact or another approved
+artifact-store object with checksum notes instead of committing it to the source
+tree.
 
 ## Local Development
 
@@ -108,6 +112,7 @@ npm run test:design-system
 npm run test:pwa-telegram
 npm run test:admin-panel
 npm run test:security-compliance
+npm run test:legal-baseline
 npm run test:launch-readiness
 npm run test:hosting-installation
 npm run test:automatic-installer
