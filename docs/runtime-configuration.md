@@ -136,9 +136,10 @@ configuration, or normal error payloads.
 
 ## Debug and Assets
 
-Debug display defaults to on only for `local`. It defaults to off for staging,
-production, and telegram. Override it with `TONBANKCARD_DEBUG=true` only during
-controlled troubleshooting.
+Debug display defaults to off when the profile is unset or unknown. An explicit
+`TONBANKCARD_PROFILE=local` keeps local error display enabled for development,
+and `TONBANKCARD_DEBUG=true` can still override the default during controlled
+troubleshooting.
 
 Asset behavior can be adjusted without source edits:
 

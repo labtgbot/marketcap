@@ -41,7 +41,9 @@ Open these browser URLs while the server is running:
 - Search: focus the top search field on the home page and search for a coin or exchange.
 
 Copy `.env.example` to `.env` only when you need local overrides. A fresh
-checkout defaults to the `local` profile without requiring secrets.
+checkout defaults to the `local` profile without requiring secrets, but PHP
+error display stays off until `TONBANKCARD_PROFILE=local` or
+`TONBANKCARD_DEBUG=true` is set explicitly.
 
 Optional V2 database setup uses the `MYSQL_DSN`, `MYSQL_USER`,
 `MYSQL_PASSWORD`, and non-local `MYSQL_SSL_*` values from `.env.example`. After
@@ -109,6 +111,7 @@ npm run test:security-compliance
 npm run test:launch-readiness
 npm run test:hosting-installation
 npm run test:automatic-installer
+npm run test:runtime-config
 npm run validate:bundle
 npm run test:smoke
 ```
@@ -136,7 +139,9 @@ registry for shareable web routes.
   checked-in bundles with `node dev/js/tools/build.js`. Install `uglify-js`
   locally first if the minified bundle also needs to be regenerated.
 - If the app renders a configuration error, check `.env` values or temporarily
-  move `.env` aside to use the default local profile.
+  move `.env` aside to use the default local profile. Use
+  `TONBANKCARD_PROFILE=local` or `TONBANKCARD_DEBUG=true` only for local error
+  display while troubleshooting.
 
 See [docs/improvements-v2-analysis.md](docs/improvements-v2-analysis.md) for the Telegram Mini App improvement analysis from issue #1.
 

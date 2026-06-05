@@ -732,6 +732,7 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
      */
     function tonbankcard_runtime_config() {
         $profile = tonbankcard_runtime_profile();
+        $profile_is_explicit = tonbankcard_env_has( 'TONBANKCARD_PROFILE' );
         $local_url    = tonbankcard_normalize_url( (string) tonbankcard_env( 'TONBANKCARD_LOCAL_BASE_URL', 'http://localhost:8888/' ) );
         $staging_url  = tonbankcard_normalize_url( (string) tonbankcard_env( 'TONBANKCARD_STAGING_BASE_URL', '' ) );
         $public_url   = tonbankcard_normalize_url( (string) tonbankcard_env( 'TONBANKCARD_PUBLIC_BASE_URL', 'local' === $profile ? $local_url : '' ) );
@@ -863,7 +864,7 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
         return [
             'profile'       => $profile,
             'gecko_env'     => 'local' === $profile ? 'development' : 'production',
-            'debug'         => tonbankcard_env_bool( 'TONBANKCARD_DEBUG', 'local' === $profile ),
+            'debug'         => tonbankcard_env_bool( 'TONBANKCARD_DEBUG', 'local' === $profile && $profile_is_explicit ),
             'assets'        => [
                 'app_minified' => tonbankcard_env_bool( 'TONBANKCARD_APP_MINIFIED', 'local' !== $profile ),
                 'preconnect'   => tonbankcard_env_bool( 'TONBANKCARD_PRECONNECT', TRUE ),

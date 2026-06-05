@@ -530,7 +530,7 @@ postponed, with a rationale).
 | F14 — World-readable temp secret stores | #197 | P2 | Planned | Default secret/state stores to a private `0700`/`0600` app-owned dir; fail closed if not private. |
 | F15 — DB connections never request TLS | #198 | P2 | Fixed | Exposed MySQL TLS options in `.env.example` and the installer, and applies `PDO::MYSQL_ATTR_SSL_*` options for non-local profiles. |
 | F16 — `validURLString` dangerous schemes | #199 | P2 | Planned | Restrict to `http(s)` (+ intentionally allowed schemes); validate the invoice-link scheme before navigation. |
-| F17 — `debug`/`display_errors` fails open | #200 | P2 | Planned | Default `debug` to `false`; treat unknown/unset profile as production for error display. |
+| F17 — `debug`/`display_errors` fails open | #200 | P2 | Fixed | Unset or unknown profiles no longer enable `GECKO_CLIENT_DISPLAY_ERRORS`; explicit `TONBANKCARD_PROFILE=local` and `TONBANKCARD_DEBUG=true` still support local troubleshooting. Regression coverage in `tests/runtime-configuration-check.sh`. PR #222. |
 | F18 — Fatal `implode()` arg-order | #201 | P3 | Planned | Fix the `implode()` argument order and the malformed `:to` location in `to_attr()`/`link_attrs()`. |
 | F19 — Destructive down migrations | #202 | P3 | Planned | Document destructive rollbacks; de-duplicate before re-adding unique keys; guard `DROP`s. |
 | F20 — 8 MB `gecko-client.zip` in repo | #203 | P3 | Planned | Remove from the tree; ship as a release artifact; add `*.zip` to `.gitignore`. |
