@@ -18,6 +18,13 @@
     RewriteRule (^|/)\. - [F]
 </IfModule>
 
+### BLOCK SENSITIVE SOURCE AND INTERNAL FILES
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(?:install|database|docs|tests|dev)(?:/|$) - [F,L,NC]
+    RewriteRule \.(?:zip|sql|md)$ - [F,L,NC]
+</IfModule>
+
 ### START OF SECURITY HEADERS
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
