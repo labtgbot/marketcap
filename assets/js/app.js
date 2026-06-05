@@ -252,11 +252,15 @@
 
     utils.isMobileUserAgent = () => /mobile/i.test(navigator.userAgent);
 
+    const validURLProtocols = ['http:', 'https:'];
+
     utils.validURLString = (url, base) => {
         if (!url) return null;
 
         try {
-            return (new URL(url, base)).toString();
+            const parsed = new URL(url, base);
+            if (validURLProtocols.indexOf(parsed.protocol) === -1) return null;
+            return parsed.toString();
         } catch (err) {
             return null;
         }
@@ -3592,21 +3596,24 @@
     }
 
     function openInvoice(invoiceLink) {
-        if (!invoiceLink) return;
+        const safeInvoiceLink = GeckoClient.utils && GeckoClient.utils.validURLString
+            ? GeckoClient.utils.validURLString(invoiceLink, window.location.href)
+            : null;
+        if (!safeInvoiceLink) return;
 
         const webApp = _.get(GeckoClient, 'telegram.webApp') || _.get(window, 'Telegram.WebApp');
         if (_.isFunction(_.get(webApp, 'openInvoice'))) {
-            webApp.openInvoice(invoiceLink, function () {
+            webApp.openInvoice(safeInvoiceLink, function () {
                 fetchEntitlement().catch(() => {});
             });
             return;
         }
         if (_.isFunction(_.get(webApp, 'openTelegramLink'))) {
-            webApp.openTelegramLink(invoiceLink);
+            webApp.openTelegramLink(safeInvoiceLink);
             return;
         }
 
-        window.location.href = invoiceLink;
+        window.location.href = safeInvoiceLink;
     }
 
 })(window, _, axios, GeckoClient);

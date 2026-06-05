@@ -39,11 +39,21 @@ php_check() {
     fi
 }
 
+js_check() {
+    description=$1
+    shift
+
+    if ! "$@"; then
+        fail "$description"
+    fi
+}
+
 assert_file "$doc"
 assert_file functions.php
 assert_file api/router.php
 assert_file config/api.php
 assert_file dev/js/src/initial.js
+assert_file tests/url-scheme-check.js
 assert_file .htaccess
 
 assert_contains "$doc" '^# TONBANKCARD V2 Security, Privacy, and Compliance Hardening$' 'the launch-hardening title'
@@ -606,6 +616,9 @@ foreach ( $cases as $case ) {
     }
 }
 PHP
+
+js_check 'frontend URL helpers should reject dangerous schemes before href/navigation sinks' \
+    node tests/url-scheme-check.js
 
 if [ "$failures" -gt 0 ]; then
     exit 1
