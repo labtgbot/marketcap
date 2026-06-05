@@ -357,6 +357,101 @@ if ( FALSE !== stripos( $json, '</script>' ) || FALSE !== stripos( $json, '<scri
 }
 PHP
 
+php_check 'locale-set redirects should reject slash-backslash open redirects' \
+    env -i PATH="$PATH" php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/site.php';
+require __DIR__ . '/functions.php';
+
+$_SERVER['HTTP_HOST'] = 'example.test';
+
+$rejected = [
+    '/\\evil.com',
+    '/\\\\evil.com',
+    '\\evil.com',
+    'https://example.test/\\evil.com',
+    "//evil.com",
+    "/ok\r\nLocation: https://evil.test",
+];
+
+foreach ( $rejected as $target ) {
+    $result = tonbankcard_safe_redirect_path( $target );
+    if ( null !== $result ) {
+        fwrite( STDERR, "Unsafe redirect target was accepted: $target => $result\n" );
+        exit( 1 );
+    }
+}
+
+$accepted = [
+    '/markets'                                => '/markets',
+    '/markets?tab=ton'                        => '/markets?tab=ton',
+    'https://example.test/currencies?page=2'  => '/currencies?page=2',
+];
+
+foreach ( $accepted as $target => $expected ) {
+    $result = tonbankcard_safe_redirect_path( $target );
+    if ( $expected !== $result ) {
+        fwrite( STDERR, "Safe redirect target changed: $target => " . var_export( $result, TRUE ) . "\n" );
+        exit( 1 );
+    }
+}
+PHP
+
+php_check 'locale-set cookie writes should require a same-origin request source' \
+    env -i PATH="$PATH" php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/site.php';
+require __DIR__ . '/functions.php';
+
+$cases = [
+    [
+        'server'   => [
+            'HTTP_HOST'    => 'example.test',
+            'HTTP_ORIGIN'  => 'https://example.test',
+        ],
+        'expected' => TRUE,
+    ],
+    [
+        'server'   => [
+            'HTTP_HOST'    => 'example.test',
+            'HTTP_REFERER' => 'https://example.test/markets',
+        ],
+        'expected' => TRUE,
+    ],
+    [
+        'server'   => [
+            'HTTP_HOST'    => 'example.test',
+            'HTTP_ORIGIN'  => 'https://evil.test',
+        ],
+        'expected' => FALSE,
+    ],
+    [
+        'server'   => [
+            'HTTP_HOST'    => 'example.test',
+            'HTTP_REFERER' => 'https://evil.test/attack',
+        ],
+        'expected' => FALSE,
+    ],
+    [
+        'server'   => [
+            'HTTP_HOST' => 'example.test',
+        ],
+        'expected' => FALSE,
+    ],
+];
+
+foreach ( $cases as $case ) {
+    $_SERVER = $case['server'];
+    $result = tonbankcard_locale_set_request_is_same_origin();
+    if ( $case['expected'] !== $result ) {
+        fwrite( STDERR, 'Unexpected same-origin result for ' . json_encode( $case['server'], JSON_UNESCAPED_SLASHES ) . ': ' . var_export( $result, TRUE ) . "\n" );
+        exit( 1 );
+    }
+}
+PHP
+
 if [ "$failures" -gt 0 ]; then
     exit 1
 fi
