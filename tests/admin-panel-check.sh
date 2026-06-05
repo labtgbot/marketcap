@@ -454,6 +454,11 @@ if ( ! function_exists( 'esc_url' ) ) {
         return htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' );
     }
 }
+if ( ! function_exists( 'tonbankcard_csp_nonce' ) ) {
+    function tonbankcard_csp_nonce() {
+        return str_repeat( 'a', 32 );
+    }
+}
 if ( ! function_exists( 'vendor_url' ) ) {
     function vendor_url( $path ) {
         return '/vendor/' . ltrim( (string) $path, '/' );

@@ -6,10 +6,12 @@ This checklist is the launch gate for public users, Telegram Mini App review, an
 
 ## Security Checklist
 
-- Browser security headers are emitted by PHP for the public shell: `Content-Security-Policy`, `Strict-Transport-Security`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, and `Cross-Origin-Opener-Policy`.
-- Static assets served by Apache receive the non-CSP hardening headers from `.htaccess`, including HSTS for HTTPS deployments.
+- Browser security headers are emitted by PHP for the public shell: `Content-Security-Policy`, `Strict-Transport-Security`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, and `Cross-Origin-Opener-Policy`.
+- Static assets served by Apache receive the non-CSP hardening headers from `.htaccess`, including `X-Frame-Options` and HSTS for HTTPS deployments.
 - The Content-Security-Policy defaults to `default-src 'self'`, blocks plugins with `object-src 'none'`, pins `base-uri 'self'`, restricts embedding with `frame-ancestors`, and explicitly allow-lists Telegram, TON Connect, CoinGecko assets, jsDelivr, unpkg, and ChangeNOW surfaces used by the app.
-- CSP currently permits `script-src 'unsafe-inline'` and `'unsafe-eval'` because the upstream Vue 2 shell renders server templates with the browser template compiler. Removing those exceptions requires precompiled Vue render functions or a framework migration.
+- CSP uses a per-response CSP nonce for public-shell inline script blocks, so `script-src` no longer permits `'unsafe-inline'`.
+- CSP still permits `script-src 'unsafe-eval'` because the upstream Vue 2 shell renders server templates with the browser template compiler. Removing that exception requires precompiled Vue render functions or a framework migration.
+- CSP still permits `style-src 'unsafe-inline'` for Vuetify runtime styles and legacy inline style attributes. Narrowing that directive requires moving those styles to stylesheet classes or nonce-compatible style blocks.
 - JSON API responses inherit non-CSP security headers and remain `Cache-Control: no-store`.
 - Cookie-backed write requests to trusted-session user state require `X-TONBANKCARD-CSRF`.
 - CSRF tokens are derived server-side from the HttpOnly session token and exposed as a separate response token. The raw session cookie value is not returned in JSON.

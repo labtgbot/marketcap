@@ -23,6 +23,8 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
  * @var array $frontend_options
  */
 
+$csp_nonce = tonbankcard_csp_nonce();
+
 /*
 | -------------------------------------------------------------------------
 | TEMPLATES
@@ -36,7 +38,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
  */
 foreach ( $components as $component ) {
     ?>
-    <script id="component-<?php echo $component ?>" type="text/x-template">
+    <script id="component-<?php echo $component ?>" nonce="<?php echo esc_attr( $csp_nonce ); ?>" type="text/x-template">
         <?php include GECKO_CLIENT_TEMPLATES_DIR . '/components/' . $component . '.php'; ?>
     </script>
     <?php
@@ -50,7 +52,7 @@ foreach ( $components as $component ) {
 foreach ( $enabled_routes as $name => $route ) {
     $template = empty( $route['template'] ) ? $name : $route['template'];
     ?>
-    <script id="route-<?php echo $name ?>" type="text/x-template">
+    <script id="route-<?php echo $name ?>" nonce="<?php echo esc_attr( $csp_nonce ); ?>" type="text/x-template">
         <?php include GECKO_CLIENT_TEMPLATES_DIR . "/routes/" . $template . '.php'; ?>
     </script>
     <?php
@@ -197,7 +199,7 @@ $gecko_client['links'] = [
 ];
 // Passing app data as "window.GeckoClient" object
 ?>
-<script>
+<script nonce="<?php echo esc_attr( $csp_nonce ); ?>">
 //<![CDATA[
 window.GeckoClient = <?php echo json_encode( $gecko_client ); ?>;
 //]]>
@@ -213,12 +215,12 @@ if ( 'development' === GECKO_CLIENT_ENV ) {
     // DEVELOPMENT
     // using "dev/js/tools/bundle.php" to serve "dev/js/src" all together
     ?>
-    <script src="<?php echo esc_url( vendor_url( 'lodash/lodash.js?v=' . LODASH_VERSION ) ); ?>"></script>
-    <script src="<?php echo esc_url( vendor_url( 'axios/axios.js?v=' . AXIOS_VERSION ) ); ?>"></script>
-    <script src="<?php echo esc_url( vendor_url( 'vue/vue.js?v=' . VUE_VERSION ) ); ?>"></script>
-    <script src="<?php echo esc_url( vendor_url( 'vue-router/vue-router.js?v=' . VUE_ROUTER_VERSION ) ); ?>"></script>
-    <script src="<?php echo esc_url( vendor_url( 'vuetify/vuetify.js?v=' . VUETIFY_VERSION ) ); ?>"></script>
-    <script src="<?php echo esc_url( site_url( 'dev/js/tools/bundle.php?t=' . time() ) ); ?>"></script>
+    <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" src="<?php echo esc_url( vendor_url( 'lodash/lodash.js?v=' . LODASH_VERSION ) ); ?>"></script>
+    <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" src="<?php echo esc_url( vendor_url( 'axios/axios.js?v=' . AXIOS_VERSION ) ); ?>"></script>
+    <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" src="<?php echo esc_url( vendor_url( 'vue/vue.js?v=' . VUE_VERSION ) ); ?>"></script>
+    <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" src="<?php echo esc_url( vendor_url( 'vue-router/vue-router.js?v=' . VUE_ROUTER_VERSION ) ); ?>"></script>
+    <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" src="<?php echo esc_url( vendor_url( 'vuetify/vuetify.js?v=' . VUETIFY_VERSION ) ); ?>"></script>
+    <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" src="<?php echo esc_url( site_url( 'dev/js/tools/bundle.php?t=' . time() ) ); ?>"></script>
     <?php
 } else {
     // CDN ASSETS
@@ -226,21 +228,21 @@ if ( 'development' === GECKO_CLIENT_ENV ) {
     // Choose in "constants.php"
     if ( GECKO_CLIENT_CDN ) {
         ?>
-        <script src="<?php echo esc_url( sprintf( 'https://cdn.jsdelivr.net/npm/lodash@%s/lodash.min.js', LODASH_VERSION ) ); ?>"></script>
-        <script src="<?php echo esc_url( sprintf( 'https://cdn.jsdelivr.net/npm/axios@%s/dist/axios.min.js', AXIOS_VERSION ) ); ?>"></script>
-        <script src="<?php echo esc_url( sprintf( 'https://cdn.jsdelivr.net/npm/vue@%s/dist/vue.min.js', VUE_VERSION ) ); ?>"></script>
-        <script src="<?php echo esc_url( sprintf( 'https://cdn.jsdelivr.net/npm/vue-router@%s/dist/vue-router.min.js', VUE_ROUTER_VERSION ) ); ?>"></script>
-        <script src="<?php echo esc_url( sprintf( 'https://cdn.jsdelivr.net/npm/vuetify@%s/dist/vuetify.min.js', VUETIFY_VERSION ) ); ?>"></script>
+        <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" src="<?php echo esc_url( sprintf( 'https://cdn.jsdelivr.net/npm/lodash@%s/lodash.min.js', LODASH_VERSION ) ); ?>"></script>
+        <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" src="<?php echo esc_url( sprintf( 'https://cdn.jsdelivr.net/npm/axios@%s/dist/axios.min.js', AXIOS_VERSION ) ); ?>"></script>
+        <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" src="<?php echo esc_url( sprintf( 'https://cdn.jsdelivr.net/npm/vue@%s/dist/vue.min.js', VUE_VERSION ) ); ?>"></script>
+        <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" src="<?php echo esc_url( sprintf( 'https://cdn.jsdelivr.net/npm/vue-router@%s/dist/vue-router.min.js', VUE_ROUTER_VERSION ) ); ?>"></script>
+        <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" src="<?php echo esc_url( sprintf( 'https://cdn.jsdelivr.net/npm/vuetify@%s/dist/vuetify.min.js', VUETIFY_VERSION ) ); ?>"></script>
         <?php
     }
     // LOCAL ASSETS
     else {
         ?>
-        <script src="<?php echo esc_url( vendor_url( 'lodash/lodash.min.js?v=' . LODASH_VERSION ) ); ?>"></script>
-        <script src="<?php echo esc_url( vendor_url( 'axios/axios.min.js?v=' . AXIOS_VERSION ) ); ?>"></script>
-        <script src="<?php echo esc_url( vendor_url( 'vue/vue.min.js?v=' . VUE_VERSION ) ); ?>"></script>
-        <script src="<?php echo esc_url( vendor_url( 'vue-router/vue-router.min.js?v=' . VUE_ROUTER_VERSION ) ); ?>"></script>
-        <script src="<?php echo esc_url( vendor_url( 'vuetify/vuetify.min.js?v=' . VUETIFY_VERSION ) ); ?>"></script>
+        <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" src="<?php echo esc_url( vendor_url( 'lodash/lodash.min.js?v=' . LODASH_VERSION ) ); ?>"></script>
+        <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" src="<?php echo esc_url( vendor_url( 'axios/axios.min.js?v=' . AXIOS_VERSION ) ); ?>"></script>
+        <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" src="<?php echo esc_url( vendor_url( 'vue/vue.min.js?v=' . VUE_VERSION ) ); ?>"></script>
+        <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" src="<?php echo esc_url( vendor_url( 'vue-router/vue-router.min.js?v=' . VUE_ROUTER_VERSION ) ); ?>"></script>
+        <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" src="<?php echo esc_url( vendor_url( 'vuetify/vuetify.min.js?v=' . VUETIFY_VERSION ) ); ?>"></script>
         <?php
     }
 
@@ -248,11 +250,11 @@ if ( 'development' === GECKO_CLIENT_ENV ) {
     // Choose unminified or minified in "constants.php"
     if ( GECKO_CLIENT_APP_MINIFIED ) {
         ?>
-        <script src="<?php echo esc_url( get_file_url_for_display( 'assets/js/app.min.js' ) ); ?>"></script>
+        <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" src="<?php echo esc_url( get_file_url_for_display( 'assets/js/app.min.js' ) ); ?>"></script>
         <?php
     } else {
         ?>
-        <script src="<?php echo esc_url( get_file_url_for_display( 'assets/js/app.js' ) ); ?>"></script>
+        <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" src="<?php echo esc_url( get_file_url_for_display( 'assets/js/app.js' ) ); ?>"></script>
         <?php
     }
 
