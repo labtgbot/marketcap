@@ -17,7 +17,7 @@ are added.
 
 | Area | Paths | Observed notice | Preservation rule |
 | --- | --- | --- | --- |
-| Original archive | `gecko-client.zip` | Extracted Gecko Client project archive with 2021 file timestamps. | Keep the archive available until a release process records a replacement provenance source. |
+| Original archive | GitHub Release artifact or approved artifact-store object; not tracked in this repository | Extracted Gecko Client project archive with 2021 file timestamps. | Keep any required audit copy outside the source tree with checksum/provenance notes. Do not commit ZIP archives to this repository. |
 | Gecko Client PHP and tool sources | `functions.php`, `index.php`, `vendor.php`, `constants.php`, `config/*.php`, `views/*.php`, `templates/**/*.php`, `dev/js/tools/*` | File headers identify `Gecko Client`, RunCoders, `Envato Market Regular License`, and Copyright (c) 2021 RunCoders. | Do not remove file headers when editing these files. New V2 code should add TONBANKCARD attribution separately instead of replacing upstream notices. |
 | Gecko Client browser modules | `dev/js/src/**/*.js` | Extracted archive source modules do not all carry individual file headers. They remain part of the Gecko Client source baseline. | Preserve upstream provenance through this inventory and generated bundle records. Add notices if these modules are copied into new standalone files. |
 | Generated bundles | `assets/js/app.js`, `assets/js/app.min.js` | Bundled application output generated from Gecko Client JavaScript sources and local vendor/runtime code. | Generated bundles must not be treated as notice-free output. When rebundled, preserve available banners or provide equivalent notice coverage in `NOTICE` and this inventory. |

@@ -14,6 +14,21 @@ assert_file() {
     fi
 }
 
+assert_absent() {
+    if [ -e "$1" ]; then
+        fail "Unexpected repository artifact is present: $1"
+    fi
+}
+
+assert_gitignored() {
+    path=$1
+    description=$2
+
+    if ! git check-ignore -q -- "$path"; then
+        fail ".gitignore does not ignore $description: $path"
+    fi
+}
+
 assert_contains() {
     file=$1
     pattern=$2
@@ -35,6 +50,9 @@ assert_file docs/release-checklist.md
 assert_file assets/vendor/roboto/fonts/LICENSE.txt
 assert_file assets/vendor/roboto/fonts/COPYRIGHT.txt
 
+assert_absent gecko-client.zip
+assert_gitignored gecko-client.zip 'ZIP provenance/archive bundles'
+
 assert_contains NOTICE 'TONBANKCARD Crypto Tracker' 'the TONBANKCARD product attribution'
 assert_contains NOTICE 'Modifications by TONBANKCARD Team, 2026' 'the TONBANKCARD modification attribution'
 assert_contains NOTICE 'Envato Market Regular License' 'the original Gecko Client license notice'
@@ -53,6 +71,8 @@ assert_contains docs/legal-license-inventory.md 'assets/vendor/vue-router' 'Vue 
 assert_contains docs/legal-license-inventory.md 'assets/vendor/vuetify' 'Vuetify vendor assets'
 assert_contains docs/legal-license-inventory.md 'assets/images' 'image asset provenance'
 assert_contains docs/legal-license-inventory.md 'generated bundles' 'generated bundle notice preservation'
+assert_contains docs/legal-license-inventory.md 'not tracked in this repository' 'the removed Gecko Client archive policy'
+assert_contains docs/legal-license-inventory.md 'GitHub Release artifact' 'the external Gecko Client archive provenance source'
 
 assert_contains docs/release-checklist.md 'Legal review checkpoint' 'a release legal review checkpoint'
 assert_contains docs/release-checklist.md 'NOTICE' 'NOTICE verification before release'
