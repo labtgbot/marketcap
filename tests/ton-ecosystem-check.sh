@@ -124,7 +124,7 @@ assert_contains dev/js/src/routes/admin.js 'moveTonAssetDown' 'Admin JS exposes 
 
 php_check 'TON curation API should expose defaults, persist manual curation, and preserve verification states' \
     env -i PATH="$PATH" \
-        TONBANKCARD_TON_CURATION_FILE="$(mktemp)" \
+        TONBANKCARD_TON_CURATION_FILE="$(mktemp -d "${TMPDIR:-/tmp}/tonbankcard-ton-curation.XXXXXX")/curation.json" \
         TONBANKCARD_TON_CURATION_TOKEN='ton-curation-secret' \
         php <<'PHP'
 <?php
@@ -134,6 +134,12 @@ require __DIR__ . '/api/router.php';
 
 $store_path = (string) getenv( 'TONBANKCARD_TON_CURATION_FILE' );
 @unlink( $store_path );
+register_shutdown_function(
+    function () use ( $store_path ) {
+        @unlink( $store_path );
+        @rmdir( dirname( $store_path ) );
+    }
+);
 
 $request = [
     'method'  => 'GET',
@@ -278,7 +284,7 @@ PHP
 php_check 'admin content writes should propagate to the public TON catalog' \
     env -i PATH="$PATH" \
         TONBANKCARD_ADMIN_TOKEN='ton-admin-secret' \
-        TONBANKCARD_ADMIN_STORE="$(mktemp)" \
+        TONBANKCARD_ADMIN_STORE="$(mktemp -d "${TMPDIR:-/tmp}/tonbankcard-ton-admin.XXXXXX")/admin.json" \
         php <<'PHP'
 <?php
 require 'constants.php';
@@ -287,6 +293,12 @@ require __DIR__ . '/api/router.php';
 
 $store_path = (string) getenv( 'TONBANKCARD_ADMIN_STORE' );
 @unlink( $store_path );
+register_shutdown_function(
+    function () use ( $store_path ) {
+        @unlink( $store_path );
+        @rmdir( dirname( $store_path ) );
+    }
+);
 
 $payload = [
     'content' => [
@@ -361,7 +373,7 @@ PHP
 php_check 'admin exclusion list should suppress built-in default assets from the public catalog' \
     env -i PATH="$PATH" \
         TONBANKCARD_ADMIN_TOKEN='ton-admin-secret' \
-        TONBANKCARD_ADMIN_STORE="$(mktemp)" \
+        TONBANKCARD_ADMIN_STORE="$(mktemp -d "${TMPDIR:-/tmp}/tonbankcard-ton-admin.XXXXXX")/admin.json" \
         php <<'PHP'
 <?php
 require 'constants.php';
@@ -370,6 +382,12 @@ require __DIR__ . '/api/router.php';
 
 $store_path = (string) getenv( 'TONBANKCARD_ADMIN_STORE' );
 @unlink( $store_path );
+register_shutdown_function(
+    function () use ( $store_path ) {
+        @unlink( $store_path );
+        @rmdir( dirname( $store_path ) );
+    }
+);
 
 // Exclude toncoin (built-in default) via admin content write.
 $payload = [
@@ -426,7 +444,7 @@ PHP
 php_check 'TON curation API should preserve link_type and project_category through admin writes' \
     env -i PATH="$PATH" \
         TONBANKCARD_ADMIN_TOKEN='ton-admin-secret' \
-        TONBANKCARD_ADMIN_STORE="$(mktemp)" \
+        TONBANKCARD_ADMIN_STORE="$(mktemp -d "${TMPDIR:-/tmp}/tonbankcard-ton-admin.XXXXXX")/admin.json" \
         php <<'PHP'
 <?php
 require 'constants.php';
@@ -435,6 +453,12 @@ require __DIR__ . '/api/router.php';
 
 $store_path = (string) getenv( 'TONBANKCARD_ADMIN_STORE' );
 @unlink( $store_path );
+register_shutdown_function(
+    function () use ( $store_path ) {
+        @unlink( $store_path );
+        @rmdir( dirname( $store_path ) );
+    }
+);
 
 $payload = [
     'content' => [
@@ -579,7 +603,7 @@ PHP
 php_check 'admin override without coin_id should not erase default Toncoin market id' \
     env -i PATH="$PATH" \
         TONBANKCARD_ADMIN_TOKEN='ton-admin-secret' \
-        TONBANKCARD_ADMIN_STORE="$(mktemp)" \
+        TONBANKCARD_ADMIN_STORE="$(mktemp -d "${TMPDIR:-/tmp}/tonbankcard-ton-admin.XXXXXX")/admin.json" \
         php <<'PHP'
 <?php
 require 'constants.php';
@@ -588,6 +612,12 @@ require __DIR__ . '/api/router.php';
 
 $store_path = (string) getenv( 'TONBANKCARD_ADMIN_STORE' );
 @unlink( $store_path );
+register_shutdown_function(
+    function () use ( $store_path ) {
+        @unlink( $store_path );
+        @rmdir( dirname( $store_path ) );
+    }
+);
 
 $payload = [
     'content' => [

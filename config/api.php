@@ -40,7 +40,7 @@ if ( '' === $api_redis_key_prefix ) {
     $api_redis_key_prefix = 'tonbankcard:v2';
 }
 if ( '' === $api_ton_curation_file ) {
-    $api_ton_curation_file = sys_get_temp_dir() . '/tonbankcard-marketcap-ton-curation.json';
+    $api_ton_curation_file = tonbankcard_runtime_state_store_path( 'tonbankcard-marketcap-ton-curation.json' );
 }
 
 $api_allowed_origins = [];
@@ -158,7 +158,7 @@ $api = [
         'init_data_max_age_seconds'     => 86400,
         'auth_date_future_skew_seconds' => 60,
         'session_ttl_seconds'           => 2592000,
-        'local_session_store_path'      => (string) tonbankcard_env( 'TONBANKCARD_LOCAL_SESSION_STORE', sys_get_temp_dir() . '/tonbankcard-marketcap-sessions.json' ),
+        'local_session_store_path'      => (string) tonbankcard_env( 'TONBANKCARD_LOCAL_SESSION_STORE', tonbankcard_runtime_state_store_path( 'tonbankcard-marketcap-sessions.json' ) ),
     ],
     'telegram_bot' => [
         'webhook_secret'       => isset( $api_runtime['telegram']['webhook_secret'] ) ? (string) $api_runtime['telegram']['webhook_secret'] : '',
@@ -176,7 +176,7 @@ $api = [
         'fallback_behavior' => $api_runtime['ai']['fallback_behavior'],
         'feedback_store_path' => (string) tonbankcard_env(
             'TONBANKCARD_AI_FEEDBACK_STORE',
-            sys_get_temp_dir() . '/tonbankcard-marketcap-ai-feedback.json'
+            tonbankcard_runtime_state_store_path( 'tonbankcard-marketcap-ai-feedback.json' )
         ),
         'safety'            => [
             'require_not_financial_advice' => TRUE,

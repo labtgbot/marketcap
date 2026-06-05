@@ -48,6 +48,7 @@ assert_contains .env.example '^TONBANKCARD_TELEGRAM_BASE_URL=' 'the Telegram Min
 assert_contains .env.example '^TONBANKCARD_FORCE_HTTPS=' 'the HTTPS redirect control'
 assert_contains .env.example '^TONBANKCARD_HSTS_ENABLED=' 'the HSTS control'
 assert_contains .env.example '^TONBANKCARD_SECURE_COOKIES=' 'the secure cookie control'
+assert_contains .env.example '^TONBANKCARD_STATE_DIR=' 'the private state directory'
 assert_contains .env.example '^TONBANKCARD_BOT_USERNAME=' 'the Telegram bot username'
 assert_contains .env.example '^TONBANKCARD_BOT_TOKEN=' 'the Telegram bot token'
 assert_contains .env.example '^COINGECKO_API_PLAN=demo$' 'the CoinGecko API plan'
@@ -74,6 +75,7 @@ assert_contains docs/runtime-configuration.md 'TONBANKCARD_PUBLIC_BASE_URL' 'pub
 assert_contains docs/runtime-configuration.md 'TONBANKCARD_TELEGRAM_BASE_URL' 'Telegram Mini App URL configuration'
 assert_contains docs/runtime-configuration.md 'TONBANKCARD_FORCE_HTTPS' 'HTTPS redirect configuration'
 assert_contains docs/runtime-configuration.md 'Strict-Transport-Security' 'HSTS runtime behavior'
+assert_contains docs/runtime-configuration.md 'TONBANKCARD_STATE_DIR' 'private state directory configuration'
 assert_contains docs/runtime-configuration.md 'COINGECKO_API_PLAN.*demo' 'CoinGecko API plan behavior'
 assert_contains docs/runtime-configuration.md 'x-cg-pro-api-key' 'CoinGecko Pro key header behavior'
 
@@ -237,6 +239,99 @@ if ( base_url() !== 'https://miniapp.tonbankcard.com/' ) {
 
 if ( empty( $GLOBALS['runtime_config']['urls']['public'] ) || $GLOBALS['runtime_config']['urls']['public'] !== 'https://marketcap.tonbankcard.com/' ) {
     fwrite( STDERR, "Public website URL is not preserved alongside Telegram URL\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'sensitive local JSON stores should default to a private app-owned state directory' \
+    env -i PATH="$PATH" php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+
+if ( ! function_exists( 'tonbankcard_runtime_state_dir' ) || ! function_exists( 'tonbankcard_runtime_sensitive_store_status' ) ) {
+    fwrite( STDERR, "Missing sensitive state store helpers\n" );
+    exit( 1 );
+}
+
+$state_dir = tonbankcard_runtime_state_dir();
+$root = rtrim( GECKO_CLIENT_DIR, DIRECTORY_SEPARATOR ) . DIRECTORY_SEPARATOR;
+if ( 0 === strpos( rtrim( $state_dir, DIRECTORY_SEPARATOR ) . DIRECTORY_SEPARATOR, $root ) ) {
+    fwrite( STDERR, "Default state directory must be outside the web root: $state_dir\n" );
+    exit( 1 );
+}
+
+$paths = [
+    $GLOBALS['runtime_config']['admin']['store_path'],
+    $api['telegram_session']['local_session_store_path'],
+    $api['ai']['feedback_store_path'],
+    $api['ton_ecosystem']['curation_store_path'],
+];
+
+foreach ( $paths as $path ) {
+    if ( dirname( $path ) !== $state_dir ) {
+        fwrite( STDERR, "Sensitive store does not use the private state directory: $path\n" );
+        exit( 1 );
+    }
+}
+
+$status = tonbankcard_runtime_sensitive_store_status(
+    $api['telegram_session']['local_session_store_path'],
+    [
+        'mode'       => 'write',
+        'create_dir' => TRUE,
+    ]
+);
+if ( empty( $status['ok'] ) ) {
+    fwrite( STDERR, 'Default sensitive store was not accepted: ' . json_encode( $status ) . "\n" );
+    exit( 1 );
+}
+
+$perms = fileperms( $state_dir );
+if ( FALSE === $perms || 0 !== ( $perms & 0077 ) ) {
+    fwrite( STDERR, sprintf( "State directory is not private: %o\n", FALSE === $perms ? 0 : ( $perms & 0777 ) ) );
+    exit( 1 );
+}
+PHP
+
+php_check 'sensitive local JSON stores should refuse world-readable directories' \
+    env -i PATH="$PATH" php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/site.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/functions.php';
+require __DIR__ . '/api/router.php';
+
+$world_dir = sys_get_temp_dir() . '/tonbankcard-world-state-' . getmypid();
+if ( ! is_dir( $world_dir ) && ! mkdir( $world_dir, 0777, TRUE ) ) {
+    fwrite( STDERR, "Could not create world-readable test directory\n" );
+    exit( 1 );
+}
+chmod( $world_dir, 0777 );
+
+$session = [
+    'telegram_user_id'       => null,
+    'telegram_language_code' => null,
+    'telegram_is_premium'    => FALSE,
+    'session_token'          => str_repeat( 'a', 64 ),
+    'session_token_hash'     => str_repeat( 'b', 64 ),
+    'start_param'            => null,
+];
+
+$result = tonbankcard_api_store_local_session_record(
+    $session,
+    [
+        'local_session_store_path' => $world_dir . '/sessions.json',
+    ]
+);
+
+chmod( $world_dir, 0700 );
+@unlink( $world_dir . '/sessions.json' );
+@rmdir( $world_dir );
+
+if ( ! empty( $result['ok'] ) ) {
+    fwrite( STDERR, "World-readable sensitive store directory was accepted\n" );
     exit( 1 );
 }
 PHP

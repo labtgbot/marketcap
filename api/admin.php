@@ -2315,7 +2315,24 @@ function tonbankcard_api_admin_save_state( array $state, array $runtime, array $
             'ok'      => FALSE,
             'status'  => 503,
             'code'    => 'admin_store_unconfigured',
-            'message' => 'Set TONBANKCARD_ADMIN_STORE before writing admin settings.',
+            'message' => 'Set TONBANKCARD_STATE_DIR or TONBANKCARD_ADMIN_STORE before writing admin settings.',
+        ];
+    }
+
+    $store_status = tonbankcard_runtime_sensitive_store_status(
+        $path,
+        [
+            'mode'       => 'write',
+            'create_dir' => TRUE,
+        ]
+    );
+    if ( empty( $store_status['ok'] ) ) {
+        return [
+            'ok'      => FALSE,
+            'status'  => 503,
+            'code'    => isset( $store_status['code'] ) ? $store_status['code'] : 'admin_store_unsafe',
+            'message' => 'Admin store path must point to a private app-owned directory and file.',
+            'details' => isset( $store_status['details'] ) && is_array( $store_status['details'] ) ? $store_status['details'] : [],
         ];
     }
 

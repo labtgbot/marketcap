@@ -1177,12 +1177,13 @@ function tonbankcard_api_local_browser_session_response( array $request, array $
  */
 function tonbankcard_api_telegram_session_settings( array $config ) {
     $settings = isset( $config['telegram_session'] ) && is_array( $config['telegram_session'] ) ? $config['telegram_session'] : [];
+    $default_store_path = tonbankcard_runtime_state_store_path( 'tonbankcard-marketcap-sessions.json' );
 
     return [
         'init_data_max_age_seconds'     => isset( $settings['init_data_max_age_seconds'] ) ? max( 60, (int) $settings['init_data_max_age_seconds'] ) : 86400,
         'auth_date_future_skew_seconds' => isset( $settings['auth_date_future_skew_seconds'] ) ? max( 0, (int) $settings['auth_date_future_skew_seconds'] ) : 60,
         'session_ttl_seconds'           => isset( $settings['session_ttl_seconds'] ) ? max( 300, (int) $settings['session_ttl_seconds'] ) : 2592000,
-        'local_session_store_path'      => ! empty( $settings['local_session_store_path'] ) ? (string) $settings['local_session_store_path'] : sys_get_temp_dir() . '/tonbankcard-marketcap-sessions.json',
+        'local_session_store_path'      => ! empty( $settings['local_session_store_path'] ) ? (string) $settings['local_session_store_path'] : $default_store_path,
     ];
 }
 
@@ -1661,7 +1662,24 @@ function tonbankcard_api_store_database_session_record( PDO $pdo, array $session
  * @return array
  */
 function tonbankcard_api_store_local_session_record( array $session, array $settings ) {
-    $path = $settings['local_session_store_path'];
+    $path = trim( (string) $settings['local_session_store_path'] );
+    if ( function_exists( 'tonbankcard_runtime_sensitive_store_status' ) ) {
+        $status = tonbankcard_runtime_sensitive_store_status(
+            $path,
+            [
+                'mode'       => 'write',
+                'create_dir' => TRUE,
+            ]
+        );
+        if ( empty( $status['ok'] ) ) {
+            return [
+                'ok'      => FALSE,
+                'storage' => 'local_file',
+                'error'   => isset( $status['code'] ) ? $status['code'] : 'sensitive_store_unavailable',
+            ];
+        }
+    }
+
     $dir = dirname( $path );
     if ( ! is_dir( $dir ) && ! mkdir( $dir, 0700, TRUE ) ) {
         return [

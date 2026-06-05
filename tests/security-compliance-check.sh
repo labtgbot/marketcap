@@ -358,8 +358,20 @@ require GECKO_CLIENT_CONFIG_DIR . '/api.php';
 require __DIR__ . '/functions.php';
 require __DIR__ . '/api/router.php';
 
-$store = sys_get_temp_dir() . '/tonbankcard-test-security-session.json';
+$store_dir = sys_get_temp_dir() . '/tonbankcard-test-security-session-' . getmypid();
+if ( ! is_dir( $store_dir ) && ! mkdir( $store_dir, 0700, TRUE ) ) {
+    fwrite( STDERR, "Could not create private session store directory\n" );
+    exit( 1 );
+}
+chmod( $store_dir, 0700 );
+$store = $store_dir . '/sessions.json';
 @unlink( $store );
+register_shutdown_function(
+    function () use ( $store, $store_dir ) {
+        @unlink( $store );
+        @rmdir( $store_dir );
+    }
+);
 
 $runtime = $GLOBALS['runtime_config'];
 $runtime['profile'] = 'local';
@@ -416,8 +428,20 @@ require __DIR__ . '/functions.php';
 require __DIR__ . '/api/router.php';
 
 $runtime = $GLOBALS['runtime_config'];
-$runtime['admin']['store_path'] = sys_get_temp_dir() . '/tonbankcard-test-security-admin.json';
+$admin_store_dir = sys_get_temp_dir() . '/tonbankcard-test-security-admin-' . getmypid();
+if ( ! is_dir( $admin_store_dir ) && ! mkdir( $admin_store_dir, 0700, TRUE ) ) {
+    fwrite( STDERR, "Could not create private admin store directory\n" );
+    exit( 1 );
+}
+chmod( $admin_store_dir, 0700 );
+$runtime['admin']['store_path'] = $admin_store_dir . '/admin.json';
 @unlink( $runtime['admin']['store_path'] );
+register_shutdown_function(
+    function () use ( $runtime, $admin_store_dir ) {
+        @unlink( $runtime['admin']['store_path'] );
+        @rmdir( $admin_store_dir );
+    }
+);
 
 $response = tonbankcard_api_handle(
     [

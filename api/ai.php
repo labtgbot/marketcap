@@ -854,11 +854,12 @@ function tonbankcard_api_ai_store_feedback( array $feedback, array $runtime, arr
  */
 function tonbankcard_api_ai_feedback_settings( array $config ) {
     $ai = isset( $config['ai'] ) && is_array( $config['ai'] ) ? $config['ai'] : [];
+    $default_store_path = tonbankcard_runtime_state_store_path( 'tonbankcard-marketcap-ai-feedback.json' );
 
     return [
         'local_feedback_store_path' => ! empty( $ai['feedback_store_path'] )
             ? (string) $ai['feedback_store_path']
-            : sys_get_temp_dir() . '/tonbankcard-marketcap-ai-feedback.json',
+            : $default_store_path,
     ];
 }
 
@@ -969,7 +970,24 @@ function tonbankcard_api_ai_feedback_user_id( PDO $pdo, $session_hash ) {
  * @return array
  */
 function tonbankcard_api_ai_store_local_feedback( array $feedback, array $settings ) {
-    $path = $settings['local_feedback_store_path'];
+    $path = trim( (string) $settings['local_feedback_store_path'] );
+    if ( function_exists( 'tonbankcard_runtime_sensitive_store_status' ) ) {
+        $status = tonbankcard_runtime_sensitive_store_status(
+            $path,
+            [
+                'mode'       => 'write',
+                'create_dir' => TRUE,
+            ]
+        );
+        if ( empty( $status['ok'] ) ) {
+            return [
+                'ok'      => FALSE,
+                'storage' => 'local_file',
+                'error'   => isset( $status['code'] ) ? $status['code'] : 'sensitive_store_unavailable',
+            ];
+        }
+    }
+
     $dir = dirname( $path );
     if ( ! is_dir( $dir ) && ! mkdir( $dir, 0700, TRUE ) ) {
         return [
