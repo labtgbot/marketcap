@@ -53,6 +53,8 @@ assert_contains "$doc" 'uncertainty' 'uncertainty in generated insights'
 assert_contains "$doc" 'cost counters' 'provider cost counters'
 assert_contains "$doc" 'insight unavailable' 'the provider fallback behavior'
 assert_contains "$doc" 'raw prompts' 'raw prompt logging prohibition'
+assert_contains "$doc" 'dedicated provider rate-limit bucket' 'the dedicated provider rate-limit bucket'
+assert_contains "$doc" 'max_request_body_bytes' 'AI body and prompt size limits'
 
 assert_contains .env.example '^TONBANKCARD_AI_PROVIDER=groq$' 'the default AI provider'
 assert_contains .env.example '^TONBANKCARD_AI_PROMPT_VERSION=v1$' 'the AI prompt version'
@@ -63,6 +65,8 @@ assert_contains .env.example '^GROQ_BASE_URL=https://api\.groq\.com/openai/v1/$'
 assert_contains .env.example '^GROQ_TIMEOUT_SECONDS=10$' 'the Groq timeout'
 assert_contains .env.example '^GROQ_RATE_LIMIT_WINDOW_SECONDS=60$' 'the Groq rate-limit window'
 assert_contains .env.example '^GROQ_RATE_LIMIT_MAX_REQUESTS=20$' 'the Groq rate-limit ceiling'
+assert_contains .env.example '^TONBANKCARD_AI_MAX_REQUEST_BODY_BYTES=16384$' 'the AI request body size limit'
+assert_contains .env.example '^TONBANKCARD_AI_MAX_PROMPT_BYTES=12288$' 'the AI prompt size limit'
 assert_contains package.json '"test:ai-provider"' 'the AI provider npm script'
 assert_contains package.json 'test:ai-provider' 'the aggregate AI provider check'
 assert_contains README.md 'docs/v2-ai-provider-foundation\.md' 'the AI provider documentation link'
@@ -114,6 +118,246 @@ $invalid = validate_runtime_config();
 $payload = json_encode( $invalid );
 if ( FALSE !== strpos( $payload, 'groq-secret-key' ) ) {
     fwrite( STDERR, "Runtime validation leaked a Groq secret\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'AI insight should enforce the provider rate limit independently of the global limiter' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_FEATURE_AI=true \
+        GROQ_API_KEY='groq-secret-key' \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$provider_calls = 0;
+
+$test_api = $api;
+$test_api['rate_limit']['enabled'] = FALSE;
+$test_api['cache']['enabled'] = FALSE;
+$test_api['redis']['enabled'] = FALSE;
+$test_api['ai']['groq']['rate_limit']['window_seconds'] = 60;
+$test_api['ai']['groq']['rate_limit']['max_requests'] = 1;
+$test_api['ai']['transport'] = function ( $request ) use ( &$provider_calls ) {
+    $provider_calls++;
+    return [
+        'status'  => 200,
+        'headers' => [ 'content-type' => 'application/json' ],
+        'body'    => json_encode(
+            [
+                'choices' => [
+                    [
+                        'message' => [
+                            'content' => json_encode(
+                                [
+                                    'title'                   => 'TON context',
+                                    'summary'                 => 'TON market data is mixed in the latest snapshot.',
+                                    'sentiment'               => 'mixed',
+                                    'confidence'              => 0.5,
+                                    'drivers'                 => [ 'Price is moving in the sampled data.' ],
+                                    'risks'                   => [ 'The sample is narrow.' ],
+                                    'uncertainty'             => 'The market snapshot is limited and may change quickly.',
+                                    'market_data_age_seconds' => 30,
+                                    'not_financial_advice'    => TRUE,
+                                ]
+                            ),
+                        ],
+                    ],
+                ],
+                'usage' => [ 'prompt_tokens' => 40, 'completion_tokens' => 20, 'total_tokens' => 60 ],
+            ]
+        ),
+    ];
+};
+
+$base_request = [
+    'method'  => 'POST',
+    'path'    => '/api/ai/insight',
+    'headers' => [
+        'content-type'            => 'application/json',
+        'x-forwarded-for'         => '198.51.100.44',
+        'x-tonbankcard-session'   => 'attacker-controlled-session-a',
+        'user-agent'              => 'AIProviderLimitTest/1',
+    ],
+];
+
+$first = tonbankcard_api_handle(
+    array_merge(
+        $base_request,
+        [
+            'body' => json_encode(
+                [
+                    'insight_type'            => 'market_summary',
+                    'subject'                 => 'TON market one',
+                    'market_data_age_seconds' => 30,
+                    'market_data'             => [ 'price_change_percentage_24h' => 1.1 ],
+                ]
+            ),
+        ]
+    ),
+    [],
+    $GLOBALS['runtime_config'],
+    $test_api
+);
+
+$second = tonbankcard_api_handle(
+    array_merge(
+        $base_request,
+        [
+            'headers' => [
+                'content-type'            => 'application/json',
+                'x-forwarded-for'         => '198.51.100.44',
+                'x-tonbankcard-session'   => 'attacker-controlled-session-b',
+                'user-agent'              => 'AIProviderLimitTest/rotated',
+            ],
+            'body' => json_encode(
+                [
+                    'insight_type'            => 'market_summary',
+                    'subject'                 => 'TON market two',
+                    'market_data_age_seconds' => 31,
+                    'market_data'             => [ 'price_change_percentage_24h' => 1.2 ],
+                ]
+            ),
+        ]
+    ),
+    [],
+    $GLOBALS['runtime_config'],
+    $test_api
+);
+
+if ( 200 !== $first['status'] ) {
+    fwrite( STDERR, 'Expected first provider-limited AI request to pass, got ' . $first['status'] . "\n" );
+    exit( 1 );
+}
+if ( 429 !== $second['status'] ) {
+    fwrite( STDERR, 'Expected provider rate limit to block the second AI request, got ' . $second['status'] . "\n" );
+    exit( 1 );
+}
+if ( 1 !== $provider_calls ) {
+    fwrite( STDERR, 'Provider should be called once before the dedicated bucket blocks, got ' . $provider_calls . "\n" );
+    exit( 1 );
+}
+if ( ! isset( $second['headers']['Retry-After'] ) || '1' !== $second['headers']['X-RateLimit-Limit'] || 'ai_provider_groq' !== $second['headers']['X-RateLimit-Policy'] ) {
+    fwrite( STDERR, "Provider rate-limit headers are missing or wrong\n" );
+    exit( 1 );
+}
+
+$payload = json_decode( $second['body'], TRUE );
+if ( 'rate_limited' !== $payload['error']['code'] || 'ai_provider_groq' !== $payload['error']['details']['policy'] ) {
+    fwrite( STDERR, "Provider rate-limit response did not expose the dedicated policy\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'AI insight should reject oversized request bodies before provider execution' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_FEATURE_AI=true \
+        GROQ_API_KEY='groq-secret-key' \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$provider_calls = 0;
+
+$test_api = $api;
+$test_api['ai']['limits']['max_request_body_bytes'] = 256;
+$test_api['ai']['transport'] = function ( $request ) use ( &$provider_calls ) {
+    $provider_calls++;
+    return [ 'status' => 200, 'headers' => [], 'body' => '{}' ];
+};
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'POST',
+        'path'    => '/api/ai/insight',
+        'headers' => [ 'content-type' => 'application/json' ],
+        'body'    => json_encode(
+            [
+                'insight_type'            => 'market_summary',
+                'subject'                 => 'TON market',
+                'market_data_age_seconds' => 30,
+                'market_data'             => [ 'notes' => str_repeat( 'large input ', 80 ) ],
+            ]
+        ),
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $test_api
+);
+
+if ( 413 !== $response['status'] ) {
+    fwrite( STDERR, 'Expected oversized AI body to be rejected with 413, got ' . $response['status'] . "\n" );
+    exit( 1 );
+}
+if ( 0 !== $provider_calls ) {
+    fwrite( STDERR, "Oversized AI request should not reach the provider\n" );
+    exit( 1 );
+}
+
+$payload = json_decode( $response['body'], TRUE );
+if ( 'ai_request_too_large' !== $payload['error']['code'] ) {
+    fwrite( STDERR, 'Expected ai_request_too_large, got ' . $payload['error']['code'] . "\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'AI insight should reject oversized provider prompts before provider execution' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_FEATURE_AI=true \
+        GROQ_API_KEY='groq-secret-key' \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$provider_calls = 0;
+
+$test_api = $api;
+$test_api['ai']['limits']['max_request_body_bytes'] = 20000;
+$test_api['ai']['limits']['max_prompt_bytes'] = 800;
+$test_api['ai']['transport'] = function ( $request ) use ( &$provider_calls ) {
+    $provider_calls++;
+    return [ 'status' => 200, 'headers' => [], 'body' => '{}' ];
+};
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'POST',
+        'path'    => '/api/ai/insight',
+        'headers' => [ 'content-type' => 'application/json' ],
+        'body'    => json_encode(
+            [
+                'insight_type'            => 'market_summary',
+                'subject'                 => 'TON market',
+                'market_data_age_seconds' => 30,
+                'market_data'             => [
+                    'context' => str_repeat( 'bounded prompt material ', 20 ),
+                ],
+            ]
+        ),
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $test_api
+);
+
+if ( 413 !== $response['status'] ) {
+    fwrite( STDERR, 'Expected oversized AI prompt to be rejected with 413, got ' . $response['status'] . "\n" );
+    exit( 1 );
+}
+if ( 0 !== $provider_calls ) {
+    fwrite( STDERR, "Oversized AI prompt should not reach the provider\n" );
+    exit( 1 );
+}
+
+$payload = json_decode( $response['body'], TRUE );
+if ( 'ai_prompt_too_large' !== $payload['error']['code'] ) {
+    fwrite( STDERR, 'Expected ai_prompt_too_large, got ' . $payload['error']['code'] . "\n" );
     exit( 1 );
 }
 PHP
