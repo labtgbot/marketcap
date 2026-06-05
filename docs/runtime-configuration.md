@@ -38,9 +38,9 @@ For staging, production, and telegram profiles, set explicit values for:
 | --- | --- | --- |
 | `TONBANKCARD_PROFILE` | Always | `local`, `staging`, `production`, or `telegram`. |
 | `TONBANKCARD_LOCAL_BASE_URL` | Local overrides | Defaults to `http://localhost:8888/`. |
-| `TONBANKCARD_STAGING_BASE_URL` | `staging` profile | Absolute HTTP(S) URL. |
-| `TONBANKCARD_PUBLIC_BASE_URL` | `production` and `telegram` profiles | Public website URL for canonical and shared links. |
-| `TONBANKCARD_TELEGRAM_BASE_URL` | `telegram` profile | Mini App URL configured in BotFather. |
+| `TONBANKCARD_STAGING_BASE_URL` | `staging` profile | Absolute HTTPS URL. |
+| `TONBANKCARD_PUBLIC_BASE_URL` | `production` and `telegram` profiles | HTTPS public website URL for canonical and shared links. |
+| `TONBANKCARD_TELEGRAM_BASE_URL` | `telegram` profile | HTTPS Mini App URL configured in BotFather. |
 | `TONBANKCARD_BOT_USERNAME` | Non-local profiles | Username only, without secret token. |
 | `TONBANKCARD_BOT_TOKEN` | `telegram` profile or alerts enabled | Secret; server-side only. |
 | `COINGECKO_API_PLAN` | Optional | `demo` for CoinGecko Public/Demo API or `pro` for CoinGecko Pro API. Defaults to `demo`. |
@@ -69,6 +69,21 @@ authentication header. Set `COINGECKO_API_KEY` only when more quota is needed;
 `demo` sends it as `x-cg-demo-api-key` and `pro` uses the Pro API root with
 `x-cg-pro-api-key`. The key is inserted only by the PHP backend and is never
 included in `window.GeckoClient` or browser request parameters.
+
+## Transport Security
+
+Non-local profiles enable HTTPS enforcement by default. `TONBANKCARD_FORCE_HTTPS`
+redirects plain HTTP requests to the same host and URI over HTTPS, while localhost
+and ACME challenges are exempt so local development and certificate issuance keep
+working. Set `TONBANKCARD_FORCE_HTTPS=false` only behind an upstream component that
+already enforces HTTPS.
+
+`TONBANKCARD_HSTS_ENABLED` defaults to the HTTPS enforcement state for non-local
+profiles and emits `Strict-Transport-Security: max-age=63072000;
+includeSubDomains; preload` once runtime or request context confirms HTTPS.
+Session cookies default to `Secure` whenever HTTPS enforcement is active or the
+active base URL is HTTPS; `TONBANKCARD_SECURE_COOKIES` can be set explicitly for
+special deployments.
 
 ## Observability
 

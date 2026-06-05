@@ -137,7 +137,7 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
     $started_at = microtime( TRUE );
 
     $request_id = tonbankcard_api_request_id( $request['headers'] );
-    $headers    = tonbankcard_api_base_headers( $request, $config, $request_id );
+    $headers    = tonbankcard_api_base_headers( $request, $config, $request_id, $runtime );
 
     try {
         if ( 'OPTIONS' === $request['method'] ) {
@@ -913,11 +913,12 @@ function tonbankcard_api_request_id( array $headers ) {
  * @param array $request
  * @param array $config
  * @param string $request_id
+ * @param array $runtime
  * @return array
  */
-function tonbankcard_api_base_headers( array $request, array $config, string $request_id ) {
+function tonbankcard_api_base_headers( array $request, array $config, string $request_id, array $runtime = [] ) {
     $security_headers = function_exists( 'tonbankcard_security_headers' )
-        ? tonbankcard_security_headers( 'api' )
+        ? tonbankcard_security_headers( 'api', $runtime )
         : [
             'X-Content-Type-Options' => 'nosniff',
             'Referrer-Policy'        => 'strict-origin-when-cross-origin',
@@ -1784,8 +1785,11 @@ function tonbankcard_api_session_cookie_header( array $session, array $runtime, 
         . '; HttpOnly'
         . '; SameSite=Lax';
 
-    $active_url = isset( $runtime['urls']['active'] ) ? (string) $runtime['urls']['active'] : '';
-    if ( 0 === strpos( $active_url, 'https://' ) ) {
+    $secure_cookie = function_exists( 'tonbankcard_should_secure_session_cookies' )
+        ? tonbankcard_should_secure_session_cookies( $runtime )
+        : 0 === strpos( (string) ( isset( $runtime['urls']['active'] ) ? $runtime['urls']['active'] : '' ), 'https://' );
+
+    if ( $secure_cookie ) {
         $cookie .= '; Secure';
     }
 

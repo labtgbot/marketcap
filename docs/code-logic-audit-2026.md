@@ -282,6 +282,10 @@ the session cookie in cleartext (SSL-strip / MITM).
 **Fix:** enable HTTPS redirect by default (or via env) and add an HSTS header once
 HTTPS is confirmed.
 
+**Resolution in progress (#214):** non-local profiles now default to HTTPS
+redirects, PHP and Apache emit HSTS for HTTPS deployments, and session cookies use
+`Secure` whenever HTTPS is enforced.
+
 ### F10 — Migrations non-transactional & non-idempotent (High)
 
 `database/migrate.php:236` applies each migration statement-by-statement with no
@@ -471,7 +475,7 @@ Priority legend: **P0** Critical · **P1** High · **P2** Medium · **P3** Low.
 - [ ] **[P1]** #189 — F6 `.env` writer allows env-var injection via newlines
 - [ ] **[P1]** #190 — F7 Installer unauthenticated on first run / not web-blocked
 - [ ] **[P1]** #191 — F8 Sensitive files served over HTTP
-- [ ] **[P1]** #192 — F9 No HTTPS enforcement and no HSTS
+- [x] **[P1]** #192 — F9 No HTTPS enforcement and no HSTS
 - [ ] **[P1]** #193 — F10 Migrations non-transactional & non-idempotent
 - [ ] **[P2]** #194 — F11 Rate limiter fails open and is UA-bypassable
 - [ ] **[P2]** #195 — F12 Anonymous, unbounded AI insight endpoint
@@ -504,7 +508,7 @@ postponed, with a rationale).
 | F6 — `.env` writer newline injection | #189 | P1 | Planned | Reject or strip `\r`/`\n` in submitted values before writing `.env`. |
 | F7 — Installer unauthenticated first run | #190 | P1 | Planned | Require an out-of-band secret on first run; ship `install/.htaccess`; persist a strong installer token; generic DB-error UI. |
 | F8 — Sensitive files served over HTTP | #191 | P1 | Planned | Deny `install/`, `database/`, `docs/`, `tests/`, `dev/`, and `*.zip`/`*.sql`/`*.md` at the web layer. |
-| F9 — No HTTPS enforcement / HSTS | #192 | P1 | Planned | Enable HTTPS redirect (default or env-gated) and emit `Strict-Transport-Security` once HTTPS is confirmed. |
+| F9 — No HTTPS enforcement / HSTS | #192 | P1 | In progress | Non-local profiles now default to HTTPS redirects through Apache and PHP, emit `Strict-Transport-Security` once HTTPS is confirmed, and keep session cookies `Secure` whenever HTTPS is enforced. Regression coverage in `tests/security-compliance-check.sh`. PR #214. |
 | F10 — Migrations non-transactional | #193 | P1 | Planned | Idempotent up-migrations, a `GET_LOCK` advisory lock per run, and a SQL-aware statement splitter. |
 | F11 — Rate limiter fails open / UA-bypass | #194 | P2 | Planned | Key anonymous identity on IP (coarse prefix), not UA; bounded fallback for Redis outages. |
 | F12 — Unbounded anonymous AI endpoint | #195 | P2 | Planned | Enforce the provider `rate_limit` as a server-side bucket; bound request-body size. |

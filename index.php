@@ -122,6 +122,7 @@ $invalid_configs = array_merge(
     validate_site_configs(),
     validate_vuetify_configs()
 );
+tonbankcard_enforce_https_redirect();
 // Locale switcher: persist a `tbc_lang` cookie and redirect back to the page
 // the user came from. Handled before JSON API dispatch so it is excluded from
 // the structured API surface.
