@@ -23,12 +23,14 @@ the backend reads provider settings from environment variables and
 | `TONBANKCARD_AI_PROMPT_VERSION` | Prompt/schema contract version, default `v1`. |
 | `TONBANKCARD_AI_ENABLED_FEATURES` | Comma-separated subset of `summary,sentiment,insight`. |
 | `TONBANKCARD_AI_FALLBACK_BEHAVIOR` | Default `unavailable`, returning `insight unavailable` when AI cannot answer safely. |
+| `TONBANKCARD_AI_MAX_REQUEST_BODY_BYTES` | Maximum accepted `/api/ai/insight` request body size, default `16384`. |
+| `TONBANKCARD_AI_MAX_PROMPT_BYTES` | Maximum normalized provider prompt message size, default `12288`. |
 | `GROQ_API_KEY` | Secret API key, required only when AI is enabled. |
 | `GROQ_MODEL_ID` | Groq model id, default `llama-3.3-70b-versatile`. |
 | `GROQ_BASE_URL` | OpenAI-compatible Groq API root, default `https://api.groq.com/openai/v1/`. |
 | `GROQ_TIMEOUT_SECONDS` | Provider timeout, default `10`. |
-| `GROQ_RATE_LIMIT_WINDOW_SECONDS` | Rate-limit metadata window, default `60`. |
-| `GROQ_RATE_LIMIT_MAX_REQUESTS` | Rate-limit metadata ceiling, default `20`. |
+| `GROQ_RATE_LIMIT_WINDOW_SECONDS` | Dedicated provider rate-limit window, default `60`. |
+| `GROQ_RATE_LIMIT_MAX_REQUESTS` | Dedicated provider rate-limit ceiling, default `20`. |
 
 The AI route uses Groq's OpenAI-compatible Chat Completions endpoint
 `/chat/completions`. `config/api.php` stores server-only provider fields and
@@ -61,6 +63,22 @@ Supported `insight_type` values are `market_summary`, `coin_summary`,
 `watchlist_digest`, `alert_explanation`, and `sentiment`. The route does not
 accept raw user prompts. It sanitizes structured market context before prompt
 construction and keeps the final prompt out of logs and responses.
+
+## Abuse Bounds
+
+`POST /api/ai/insight` rejects oversized raw request bodies with
+`413 ai_request_too_large` before provider execution. The internal
+`limits.max_request_body_bytes` and `limits.max_prompt_bytes` settings come from
+the environment defaults above. After validation and normalization, the route
+also measures the provider prompt messages and rejects oversized prompts with
+`413 ai_prompt_too_large`.
+
+The dedicated provider rate-limit bucket enforces the configured Groq
+`rate_limit` before cache misses can call the paid provider. This bucket is
+independent of the global API limiter, uses a valid session cookie or request IP
+instead of spoofable session headers, and falls back to bounded in-process
+enforcement when Redis is unavailable. Cache hits are returned without spending
+provider bucket capacity.
 
 ## Structured JSON Validation
 
