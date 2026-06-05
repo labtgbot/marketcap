@@ -16,6 +16,34 @@ if ( FALSE === $path ) {
 
 $file = realpath( $root . $path );
 
+function tonbankcard_dev_path_is_denied( $path ) {
+    $decoded_path = rawurldecode( '/' . ltrim( (string) $path, '/' ) );
+    $relative_path = ltrim( $decoded_path, '/' );
+    $normalized_path = strtolower( $relative_path );
+
+    if ( 0 !== stripos( $decoded_path, '/.well-known/' ) && preg_match( '#(^|/)\.#', $decoded_path ) ) {
+        return TRUE;
+    }
+
+    if ( 'dev/js/tools/bundle.php' === $normalized_path ) {
+        return FALSE;
+    }
+
+    if ( preg_match( '#^(install|database|docs|tests|dev)(/|$)#i', $relative_path ) ) {
+        return TRUE;
+    }
+
+    return 1 === preg_match( '#\.(zip|sql|md)$#i', $relative_path );
+}
+
+if ( tonbankcard_dev_path_is_denied( $path ) ) {
+    http_response_code( 403 );
+    header( 'Content-Type: text/plain; charset=utf-8' );
+    header( 'X-Content-Type-Options: nosniff' );
+    echo 'Forbidden';
+    return TRUE;
+}
+
 // Keep /api/* requests on the PHP front controller so API JSON contracts,
 // CORS handling, and request IDs are exercised during local development.
 if ( '/api' === $path || 0 === strpos( $path, '/api/' ) ) {
