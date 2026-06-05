@@ -314,6 +314,12 @@ globally. Enables brute-force/scraping/cost amplification on anonymous endpoints
 **Fix:** key anonymous identity on IP (optionally a coarse network prefix), not UA;
 choose fail-closed or a bounded in-process fallback for Redis outages.
 
+**Status:** Resolved (#194). Anonymous web identities now hash only the request IP
+and no longer include `User-Agent`, so rotating UA values does not create fresh
+buckets. When Redis is disabled or an `INCR` command fails while rate limiting is
+enabled, `tonbankcard_api_rate_limit_check()` falls back to a bounded in-process
+limiter with the same `429 rate_limited` response shape and rate-limit headers.
+
 ### F12 — Anonymous, unbounded AI insight endpoint (Medium)
 
 `api/ai.php:64` exposes `POST /api/ai/insight` anonymously, proxying to a paid,
@@ -510,7 +516,7 @@ postponed, with a rationale).
 | F8 — Sensitive files served over HTTP | #191 | P1 | Planned | Deny `install/`, `database/`, `docs/`, `tests/`, `dev/`, and `*.zip`/`*.sql`/`*.md` at the web layer. |
 | F9 — No HTTPS enforcement / HSTS | #192 | P1 | In progress | Non-local profiles now default to HTTPS redirects through Apache and PHP, emit `Strict-Transport-Security` once HTTPS is confirmed, and keep session cookies `Secure` whenever HTTPS is enforced. Regression coverage in `tests/security-compliance-check.sh`. PR #214. |
 | F10 — Migrations non-transactional | #193 | P1 | Planned | Idempotent up-migrations, a `GET_LOCK` advisory lock per run, and a SQL-aware statement splitter. |
-| F11 — Rate limiter fails open / UA-bypass | #194 | P2 | Planned | Key anonymous identity on IP (coarse prefix), not UA; bounded fallback for Redis outages. |
+| F11 — Rate limiter fails open / UA-bypass | #194 | P2 | Resolved | Anonymous identity excludes `User-Agent`, and Redis outages use bounded in-process enforcement instead of allowing every request. Regression coverage in `tests/cache-rate-limit-check.sh`. PR #216. |
 | F12 — Unbounded anonymous AI endpoint | #195 | P2 | Planned | Enforce the provider `rate_limit` as a server-side bucket; bound request-body size. |
 | F13 — Weak CSP / missing `X-Frame-Options` | #196 | P2 | Planned | Migrate inline scripts to nonces, drop `'unsafe-inline'`/`'unsafe-eval'`, add `X-Frame-Options: SAMEORIGIN`. |
 | F14 — World-readable temp secret stores | #197 | P2 | Planned | Default secret/state stores to a private `0700`/`0600` app-owned dir; fail closed if not private. |
