@@ -178,8 +178,24 @@ default. An attacker can repeatedly trigger alert evaluation → forced Telegram
 notification sends and upstream market fetches (spam + cost amplification). The
 same fail-open pattern should be reviewed for every worker/automation token.
 
-**Fix:** fail closed — reject (`401`/`503`) when the token is unset; require it for
-the route to function.
+**Fix (resolved, #209):** the check now fails closed — an unset token returns
+`503 alerts_worker_token_unset`, and a missing/invalid token returns
+`401 alerts_worker_token_required` (compared with `hash_equals`), so the route
+never runs unauthenticated (`api/alerts.php:649`):
+
+```php
+$worker_token = isset( $settings['worker_token'] ) ? (string) $settings['worker_token'] : '';
+if ( '' === $worker_token ) {
+    return /* 503 alerts_worker_token_unset */;
+}
+$provided = /* X-TONBANKCARD-Alert-Worker-Token */;
+if ( ! hash_equals( $worker_token, $provided ) ) {
+    return /* 401 alerts_worker_token_required */;
+}
+```
+
+The search-refresh worker (`api/search.php:121`) was audited and already fails
+closed (it returns `FALSE` when the token is unset, outside the `local` profile).
 
 ### F5 — Open redirect + missing same-origin check on locale-set (High)
 
@@ -447,7 +463,7 @@ Priority legend: **P0** Critical · **P1** High · **P2** Medium · **P3** Low.
 - [x] **[P0]** #184 — F1 Telegram bot webhook fails open when secret is unset
 - [ ] **[P0]** #185 — F2 Premium entitlement self-grant via forged payment webhook
 - [x] **[P0]** #186 — F3 Reflected XSS in JSON-LD via `JSON_UNESCAPED_SLASHES`
-- [ ] **[P1]** #187 — F4 Worker endpoints fail open when token unset
+- [x] **[P1]** #187 — F4 Worker endpoints fail open when token unset
 - [ ] **[P1]** #188 — F5 Open redirect + missing same-origin check on locale-set
 - [ ] **[P1]** #189 — F6 `.env` writer allows env-var injection via newlines
 - [ ] **[P1]** #190 — F7 Installer unauthenticated on first run / not web-blocked
@@ -480,7 +496,7 @@ postponed, with a rationale).
 | F1 — Telegram webhook fails open | #184 | P0 | Resolved | `tonbankcard_api_telegram_bot_secret_allowed()` now fails closed — it returns `FALSE` when no `webhook_secret` is configured, so the webhook can never accept unauthenticated updates out of the box (`api/telegram-bot.php:177`). Merged in #206. |
 | F2 — Premium self-grant via forged payment | #185 | P0 | In progress | De-duplicate and reconcile on `telegram_payment_charge_id`, require a dedicated `premium_signing_secret` (drop the bot-token fallback), add replay protection. PR #207. |
 | F3 — Reflected XSS in JSON-LD | #186 | P0 | In progress | JSON-LD now encodes with `JSON_HEX_TAG \| JSON_HEX_AMP \| JSON_HEX_APOS \| JSON_HEX_QUOT` instead of `JSON_UNESCAPED_SLASHES`, so `</script>` cannot break out of the `<script>` block (`views/app-head.php:256`); defense-in-depth strips non-`[a-z0-9-_ ]` characters in `tonbankcard_slug_title()` (`functions.php:189`). Regression test in `tests/security-compliance-check.sh`. PR #208. |
-| F4 — Worker endpoints fail open | #187 | P1 | Planned | Reject (`401`/`503`) when the worker token is unset; require it for the route to run. |
+| F4 — Worker endpoints fail open | #187 | P1 | Resolved | `tonbankcard_api_alerts_evaluate_response()` now fails closed — an unset worker token returns `503 alerts_worker_token_unset` and a missing/invalid token returns `401 alerts_worker_token_required` (compared with `hash_equals`), so `/api/alerts/evaluate` can never run unauthenticated (`api/alerts.php:649`). The search-refresh worker already fails closed (`api/search.php:121`). Regression test in `tests/alerts-check.sh`. PR #209. |
 | F5 — Open redirect on locale-set | #188 | P1 | Planned | Reject backslashes/control chars in the relative-path branch; enforce the documented same-origin check. |
 | F6 — `.env` writer newline injection | #189 | P1 | Planned | Reject or strip `\r`/`\n` in submitted values before writing `.env`. |
 | F7 — Installer unauthenticated first run | #190 | P1 | Planned | Require an out-of-band secret on first run; ship `install/.htaccess`; persist a strong installer token; generic DB-error UI. |

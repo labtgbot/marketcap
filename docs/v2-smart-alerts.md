@@ -30,7 +30,7 @@ The alerts API uses the shared JSON envelope from `/api/*` and trusted Telegram 
 - `POST /api/alerts/{id}/test` queues a test delivery payload and returns the exact Mini App link.
 - `POST /api/alerts/evaluate` is the scheduled worker entry point.
 
-`/api/alerts/evaluate` accepts `X-TONBANKCARD-Alert-Worker-Token` when `TONBANKCARD_ALERT_WORKER_TOKEN` is configured. The worker selects due active rules, fetches market rows through the server-owned CoinGecko gateway, evaluates conditions, applies quiet hours and frequency caps, records alert delivery attempts, and schedules the next evaluation timestamp.
+`/api/alerts/evaluate` requires `X-TONBANKCARD-Alert-Worker-Token` to match the configured `TONBANKCARD_ALERT_WORKER_TOKEN`. The endpoint fails closed: when the token is unset it returns `503 alerts_worker_token_unset`, and a missing or wrong token returns `401 alerts_worker_token_required` (compared with `hash_equals`). Once authenticated, the worker selects due active rules, fetches market rows through the server-owned CoinGecko gateway, evaluates conditions, applies quiet hours and frequency caps, records alert delivery attempts, and schedules the next evaluation timestamp.
 
 ## Delivery
 

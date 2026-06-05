@@ -158,6 +158,34 @@ $payload = tonbankcard_api_alerts_delivery_payload($rule, $event, $settings, tru
 assert_true(strpos($payload['links']['mini_app_path'], '/app/alert/42') !== false, 'Test delivery should target alert detail route.');
 assert_true(strpos($payload['links']['telegram_deep_link'], 'startapp=alert_42') !== false, 'Telegram delivery must include startapp alert deep link.');
 assert_true(strpos($payload['text'], 'TON') !== false, 'Delivery text should identify the matching asset.');
+
+// F4 (#187): the worker endpoint must fail closed when the token is unset.
+$evaluate_request = [
+    'method' => 'POST',
+    'path' => '/api/alerts/evaluate',
+    'headers' => [],
+];
+$worker_runtime = ['feature_flags' => ['alerts' => true]];
+
+$unset = tonbankcard_api_handle($evaluate_request, [], $worker_runtime, ['alerts' => []]);
+$unset_body = json_decode($unset['body'], true);
+assert_true($unset['status'] === 503, 'Alert worker must fail closed (503) when the token is unset.');
+assert_true(($unset_body['error']['code'] ?? '') === 'alerts_worker_token_unset', 'Missing expected alerts_worker_token_unset error.');
+
+$worker_config = ['alerts' => ['worker_token' => 'secret-worker-token']];
+$invalid_request = $evaluate_request;
+$invalid_request['headers'] = ['x-tonbankcard-alert-worker-token' => 'wrong-token'];
+$invalid = tonbankcard_api_handle($invalid_request, [], $worker_runtime, $worker_config);
+$invalid_body = json_decode($invalid['body'], true);
+assert_true($invalid['status'] === 401, 'Invalid worker token must be rejected with 401.');
+assert_true(($invalid_body['error']['code'] ?? '') === 'alerts_worker_token_required', 'Missing expected alerts_worker_token_required error.');
+
+$valid_request = $evaluate_request;
+$valid_request['headers'] = ['x-tonbankcard-alert-worker-token' => 'secret-worker-token'];
+$authorized = tonbankcard_api_handle($valid_request, [], $worker_runtime, $worker_config);
+$authorized_body = json_decode($authorized['body'], true);
+$authorized_code = $authorized_body['error']['code'] ?? '';
+assert_true($authorized_code !== 'alerts_worker_token_unset' && $authorized_code !== 'alerts_worker_token_required', 'Valid worker token must pass authentication.');
 PHP
 
 echo "Smart alerts check passed."

@@ -646,19 +646,29 @@ function tonbankcard_api_alerts_delivery_payload( array $rule, array $event, arr
  * @return array
  */
 function tonbankcard_api_alerts_evaluate_response( array $request, array $runtime, array $config, array $settings, string $request_id, array $headers ) {
-    $worker_token = $settings['worker_token'];
-    if ( '' !== $worker_token ) {
-        $provided = isset( $request['headers']['x-tonbankcard-alert-worker-token'] ) ? trim( (string) $request['headers']['x-tonbankcard-alert-worker-token'] ) : '';
-        if ( ! hash_equals( $worker_token, $provided ) ) {
-            return tonbankcard_api_error_response(
-                401,
-                'alerts_worker_token_required',
-                'Alert evaluation requires a valid worker token.',
-                [ 'header' => 'X-TONBANKCARD-Alert-Worker-Token' ],
-                $request_id,
-                $headers
-            );
-        }
+    $worker_token = isset( $settings['worker_token'] ) ? (string) $settings['worker_token'] : '';
+    if ( '' === $worker_token ) {
+        // Fail closed: never run the worker unauthenticated (F4, #187).
+        return tonbankcard_api_error_response(
+            503,
+            'alerts_worker_token_unset',
+            'Alert evaluation is disabled until a worker token is configured.',
+            [ 'config' => 'TONBANKCARD_ALERT_WORKER_TOKEN' ],
+            $request_id,
+            $headers
+        );
+    }
+
+    $provided = isset( $request['headers']['x-tonbankcard-alert-worker-token'] ) ? trim( (string) $request['headers']['x-tonbankcard-alert-worker-token'] ) : '';
+    if ( ! hash_equals( $worker_token, $provided ) ) {
+        return tonbankcard_api_error_response(
+            401,
+            'alerts_worker_token_required',
+            'Alert evaluation requires a valid worker token.',
+            [ 'header' => 'X-TONBANKCARD-Alert-Worker-Token' ],
+            $request_id,
+            $headers
+        );
     }
 
     $database_error = null;
