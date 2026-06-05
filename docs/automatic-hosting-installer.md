@@ -5,9 +5,12 @@ Date: 2026-05-02
 Issue: [#84](https://github.com/labtgbot/marketcap/issues/84)
 
 TONBANKCARD includes a guarded browser installer at `/install/` for standard
-PHP 8.1+ hosting with MySQL or MariaDB. Upload the repository to the hosting web
-root, open `https://your-domain.example/install/`, and complete the setup form
-before sending users to the public site.
+PHP 8.1+ hosting with MySQL or MariaDB. The route is denied by
+`install/.htaccess` by default and the PHP installer also requires an
+out-of-band TONBANKCARD_INSTALLER_TOKEN before `.env` exists. Upload the
+repository to the hosting web root, open the installer only during a controlled
+setup window, and complete the setup form before sending users to the public
+site.
 
 The installer turns the manual plan in
 [docs/hosting-installation.md](hosting-installation.md) into an interactive
@@ -16,11 +19,21 @@ run database migrations without SSH access.
 
 ## Access Model
 
-The installer is available automatically only before `.env` exists. After a
-successful write it saves:
+The installer has two access layers:
+
+1. `install/.htaccess` denies `/install/` on Apache by default. Temporarily
+   remove or relax that file only from a trusted network during setup.
+2. PHP requires a token even on first run. Before `.env` exists, set an
+   out-of-band TONBANKCARD_INSTALLER_TOKEN in the hosting control panel, Apache
+   `SetEnv`, PHP-FPM environment, or another server environment mechanism. Then
+   open `/install/?token=that-token`.
+
+When the installer writes `.env` for the first time it generates and persists a
+strong re-entry token, then saves:
 
 ```dotenv
 TONBANKCARD_INSTALLER_ENABLED=false
+TONBANKCARD_INSTALLER_TOKEN=generated-long-random-token
 ```
 
 That locks `/install/` so it cannot be reused casually on a live site. To reopen
@@ -33,6 +46,7 @@ TONBANKCARD_INSTALLER_TOKEN=replace-with-a-long-random-token
 
 Then open `/install/?token=replace-with-a-long-random-token`. When the installer
 writes `.env` again it sets `TONBANKCARD_INSTALLER_ENABLED=false` to lock itself.
+After setup, delete the install/ directory from production hosting.
 
 ## Language Selection
 
@@ -113,6 +127,8 @@ when `mysqldump` is unavailable.
   Apache, but verify `/.env` returns 403 or 404 after upload.
 - Do not leave `TONBANKCARD_INSTALLER_ENABLED=true` on a live site.
 - Rotate `TONBANKCARD_INSTALLER_TOKEN` after any support session.
+- Leave `install/.htaccess` in deny-by-default mode until setup starts, and
+  delete the install/ directory after setup.
 - Keep `TONBANKCARD_DEBUG=false` outside controlled troubleshooting windows.
 
 ## Verification

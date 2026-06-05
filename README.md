@@ -55,12 +55,14 @@ php database/migrate.php up
 ## Hosting Installation
 
 Use the browser-based [automatic hosting installer](docs/automatic-hosting-installer.md)
-after uploading the repository to hosting. Open `/install/` before `.env`
-exists, configure PHP 8.1+, MySQL/MariaDB, Telegram Mini App settings, providers,
-feature flags, write `.env`, and optionally apply database migrations from the
-installer. The installer includes an English/Russian language selector and the
-documentation includes a field-filling reference for hosting, BotFather, Redis,
-database, provider, and feature flag values.
+after uploading the repository to hosting. Before first use, set an out-of-band
+`TONBANKCARD_INSTALLER_TOKEN`, temporarily relax `install/.htaccess` from a
+trusted network, and open `/install/?token=...`. Configure PHP 8.1+,
+MySQL/MariaDB, Telegram Mini App settings, providers, feature flags, write
+`.env`, optionally apply database migrations, then remove installer access. The
+installer includes an English/Russian language selector and the documentation
+includes a field-filling reference for hosting, BotFather, Redis, database,
+provider, and feature flag values.
 
 Use [docs/hosting-installation.md](docs/hosting-installation.md) for the
 step-by-step production hosting plan. It covers PHP 8.1+, MySQL/MariaDB,

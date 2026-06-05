@@ -36,6 +36,33 @@ if ( ! function_exists( 'tonbankcard_installer_env_path' ) ) {
     }
 }
 
+if ( ! function_exists( 'tonbankcard_installer_server_env_value' ) ) {
+    /**
+     * Reads out-of-band server environment values used before .env exists.
+     *
+     * @param string $key
+     * @return string
+     */
+    function tonbankcard_installer_server_env_value( string $key ) {
+        $candidates = [
+            getenv( $key ),
+            isset( $_ENV[ $key ] ) ? $_ENV[ $key ] : null,
+            isset( $_SERVER[ $key ] ) ? $_SERVER[ $key ] : null,
+        ];
+
+        foreach ( $candidates as $candidate ) {
+            if ( is_scalar( $candidate ) ) {
+                $value = trim( (string) $candidate );
+                if ( '' !== $value ) {
+                    return $value;
+                }
+            }
+        }
+
+        return '';
+    }
+}
+
 if ( ! function_exists( 'tonbankcard_installer_unquote_env_value' ) ) {
     /**
      * @param string $value
@@ -283,6 +310,8 @@ if ( ! function_exists( 'tonbankcard_installer_translations' ) ) {
                 'HTTPS request' => 'HTTPS-запрос',
                 'Production and Telegram Mini App deployments must use HTTPS.' => 'Production и Telegram Mini App должны работать через HTTPS.',
                 'Installer is available because no .env file exists yet.' => 'Установщик доступен, потому что файл .env еще не существует.',
+                'Installer is locked until TONBANKCARD_INSTALLER_TOKEN is set in the server environment and provided as ?token=...' => 'Установщик заблокирован, пока TONBANKCARD_INSTALLER_TOKEN не задан в окружении сервера и не передан как ?token=...',
+                'Installer first-run token accepted.' => 'Токен первого запуска установщика принят.',
                 'Installer is locked because .env exists and TONBANKCARD_INSTALLER_ENABLED is not true.' => 'Установщик заблокирован, потому что .env существует, а TONBANKCARD_INSTALLER_ENABLED не равно true.',
                 'Set TONBANKCARD_INSTALLER_TOKEN before re-opening the installer.' => 'Укажите TONBANKCARD_INSTALLER_TOKEN перед повторным открытием установщика.',
                 'Installer token accepted.' => 'Токен установщика принят.',
@@ -292,6 +321,9 @@ if ( ! function_exists( 'tonbankcard_installer_translations' ) ) {
                 'The .env file was written and the installer was locked.' => 'Файл .env записан, установщик заблокирован.',
                 'Database connection succeeded.' => 'Подключение к базе данных успешно.',
                 'Database connection failed:' => 'Подключение к базе данных завершилось ошибкой:',
+                'Database connection failed. Review the PHP error log for details, then check credentials and server access.' => 'Подключение к базе данных завершилось ошибкой. Подробности записаны в PHP error log; проверьте учетные данные и доступ к серверу.',
+                'Database migrations failed. Review the PHP error log for details, then check migration status and database access.' => 'Миграции базы данных завершились ошибкой. Подробности записаны в PHP error log; проверьте статус миграций и доступ к базе данных.',
+                'The .env file was written, but migrations failed. Review the PHP error log for details, then check migration status and database access.' => 'Файл .env был записан, но миграции завершились ошибкой. Подробности записаны в PHP error log; проверьте статус миграций и доступ к базе данных.',
                 'MYSQL_DSN and MYSQL_USER are required before testing the database.' => 'MYSQL_DSN и MYSQL_USER обязательны перед проверкой базы данных.',
                 'No pending migrations.' => 'Нет ожидающих миграций.',
                 'Applied %d migration(s).' => 'Применено миграций: %d.',
@@ -828,10 +860,12 @@ if ( ! function_exists( 'tonbankcard_installer_generate_token' ) ) {
      */
     function tonbankcard_installer_generate_token() {
         try {
-            return bin2hex( random_bytes( 24 ) );
-        } catch ( Exception $exception ) {
-            return hash( 'sha256', uniqid( 'tonbankcard-installer-', TRUE ) . mt_rand() );
+            $bytes = random_bytes( 24 );
+        } catch ( Throwable $error ) {
+            throw new RuntimeException( 'Secure token generation failed.', 0, $error );
         }
+
+        return bin2hex( $bytes );
     }
 }
 
@@ -860,7 +894,7 @@ if ( ! function_exists( 'tonbankcard_installer_prepare_values' ) ) {
             );
         }
 
-        foreach ( [ 'TONBANKCARD_ALERT_WORKER_TOKEN', 'TONBANKCARD_SEARCH_REFRESH_TOKEN' ] as $key ) {
+        foreach ( [ 'TONBANKCARD_INSTALLER_TOKEN', 'TONBANKCARD_ALERT_WORKER_TOKEN', 'TONBANKCARD_SEARCH_REFRESH_TOKEN' ] as $key ) {
             if ( array_key_exists( $key, $values ) && '' === trim( (string) $values[ $key ] ) ) {
                 $values[ $key ] = tonbankcard_installer_generate_token();
             }
@@ -1152,11 +1186,24 @@ if ( ! function_exists( 'tonbankcard_installer_lock_state' ) ) {
     function tonbankcard_installer_lock_state( string $root, array $query, string $language = 'en' ) {
         $path = tonbankcard_installer_env_path( $root );
         if ( ! is_file( $path ) ) {
+            $token = tonbankcard_installer_server_env_value( 'TONBANKCARD_INSTALLER_TOKEN' );
+            $provided = isset( $query['token'] ) ? trim( (string) $query['token'] ) : '';
+            if ( '' !== $token && hash_equals( $token, $provided ) ) {
+                return [
+                    'allowed'     => TRUE,
+                    'first_run'   => TRUE,
+                    'locked'      => FALSE,
+                    'token_valid' => TRUE,
+                    'message'     => tonbankcard_installer_translate( 'Installer first-run token accepted.', $language ),
+                ];
+            }
+
             return [
-                'allowed'   => TRUE,
-                'first_run' => TRUE,
-                'locked'    => FALSE,
-                'message'   => tonbankcard_installer_translate( 'Installer is available because no .env file exists yet.', $language ),
+                'allowed'        => FALSE,
+                'first_run'      => TRUE,
+                'locked'         => TRUE,
+                'token_required' => TRUE,
+                'message'        => tonbankcard_installer_translate( 'Installer is locked until TONBANKCARD_INSTALLER_TOKEN is set in the server environment and provided as ?token=...', $language ),
             ];
         }
 
@@ -1281,6 +1328,51 @@ if ( ! function_exists( 'tonbankcard_installer_database_connection' ) ) {
     }
 }
 
+if ( ! function_exists( 'tonbankcard_installer_log_error' ) ) {
+    /**
+     * @param string $context
+     * @param Throwable $error
+     * @return void
+     */
+    function tonbankcard_installer_log_error( string $context, Throwable $error ) {
+        error_log(
+            sprintf(
+                'TONBANKCARD installer %s: %s in %s:%d',
+                $context,
+                $error->getMessage(),
+                $error->getFile(),
+                $error->getLine()
+            )
+        );
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_database_failure_message' ) ) {
+    /**
+     * @param string $language
+     * @return string
+     */
+    function tonbankcard_installer_database_failure_message( string $language = 'en' ) {
+        return tonbankcard_installer_translate( 'Database connection failed. Review the PHP error log for details, then check credentials and server access.', $language );
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_migration_failure_message' ) ) {
+    /**
+     * @param string $language
+     * @param bool $after_env_write
+     * @return string
+     */
+    function tonbankcard_installer_migration_failure_message( string $language = 'en', bool $after_env_write = FALSE ) {
+        return tonbankcard_installer_translate(
+            $after_env_write
+                ? 'The .env file was written, but migrations failed. Review the PHP error log for details, then check migration status and database access.'
+                : 'Database migrations failed. Review the PHP error log for details, then check migration status and database access.',
+            $language
+        );
+    }
+}
+
 if ( ! function_exists( 'tonbankcard_installer_test_database' ) ) {
     /**
      * @param array $values
@@ -1297,9 +1389,11 @@ if ( ! function_exists( 'tonbankcard_installer_test_database' ) ) {
                 'message' => tonbankcard_installer_translate( 'Database connection succeeded.', $language ),
             ];
         } catch ( Throwable $error ) {
+            tonbankcard_installer_log_error( 'database connection failed', $error );
+
             return [
                 'ok'      => FALSE,
-                'message' => tonbankcard_installer_translate( 'Database connection failed:', $language ) . ' ' . $error->getMessage(),
+                'message' => tonbankcard_installer_database_failure_message( $language ),
             ];
         }
     }
