@@ -203,6 +203,75 @@ if ( empty( $validation_errors ) ) {
 }
 PHP
 
+php_check 'installer should neutralize newlines before writing .env values' \
+    env -i PATH="$PATH" php <<'PHP'
+<?php
+require 'install/includes/installer.php';
+
+$root = sys_get_temp_dir() . '/tonbankcard-installer-env-injection-' . bin2hex( random_bytes( 4 ) );
+mkdir( $root, 0700, TRUE );
+register_shutdown_function(
+    function () use ( $root ) {
+        foreach ( [ '/.env', '/.env.example' ] as $file ) {
+            if ( is_file( $root . $file ) ) {
+                unlink( $root . $file );
+            }
+        }
+
+        if ( is_dir( $root ) ) {
+            rmdir( $root );
+        }
+    }
+);
+file_put_contents(
+    $root . '/.env.example',
+    implode(
+        "\n",
+        [
+            'MYSQL_PASSWORD=',
+            'TONBANKCARD_ADMIN_TOKEN=',
+            'TONBANKCARD_INSTALLER_ENABLED=false',
+            '',
+        ]
+    )
+);
+
+$write = tonbankcard_installer_write_env(
+    $root,
+    [
+        'MYSQL_PASSWORD'          => "secret\r\nTONBANKCARD_ADMIN_TOKEN=attacker",
+        'TONBANKCARD_ADMIN_TOKEN' => 'legitimate-token',
+    ]
+);
+
+if ( empty( $write['ok'] ) ) {
+    fwrite( STDERR, "Installer should write the temporary .env fixture\n" );
+    exit( 1 );
+}
+
+$env = file_get_contents( $root . '/.env' );
+if ( FALSE !== strpos( $env, "\rTONBANKCARD_ADMIN_TOKEN=attacker" ) || FALSE !== strpos( $env, "\nTONBANKCARD_ADMIN_TOKEN=attacker" ) ) {
+    fwrite( STDERR, "Installer allowed newline injection to create an extra env assignment\n" );
+    exit( 1 );
+}
+
+if ( 1 !== preg_match_all( '/^TONBANKCARD_ADMIN_TOKEN=/m', $env ) ) {
+    fwrite( STDERR, "Installer should render exactly one TONBANKCARD_ADMIN_TOKEN assignment\n" );
+    exit( 1 );
+}
+
+$parsed = tonbankcard_installer_parse_env_file( $root . '/.env' );
+if ( ! isset( $parsed['TONBANKCARD_ADMIN_TOKEN'] ) || 'legitimate-token' !== $parsed['TONBANKCARD_ADMIN_TOKEN'] ) {
+    fwrite( STDERR, "Installer parser should keep the legitimate admin token value\n" );
+    exit( 1 );
+}
+
+if ( FALSE === strpos( $env, 'MYSQL_PASSWORD="secret\r\nTONBANKCARD_ADMIN_TOKEN=attacker"' ) ) {
+    fwrite( STDERR, "Installer should preserve the submitted newline only as an escaped literal\n" );
+    exit( 1 );
+}
+PHP
+
 php_check 'installer lock should allow first run and require an explicit token after .env exists' \
     env -i PATH="$PATH" php <<'PHP'
 <?php
