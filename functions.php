@@ -2931,6 +2931,12 @@ function validate_runtime_config() {
             'MYSQL_PASSWORD',
             'Set the MySQL or MariaDB application password. The value is not displayed.'
         );
+        tonbankcard_require_env(
+            $invalid,
+            'MYSQL_SSL_CA',
+            'Set the MySQL or MariaDB TLS CA certificate path so server-side PDO connections request TLS and verify the database server.',
+            "'/etc/mysql/managed-ca.pem'"
+        );
     }
 
     if ( 'telegram' === $profile || ! empty( $runtime['feature_flags']['alerts'] ) ) {

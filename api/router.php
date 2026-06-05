@@ -1515,14 +1515,19 @@ function tonbankcard_api_session_database_connection( array $runtime, &$error = 
     }
 
     try {
+        $profile = isset( $runtime['profile'] ) ? (string) $runtime['profile'] : 'local';
         return new PDO(
             $mysql['dsn'],
             $mysql['user'],
             isset( $mysql['password'] ) ? $mysql['password'] : '',
-            [
-                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            ]
+            tonbankcard_mysql_pdo_options(
+                $mysql,
+                $profile,
+                [
+                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                ]
+            )
         );
     } catch ( Throwable $exception ) {
         $error = 'Session database connection failed.';
@@ -2189,7 +2194,11 @@ function tonbankcard_api_database_check( array $runtime, array $config ) {
             $mysql['dsn'],
             isset( $mysql['user'] ) ? $mysql['user'] : '',
             isset( $mysql['password'] ) ? $mysql['password'] : '',
-            [ PDO::ATTR_TIMEOUT => isset( $config['readiness']['timeout_seconds'] ) ? (int) $config['readiness']['timeout_seconds'] : 2 ]
+            tonbankcard_mysql_pdo_options(
+                $mysql,
+                $profile,
+                [ PDO::ATTR_TIMEOUT => isset( $config['readiness']['timeout_seconds'] ) ? (int) $config['readiness']['timeout_seconds'] : 2 ]
+            )
         );
 
         return [

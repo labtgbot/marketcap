@@ -52,6 +52,9 @@ For staging, production, and telegram profiles, set explicit values for:
 | `MYSQL_DSN` | Non-local profiles | Example: `mysql:host=127.0.0.1;dbname=marketcap;charset=utf8mb4`. |
 | `MYSQL_USER` | Non-local profiles | Database application user. |
 | `MYSQL_PASSWORD` | Non-local profiles | Secret; server-side only. |
+| `MYSQL_SSL_CA` | Non-local profiles | CA certificate file path passed to `PDO::MYSQL_ATTR_SSL_CA` so MySQL/MariaDB connections request TLS. |
+| `MYSQL_SSL_VERIFY_SERVER_CERT` | Non-local profiles | Defaults to `true`; passed to `PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT` to verify the database server certificate. |
+| `MYSQL_SSL_CERT`, `MYSQL_SSL_KEY`, `MYSQL_SSL_CAPATH`, `MYSQL_SSL_CIPHER` | Optional | Advanced `PDO::MYSQL_ATTR_SSL_*` client certificate, CA directory, and cipher options when required by the database provider. |
 | `CHANGENOW_LINK_ID` | ChangeNOW feature enabled | Partner link id, for example `f300d9f2b6f88e`. |
 
 Set explicit production feature flags with `true` or `false`:

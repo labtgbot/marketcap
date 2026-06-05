@@ -62,6 +62,8 @@ assert_contains "$doc" 'English and Russian' 'English and Russian installer supp
 assert_contains "$doc" '## Field Filling Reference' 'field filling reference'
 assert_contains "$doc" 'BotFather' 'Telegram BotFather field guidance'
 assert_contains "$doc" 'UPSTASH_REDIS_REST_URL' 'Upstash Redis field guidance'
+assert_contains "$doc" 'MYSQL_SSL_CA' 'MySQL TLS CA field guidance'
+assert_contains "$doc" 'MYSQL_SSL_VERIFY_SERVER_CERT' 'MySQL TLS verification field guidance'
 assert_contains "$doc" 'TONBANKCARD_FEATURE_ALERTS' 'feature flag field guidance'
 
 assert_contains .env.example '^TONBANKCARD_INSTALLER_ENABLED=false$' 'the installer enabled flag'
@@ -98,6 +100,14 @@ $runtime = reset( $groups );
 if ( FALSE === strpos( $runtime['title'], 'Шаг 2' ) || FALSE === strpos( $runtime['description'], 'Telegram' ) ) {
     fwrite( STDERR, "Runtime field group should be translated into Russian\n" );
     exit( 1 );
+}
+
+$definitions = tonbankcard_installer_field_definitions();
+foreach ( [ 'MYSQL_SSL_CA', 'MYSQL_SSL_VERIFY_SERVER_CERT', 'MYSQL_SSL_CERT', 'MYSQL_SSL_KEY', 'MYSQL_SSL_CAPATH', 'MYSQL_SSL_CIPHER' ] as $key ) {
+    if ( ! isset( $definitions[ $key ] ) || 'database' !== $definitions[ $key ]['group'] ) {
+        fwrite( STDERR, "Installer should expose $key in the database step\n" );
+        exit( 1 );
+    }
 }
 
 if ( 'Проверить базу данных' !== tonbankcard_installer_translate( 'Test database', 'ru' ) ) {
@@ -150,6 +160,8 @@ $values['MYSQL_PORT'] = '3307';
 $values['MYSQL_DATABASE'] = 'marketcap';
 $values['MYSQL_USER'] = 'marketcap_user';
 $values['MYSQL_PASSWORD'] = 'mysql secret with spaces';
+$values['MYSQL_SSL_CA'] = '/etc/mysql/managed-ca.pem';
+$values['MYSQL_SSL_VERIFY_SERVER_CERT'] = 'true';
 $values['TONBANKCARD_FEATURE_ALERTS'] = 'true';
 $values['TONBANKCARD_ALERT_WORKER_TOKEN'] = '';
 $values['TONBANKCARD_SEARCH_REFRESH_TOKEN'] = '';
@@ -165,6 +177,8 @@ $expected = [
     'MYSQL_DSN=mysql:host=db.example.com;port=3307;dbname=marketcap;charset=utf8mb4',
     'MYSQL_USER=marketcap_user',
     'MYSQL_PASSWORD="mysql secret with spaces"',
+    'MYSQL_SSL_CA=/etc/mysql/managed-ca.pem',
+    'MYSQL_SSL_VERIFY_SERVER_CERT=true',
     'TONBANKCARD_FEATURE_ALERTS=true',
     'TONBANKCARD_INSTALLER_ENABLED=false',
 ];

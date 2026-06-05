@@ -59,6 +59,8 @@ assert_contains .env.example '^UPSTASH_REDIS_REST_TOKEN=' 'the Upstash Redis RES
 assert_contains .env.example '^MYSQL_DSN=' 'the MySQL DSN'
 assert_contains .env.example '^MYSQL_USER=' 'the MySQL user'
 assert_contains .env.example '^MYSQL_PASSWORD=' 'the MySQL password'
+assert_contains .env.example '^MYSQL_SSL_CA=' 'the MySQL TLS CA path'
+assert_contains .env.example '^MYSQL_SSL_VERIFY_SERVER_CERT=true$' 'the MySQL TLS certificate verification flag'
 assert_contains .env.example '^CHANGENOW_LINK_ID=' 'the ChangeNOW link id'
 assert_contains .env.example '^TONBANKCARD_FEATURE_AI=false$' 'the AI feature flag'
 assert_contains .env.example '^TONBANKCARD_FEATURE_ALERTS=false$' 'the alerts feature flag'
@@ -78,6 +80,8 @@ assert_contains docs/runtime-configuration.md 'Strict-Transport-Security' 'HSTS 
 assert_contains docs/runtime-configuration.md 'TONBANKCARD_STATE_DIR' 'private state directory configuration'
 assert_contains docs/runtime-configuration.md 'COINGECKO_API_PLAN.*demo' 'CoinGecko API plan behavior'
 assert_contains docs/runtime-configuration.md 'x-cg-pro-api-key' 'CoinGecko Pro key header behavior'
+assert_contains docs/runtime-configuration.md 'MYSQL_SSL_CA' 'MySQL TLS CA configuration'
+assert_contains docs/runtime-configuration.md 'MYSQL_ATTR_SSL_VERIFY_SERVER_CERT' 'MySQL TLS server certificate verification'
 
 php_check 'fresh checkout should default to a local development profile' \
     env -i PATH="$PATH" php <<'PHP'
@@ -131,7 +135,7 @@ $names = array_map(
     $invalid
 );
 
-foreach ( [ 'TONBANKCARD_PUBLIC_BASE_URL', 'TONBANKCARD_BOT_USERNAME', 'UPSTASH_REDIS_REST_URL', 'MYSQL_DSN' ] as $required ) {
+foreach ( [ 'TONBANKCARD_PUBLIC_BASE_URL', 'TONBANKCARD_BOT_USERNAME', 'UPSTASH_REDIS_REST_URL', 'MYSQL_DSN', 'MYSQL_SSL_CA' ] as $required ) {
     if ( ! in_array( $required, $names, TRUE ) ) {
         fwrite( STDERR, "Missing validation entry for $required\n" );
         exit( 1 );
@@ -157,6 +161,7 @@ php_check 'production profile should preserve keyless CoinGecko gateway integrat
         MYSQL_DSN='mysql:host=127.0.0.1;dbname=marketcap;charset=utf8mb4' \
         MYSQL_USER='marketcap' \
         MYSQL_PASSWORD='mysql-secret-password' \
+        MYSQL_SSL_CA='/etc/mysql/managed-ca.pem' \
         TONBANKCARD_FEATURE_AI=false \
         TONBANKCARD_FEATURE_ALERTS=false \
         TONBANKCARD_FEATURE_CHANGENOW=false \
@@ -193,6 +198,57 @@ foreach ( [ 'force_https', 'hsts_enabled', 'secure_cookies' ] as $flag ) {
         fwrite( STDERR, "Production profile should enable security flag by default: $flag\n" );
         exit( 1 );
     }
+}
+PHP
+
+php_check 'non-local MySQL runtime config should build TLS PDO options' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_PROFILE=production \
+        MYSQL_DSN='mysql:host=db.example.com;dbname=marketcap;charset=utf8mb4' \
+        MYSQL_USER='marketcap' \
+        MYSQL_PASSWORD='mysql-secret-password' \
+        MYSQL_SSL_CA='/etc/mysql/managed-ca.pem' \
+        MYSQL_SSL_VERIFY_SERVER_CERT=true \
+        php <<'PHP'
+<?php
+require 'constants.php';
+
+$mysql = $GLOBALS['runtime_config']['providers']['mysql'];
+if ( ! isset( $mysql['ssl']['ca'] ) || '/etc/mysql/managed-ca.pem' !== $mysql['ssl']['ca'] ) {
+    fwrite( STDERR, 'Runtime config should expose MYSQL_SSL_CA under providers.mysql.ssl.ca' . "\n" );
+    exit( 1 );
+}
+
+$options = tonbankcard_mysql_pdo_options(
+    $mysql,
+    $GLOBALS['runtime_config']['profile'],
+    [ PDO::ATTR_TIMEOUT => 2 ]
+);
+
+if ( ! isset( $options[ PDO::MYSQL_ATTR_SSL_CA ] ) || '/etc/mysql/managed-ca.pem' !== $options[ PDO::MYSQL_ATTR_SSL_CA ] ) {
+    fwrite( STDERR, 'Expected PDO options to include MYSQL_ATTR_SSL_CA for production' . "\n" );
+    exit( 1 );
+}
+
+if ( ! array_key_exists( PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT, $options ) || TRUE !== $options[ PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT ] ) {
+    fwrite( STDERR, 'Expected PDO options to verify the MySQL server certificate in production' . "\n" );
+    exit( 1 );
+}
+
+$local_options = tonbankcard_mysql_pdo_options(
+    [
+        'ssl' => [
+            'ca'                 => '/etc/mysql/local-ca.pem',
+            'verify_server_cert' => TRUE,
+        ],
+    ],
+    'local',
+    []
+);
+
+if ( ! empty( $local_options ) ) {
+    fwrite( STDERR, 'Local profile should not request MySQL TLS unless explicitly enabled' . "\n" );
+    exit( 1 );
 }
 PHP
 

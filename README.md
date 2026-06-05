@@ -43,9 +43,9 @@ Open these browser URLs while the server is running:
 Copy `.env.example` to `.env` only when you need local overrides. A fresh
 checkout defaults to the `local` profile without requiring secrets.
 
-Optional V2 database setup uses the `MYSQL_DSN`, `MYSQL_USER`, and
-`MYSQL_PASSWORD` values from `.env.example`. After creating an empty local MySQL
-or MariaDB database, initialize it with:
+Optional V2 database setup uses the `MYSQL_DSN`, `MYSQL_USER`,
+`MYSQL_PASSWORD`, and non-local `MYSQL_SSL_*` values from `.env.example`. After
+creating an empty local MySQL or MariaDB database, initialize it with:
 
 ```sh
 php database/migrate.php dry-run

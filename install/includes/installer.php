@@ -3,6 +3,8 @@
  * TONBANKCARD automatic hosting installer helpers.
  */
 
+require_once dirname( __DIR__, 2 ) . '/config/runtime.php';
+
 if ( ! function_exists( 'tonbankcard_installer_root_dir' ) ) {
     /**
      * Returns the repository root for installer operations.
@@ -202,6 +204,18 @@ if ( ! function_exists( 'tonbankcard_installer_translations' ) ) {
                 'Use utf8mb4 for production.' => 'Используйте utf8mb4 для production.',
                 'Database user' => 'Пользователь базы данных',
                 'Database password' => 'Пароль базы данных',
+                'Database TLS CA file' => 'Файл CA для TLS базы данных',
+                'Required for non-local profiles so PDO can request TLS and verify the database server certificate.' => 'Обязательно для нелокальных профилей, чтобы PDO запрашивал TLS и проверял сертификат сервера базы данных.',
+                'Verify database TLS certificate' => 'Проверять TLS-сертификат базы данных',
+                'Keep true for managed or remote databases.' => 'Оставьте true для управляемых или удаленных баз данных.',
+                'Database TLS client certificate' => 'Клиентский TLS-сертификат базы данных',
+                'Optional MYSQL_ATTR_SSL_CERT path when the database requires client certificates.' => 'Необязательный путь MYSQL_ATTR_SSL_CERT, если базе данных нужны клиентские сертификаты.',
+                'Database TLS client key' => 'Клиентский TLS-ключ базы данных',
+                'Optional MYSQL_ATTR_SSL_KEY path when the database requires client certificates.' => 'Необязательный путь MYSQL_ATTR_SSL_KEY, если базе данных нужны клиентские сертификаты.',
+                'Database TLS CA directory' => 'Каталог CA для TLS базы данных',
+                'Optional MYSQL_ATTR_SSL_CAPATH directory.' => 'Необязательный каталог MYSQL_ATTR_SSL_CAPATH.',
+                'Database TLS cipher list' => 'Список TLS-шифров базы данных',
+                'Optional MYSQL_ATTR_SSL_CIPHER list from the database provider.' => 'Необязательный список MYSQL_ATTR_SSL_CIPHER от провайдера базы данных.',
                 'Step 5. Providers, cache, and AI' => 'Шаг 5. Провайдеры, кеш и AI',
                 'Configure provider keys and cache services. Secrets stay in .env and are not rendered to the public app.' => 'Настройте ключи провайдеров и сервисы кеша. Секреты остаются в .env и не выводятся в публичное приложение.',
                 'CoinGecko API plan' => 'Тариф CoinGecko API',
@@ -293,6 +307,7 @@ if ( ! function_exists( 'tonbankcard_installer_translations' ) ) {
                 'Database connection succeeded.' => 'Подключение к базе данных успешно.',
                 'Database connection failed:' => 'Подключение к базе данных завершилось ошибкой:',
                 'MYSQL_DSN and MYSQL_USER are required before testing the database.' => 'MYSQL_DSN и MYSQL_USER обязательны перед проверкой базы данных.',
+                'MySQL TLS CA file' => 'Файл CA для TLS MySQL',
                 'No pending migrations.' => 'Нет ожидающих миграций.',
                 'Applied %d migration(s).' => 'Применено миграций: %d.',
                 'TONBANKCARD_PROFILE must be local, staging, production, or telegram.' => 'TONBANKCARD_PROFILE должен быть local, staging, production или telegram.',
@@ -490,6 +505,41 @@ if ( ! function_exists( 'tonbankcard_installer_field_groups' ) ) {
                         'label'  => 'Database password',
                         'type'   => 'password',
                         'secret' => TRUE,
+                    ],
+                    'MYSQL_SSL_CA' => [
+                        'label'       => 'Database TLS CA file',
+                        'type'        => 'text',
+                        'placeholder' => '/etc/mysql/managed-ca.pem',
+                        'help'        => 'Required for non-local profiles so PDO can request TLS and verify the database server certificate.',
+                    ],
+                    'MYSQL_SSL_VERIFY_SERVER_CERT' => [
+                        'label' => 'Verify database TLS certificate',
+                        'type'  => 'boolean',
+                        'help'  => 'Keep true for managed or remote databases.',
+                    ],
+                    'MYSQL_SSL_CERT' => [
+                        'label'       => 'Database TLS client certificate',
+                        'type'        => 'text',
+                        'placeholder' => '/etc/mysql/client-cert.pem',
+                        'help'        => 'Optional MYSQL_ATTR_SSL_CERT path when the database requires client certificates.',
+                    ],
+                    'MYSQL_SSL_KEY' => [
+                        'label'       => 'Database TLS client key',
+                        'type'        => 'text',
+                        'placeholder' => '/etc/mysql/client-key.pem',
+                        'help'        => 'Optional MYSQL_ATTR_SSL_KEY path when the database requires client certificates.',
+                    ],
+                    'MYSQL_SSL_CAPATH' => [
+                        'label'       => 'Database TLS CA directory',
+                        'type'        => 'text',
+                        'placeholder' => '/etc/ssl/certs',
+                        'help'        => 'Optional MYSQL_ATTR_SSL_CAPATH directory.',
+                    ],
+                    'MYSQL_SSL_CIPHER' => [
+                        'label'       => 'Database TLS cipher list',
+                        'type'        => 'text',
+                        'placeholder' => 'TLS_AES_256_GCM_SHA384',
+                        'help'        => 'Optional MYSQL_ATTR_SSL_CIPHER list from the database provider.',
                     ],
                 ],
             ],
@@ -1108,6 +1158,7 @@ if ( ! function_exists( 'tonbankcard_installer_validate_values' ) ) {
                 'MYSQL_DSN'                    => tonbankcard_installer_translate( 'MySQL DSN', $language ),
                 'MYSQL_USER'                   => tonbankcard_installer_translate( 'MySQL user', $language ),
                 'MYSQL_PASSWORD'               => tonbankcard_installer_translate( 'MySQL password', $language ),
+                'MYSQL_SSL_CA'                 => tonbankcard_installer_translate( 'MySQL TLS CA file', $language ),
             ] as $key => $label ) {
                 if ( empty( $prepared[ $key ] ) ) {
                     $errors[] = sprintf( tonbankcard_installer_translate( '%s is required for non-local installs (%s).', $language ), $key, $label );
@@ -1269,6 +1320,7 @@ if ( ! function_exists( 'tonbankcard_installer_database_connection' ) ) {
         $dsn = isset( $prepared['MYSQL_DSN'] ) ? trim( (string) $prepared['MYSQL_DSN'] ) : '';
         $user = isset( $prepared['MYSQL_USER'] ) ? (string) $prepared['MYSQL_USER'] : '';
         $password = isset( $prepared['MYSQL_PASSWORD'] ) ? (string) $prepared['MYSQL_PASSWORD'] : '';
+        $profile = isset( $prepared['TONBANKCARD_PROFILE'] ) ? (string) $prepared['TONBANKCARD_PROFILE'] : 'local';
 
         if ( '' === $dsn || '' === $user ) {
             throw new RuntimeException( tonbankcard_installer_translate( 'MYSQL_DSN and MYSQL_USER are required before testing the database.', $language ) );
@@ -1278,10 +1330,26 @@ if ( ! function_exists( 'tonbankcard_installer_database_connection' ) ) {
             $dsn,
             $user,
             $password,
-            [
-                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            ]
+            tonbankcard_mysql_pdo_options(
+                [
+                    'ssl' => tonbankcard_mysql_ssl_config(
+                        [
+                            'ca'                 => isset( $prepared['MYSQL_SSL_CA'] ) ? $prepared['MYSQL_SSL_CA'] : '',
+                            'cert'               => isset( $prepared['MYSQL_SSL_CERT'] ) ? $prepared['MYSQL_SSL_CERT'] : '',
+                            'key'                => isset( $prepared['MYSQL_SSL_KEY'] ) ? $prepared['MYSQL_SSL_KEY'] : '',
+                            'capath'             => isset( $prepared['MYSQL_SSL_CAPATH'] ) ? $prepared['MYSQL_SSL_CAPATH'] : '',
+                            'cipher'             => isset( $prepared['MYSQL_SSL_CIPHER'] ) ? $prepared['MYSQL_SSL_CIPHER'] : '',
+                            'verify_server_cert' => isset( $prepared['MYSQL_SSL_VERIFY_SERVER_CERT'] ) ? $prepared['MYSQL_SSL_VERIFY_SERVER_CERT'] : 'true',
+                        ],
+                        $profile
+                    ),
+                ],
+                $profile,
+                [
+                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                ]
+            )
         );
     }
 }

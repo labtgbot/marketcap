@@ -174,6 +174,8 @@ UPSTASH_REDIS_REST_TOKEN=replace-with-upstash-token
 MYSQL_DSN=mysql:host=127.0.0.1;dbname=marketcap;charset=utf8mb4
 MYSQL_USER=marketcap
 MYSQL_PASSWORD=replace-with-a-long-password
+MYSQL_SSL_CA=/etc/mysql/managed-ca.pem
+MYSQL_SSL_VERIFY_SERVER_CERT=true
 
 TONBANKCARD_FEATURE_AI=false
 TONBANKCARD_FEATURE_ALERTS=false
