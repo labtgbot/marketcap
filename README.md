@@ -112,6 +112,7 @@ npm run test:launch-readiness
 npm run test:hosting-installation
 npm run test:automatic-installer
 npm run test:runtime-config
+npm run test:router-attrs
 npm run validate:bundle
 npm run test:smoke
 ```

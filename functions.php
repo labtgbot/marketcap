@@ -2485,7 +2485,7 @@ function link_attrs( $link, array $attrs = [], bool $echo = true ) {
                 foreach ( $link['route']['params'] as $param => $value ) {
                     $params[] = sprintf( "'%s':'%s'", esc_attr( $param ), esc_attr( $value ) );
                 }
-                $attrs[] = sprintf( ':to="{name:\'%s\',params:{%s}}"', esc_attr( $link['route']['name'] ), implode( $params, ',' ) );
+                $attrs[] = sprintf( ':to="{name:\'%s\',params:{%s}}"', esc_attr( $link['route']['name'] ), implode( ',', $params ) );
             }
             $attrs[] = 'exact';
         }
@@ -2523,7 +2523,7 @@ function to_attr(string $route, array $params = [], bool $echo = true ) {
         foreach ( $params as $param => $value ) {
             $_params[] = sprintf( "'%s':'%s'", esc_attr( $param ), esc_attr( $value ) );
         }
-        $attr = sprintf( ':to="{name:\'%s\'},params:{%s}"', esc_attr( $route ), implode( $params, ',' ) );
+        $attr = sprintf( ':to="{name:\'%s\',params:{%s}}"', esc_attr( $route ), implode( ',', $_params ) );
     }
 
     if ( $echo ) {
