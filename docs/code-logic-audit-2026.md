@@ -215,9 +215,12 @@ Separately, the locale-set docstring (`functions.php:1990`) claims a same-origin
 `Referer` check that the code never performs, and the endpoint mutates the
 `tbc_lang` cookie via `GET` with no CSRF token.
 
-**Fix:** reject backslashes (and any control characters) in the relative-path
-branch; implement the documented `Origin`/`Referer` same-origin check (or correct
-the docstring and rely on a hardened redirect guard).
+**Fix (implemented, #210):** `tonbankcard_safe_redirect_path()` now rejects
+backslashes and control characters before any redirect target is accepted, and
+same-host absolute targets reuse a shared host matcher. The locale-set endpoint
+now fails closed before mutating `tbc_lang` unless `Origin`/`Referer` proves the
+request came from the current host. Regression coverage lives in
+`tests/security-compliance-check.sh`.
 
 ### F6 — `.env` writer allows env-var injection via newlines (High)
 
@@ -464,7 +467,7 @@ Priority legend: **P0** Critical · **P1** High · **P2** Medium · **P3** Low.
 - [ ] **[P0]** #185 — F2 Premium entitlement self-grant via forged payment webhook
 - [x] **[P0]** #186 — F3 Reflected XSS in JSON-LD via `JSON_UNESCAPED_SLASHES`
 - [x] **[P1]** #187 — F4 Worker endpoints fail open when token unset
-- [ ] **[P1]** #188 — F5 Open redirect + missing same-origin check on locale-set
+- [x] **[P1]** #188 — F5 Open redirect + missing same-origin check on locale-set
 - [ ] **[P1]** #189 — F6 `.env` writer allows env-var injection via newlines
 - [ ] **[P1]** #190 — F7 Installer unauthenticated on first run / not web-blocked
 - [ ] **[P1]** #191 — F8 Sensitive files served over HTTP
@@ -497,7 +500,7 @@ postponed, with a rationale).
 | F2 — Premium self-grant via forged payment | #185 | P0 | In progress | De-duplicate and reconcile on `telegram_payment_charge_id`, require a dedicated `premium_signing_secret` (drop the bot-token fallback), add replay protection. PR #207. |
 | F3 — Reflected XSS in JSON-LD | #186 | P0 | In progress | JSON-LD now encodes with `JSON_HEX_TAG \| JSON_HEX_AMP \| JSON_HEX_APOS \| JSON_HEX_QUOT` instead of `JSON_UNESCAPED_SLASHES`, so `</script>` cannot break out of the `<script>` block (`views/app-head.php:256`); defense-in-depth strips non-`[a-z0-9-_ ]` characters in `tonbankcard_slug_title()` (`functions.php:189`). Regression test in `tests/security-compliance-check.sh`. PR #208. |
 | F4 — Worker endpoints fail open | #187 | P1 | Resolved | `tonbankcard_api_alerts_evaluate_response()` now fails closed — an unset worker token returns `503 alerts_worker_token_unset` and a missing/invalid token returns `401 alerts_worker_token_required` (compared with `hash_equals`), so `/api/alerts/evaluate` can never run unauthenticated (`api/alerts.php:649`). The search-refresh worker already fails closed (`api/search.php:121`). Regression test in `tests/alerts-check.sh`. PR #209. |
-| F5 — Open redirect on locale-set | #188 | P1 | Planned | Reject backslashes/control chars in the relative-path branch; enforce the documented same-origin check. |
+| F5 — Open redirect on locale-set | #188 | P1 | In progress | Rejects backslashes/control chars in redirect targets, enforces the documented `Origin`/`Referer` same-host check before `tbc_lang` is mutated, and covers both paths in `tests/security-compliance-check.sh`. PR #210. |
 | F6 — `.env` writer newline injection | #189 | P1 | Planned | Reject or strip `\r`/`\n` in submitted values before writing `.env`. |
 | F7 — Installer unauthenticated first run | #190 | P1 | Planned | Require an out-of-band secret on first run; ship `install/.htaccess`; persist a strong installer token; generic DB-error UI. |
 | F8 — Sensitive files served over HTTP | #191 | P1 | Planned | Deny `install/`, `database/`, `docs/`, `tests/`, `dev/`, and `*.zip`/`*.sql`/`*.md` at the web layer. |

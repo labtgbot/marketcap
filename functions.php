@@ -1993,12 +1993,131 @@ function tonbankcard_set_language_cookie( string $language ) {
 }
 
 /**
+ * Detects characters that make a redirect target unsafe for a Location header.
+ *
+ * @param string $target
+ * @return bool
+ */
+function tonbankcard_redirect_target_has_unsafe_characters( string $target ) {
+    return false !== strpos( $target, '\\' )
+        || 1 === preg_match( '/[\x00-\x1F\x7F]/', $target );
+}
+
+/**
+ * Returns the current request host normalized for same-origin comparisons.
+ *
+ * @return string
+ */
+function tonbankcard_current_request_host() {
+    $host = isset( $_SERVER['HTTP_HOST'] ) ? strtolower( trim( (string) $_SERVER['HTTP_HOST'] ) ) : '';
+    if ( '' === $host || 1 === preg_match( '/[\x00-\x1F\x7F\/\\\\]/', $host ) ) {
+        return '';
+    }
+
+    return $host;
+}
+
+/**
+ * Strips the port suffix from a host while preserving bracketed IPv6 hosts.
+ *
+ * @param string $host
+ * @return string
+ */
+function tonbankcard_host_without_port( string $host ) {
+    if ( '' === $host ) {
+        return '';
+    }
+
+    if ( '[' === $host[0] ) {
+        $end = strpos( $host, ']' );
+        return false === $end ? $host : substr( $host, 0, $end + 1 );
+    }
+
+    $parts = explode( ':', $host, 2 );
+    return $parts[0];
+}
+
+/**
+ * Extracts a normalized host[:port] value from an absolute URL.
+ *
+ * @param string $target
+ * @return string|null
+ */
+function tonbankcard_url_host( string $target ) {
+    $parts = parse_url( $target );
+    if ( false === $parts || empty( $parts['host'] ) ) {
+        return null;
+    }
+
+    $host = strtolower( (string) $parts['host'] );
+    if ( isset( $parts['port'] ) ) {
+        $host .= ':' . (int) $parts['port'];
+    }
+
+    return $host;
+}
+
+/**
+ * Compares a candidate host against the current request host.
+ *
+ * @param string $candidate
+ * @return bool
+ */
+function tonbankcard_host_matches_current_request( string $candidate ) {
+    $expected = tonbankcard_current_request_host();
+    if ( '' === $expected ) {
+        return false;
+    }
+
+    if ( $candidate === $expected ) {
+        return true;
+    }
+
+    return $candidate === tonbankcard_host_without_port( $expected );
+}
+
+/**
+ * Checks whether the locale-set request came from the current host.
+ *
+ * @return bool
+ */
+function tonbankcard_locale_set_request_is_same_origin() {
+    $sources = [];
+    foreach ( [ 'HTTP_ORIGIN', 'HTTP_REFERER' ] as $header ) {
+        if (
+            isset( $_SERVER[ $header ] )
+            && is_string( $_SERVER[ $header ] )
+            && '' !== trim( $_SERVER[ $header ] )
+        ) {
+            $sources[] = trim( $_SERVER[ $header ] );
+        }
+    }
+
+    if ( empty( $sources ) ) {
+        return false;
+    }
+
+    foreach ( $sources as $source ) {
+        if ( tonbankcard_redirect_target_has_unsafe_characters( $source ) ) {
+            return false;
+        }
+
+        $candidate = tonbankcard_url_host( $source );
+        if ( null === $candidate || ! tonbankcard_host_matches_current_request( $candidate ) ) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
  * Handles the public locale-set endpoint at `/api/locale/set`.
  *
- * The request must come from the same origin (its `Referer` host must match
- * the current `Host`), and the `next` parameter or `Referer` is used as the
- * post-redirect target. Both are constrained to relative paths on the same
- * origin to prevent open-redirect abuse. The endpoint persists the chosen
+ * The request must come from the same origin (its `Origin` or `Referer` host
+ * must match the current `Host`), and the `next` parameter or `Referer` is used
+ * as the post-redirect target. Both are constrained to relative paths on the
+ * same origin to prevent open-redirect abuse. The endpoint persists the chosen
  * language in the `tbc_lang` cookie and exits.
  *
  * @return void
@@ -2008,6 +2127,14 @@ function tonbankcard_handle_locale_set_request() {
     $path = parse_url( $request_uri, PHP_URL_PATH );
     if ( '/api/locale/set' !== $path ) {
         return;
+    }
+
+    if ( ! tonbankcard_locale_set_request_is_same_origin() ) {
+        if ( ! headers_sent() ) {
+            header( 'Cache-Control: no-store' );
+            http_response_code( 403 );
+        }
+        exit;
     }
 
     $language = isset( $_GET['lang'] ) ? (string) $_GET['lang'] : '';
@@ -2044,6 +2171,10 @@ function tonbankcard_handle_locale_set_request() {
  * @return string|null
  */
 function tonbankcard_safe_redirect_path( string $target ) {
+    if ( tonbankcard_redirect_target_has_unsafe_characters( $target ) ) {
+        return null;
+    }
+
     $target = trim( $target );
     if ( '' === $target ) {
         return null;
@@ -2059,18 +2190,9 @@ function tonbankcard_safe_redirect_path( string $target ) {
         return null;
     }
 
-    $expected = isset( $_SERVER['HTTP_HOST'] ) ? strtolower( (string) $_SERVER['HTTP_HOST'] ) : '';
-    if ( '' === $expected ) {
-        return null;
-    }
-
-    $candidate = strtolower( $parts['host'] );
-    if ( ! empty( $parts['port'] ) ) {
-        $candidate .= ':' . (int) $parts['port'];
-    }
-
     // Accept either a bare host match or host:port match against HTTP_HOST.
-    if ( $candidate !== $expected && $candidate !== strtok( $expected, ':' ) ) {
+    $candidate = tonbankcard_url_host( $target );
+    if ( null === $candidate || ! tonbankcard_host_matches_current_request( $candidate ) ) {
         return null;
     }
 
