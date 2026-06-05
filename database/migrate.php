@@ -109,6 +109,7 @@ function database_migration_connect() {
     $dsn      = trim( (string) tonbankcard_env( 'MYSQL_DSN', '' ) );
     $user     = (string) tonbankcard_env( 'MYSQL_USER', '' );
     $password = (string) tonbankcard_env( 'MYSQL_PASSWORD', '' );
+    $profile  = tonbankcard_runtime_profile();
 
     if ( '' === $dsn || '' === $user ) {
         throw new RuntimeException( 'Set MYSQL_DSN and MYSQL_USER before running database migrations. MYSQL_PASSWORD is read when present.' );
@@ -118,10 +119,14 @@ function database_migration_connect() {
         $dsn,
         $user,
         $password,
-        [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]
+        tonbankcard_mysql_pdo_options(
+            [ 'ssl' => tonbankcard_mysql_ssl_config_from_env( $profile ) ],
+            $profile,
+            [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            ]
+        )
     );
 }
 

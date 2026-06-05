@@ -25,6 +25,11 @@ Stage 6 — launch-readiness and SEO-completeness audit follow-ups
   production request reaches PHP over plain HTTP (#192). The redirect is
   configurable with `TONBANKCARD_FORCE_HTTPS`; HSTS and cookie behavior are
   covered by `tests/security-compliance-check.sh`.
+- Non-local MySQL/MariaDB connections now request TLS with configurable
+  `MYSQL_SSL_*` PDO options, require a CA file for production-style profiles,
+  and verify the database server certificate by default (#198). Runtime and
+  installer coverage live in `tests/runtime-configuration-check.sh` and
+  `tests/automatic-installer-check.sh`.
 
 ### Added
 

@@ -99,22 +99,21 @@ if ( ! function_exists( 'tonbankcard_env_has' ) ) {
     }
 }
 
-if ( ! function_exists( 'tonbankcard_env_bool' ) ) {
+if ( ! function_exists( 'tonbankcard_bool_value' ) ) {
     /**
-     * Reads an environment variable as a boolean.
+     * Normalizes a scalar configuration value as a boolean.
      *
-     * @param string $key
+     * @param mixed $value
      * @param bool $default
      * @return bool
      */
-    function tonbankcard_env_bool( string $key, bool $default = FALSE ) {
-        $value = tonbankcard_env( $key, null );
-        if ( null === $value || '' === $value ) {
-            return $default;
-        }
-
+    function tonbankcard_bool_value( $value, bool $default = FALSE ) {
         if ( is_bool( $value ) ) {
             return $value;
+        }
+
+        if ( null === $value || '' === trim( (string) $value ) ) {
+            return $default;
         }
 
         $normalized = strtolower( trim( (string) $value ) );
@@ -126,6 +125,20 @@ if ( ! function_exists( 'tonbankcard_env_bool' ) ) {
         }
 
         return $default;
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_env_bool' ) ) {
+    /**
+     * Reads an environment variable as a boolean.
+     *
+     * @param string $key
+     * @param bool $default
+     * @return bool
+     */
+    function tonbankcard_env_bool( string $key, bool $default = FALSE ) {
+        $value = tonbankcard_env( $key, null );
+        return tonbankcard_bool_value( $value, $default );
     }
 }
 
@@ -181,6 +194,123 @@ if ( ! function_exists( 'tonbankcard_env_list' ) ) {
         }
 
         return empty( $items ) ? $default : $items;
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_runtime_profile' ) ) {
+    /**
+     * Returns the normalized runtime profile while preserving validation behavior
+     * for unknown explicit profile values.
+     *
+     * @return string
+     */
+    function tonbankcard_runtime_profile() {
+        $profile = strtolower( trim( (string) tonbankcard_env( 'TONBANKCARD_PROFILE', 'local' ) ) );
+        $aliases = [
+            'dev'            => 'local',
+            'development'    => 'local',
+            'prod'           => 'production',
+            'production-web' => 'production',
+            'miniapp'        => 'telegram',
+            'mini-app'       => 'telegram',
+            'telegram-app'   => 'telegram',
+        ];
+        if ( isset( $aliases[ $profile ] ) ) {
+            $profile = $aliases[ $profile ];
+        }
+
+        return $profile;
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_mysql_ssl_config' ) ) {
+    /**
+     * Normalizes MySQL TLS settings from runtime or installer values.
+     *
+     * @param array $values
+     * @param string $profile
+     * @return array
+     */
+    function tonbankcard_mysql_ssl_config( array $values, string $profile ) {
+        $ssl = isset( $values['ssl'] ) && is_array( $values['ssl'] ) ? $values['ssl'] : $values;
+        $enabled = 'local' !== strtolower( trim( $profile ) );
+        if ( array_key_exists( 'enabled', $ssl ) ) {
+            $enabled = tonbankcard_bool_value( $ssl['enabled'], $enabled );
+        }
+
+        return [
+            'enabled'            => $enabled,
+            'ca'                 => isset( $ssl['ca'] ) ? trim( (string) $ssl['ca'] ) : '',
+            'cert'               => isset( $ssl['cert'] ) ? trim( (string) $ssl['cert'] ) : '',
+            'key'                => isset( $ssl['key'] ) ? trim( (string) $ssl['key'] ) : '',
+            'capath'             => isset( $ssl['capath'] ) ? trim( (string) $ssl['capath'] ) : '',
+            'cipher'             => isset( $ssl['cipher'] ) ? trim( (string) $ssl['cipher'] ) : '',
+            'verify_server_cert' => array_key_exists( 'verify_server_cert', $ssl )
+                ? tonbankcard_bool_value( $ssl['verify_server_cert'], TRUE )
+                : TRUE,
+        ];
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_mysql_ssl_config_from_env' ) ) {
+    /**
+     * Reads MySQL TLS settings from environment variables.
+     *
+     * @param string $profile
+     * @return array
+     */
+    function tonbankcard_mysql_ssl_config_from_env( string $profile ) {
+        return tonbankcard_mysql_ssl_config(
+            [
+                'ca'                 => tonbankcard_env( 'MYSQL_SSL_CA', '' ),
+                'cert'               => tonbankcard_env( 'MYSQL_SSL_CERT', '' ),
+                'key'                => tonbankcard_env( 'MYSQL_SSL_KEY', '' ),
+                'capath'             => tonbankcard_env( 'MYSQL_SSL_CAPATH', '' ),
+                'cipher'             => tonbankcard_env( 'MYSQL_SSL_CIPHER', '' ),
+                'verify_server_cert' => tonbankcard_env( 'MYSQL_SSL_VERIFY_SERVER_CERT', null ),
+            ],
+            $profile
+        );
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_mysql_pdo_options' ) ) {
+    /**
+     * Adds MySQL TLS PDO attributes for non-local profiles when pdo_mysql exposes
+     * the corresponding constants.
+     *
+     * @param array $mysql
+     * @param string $profile
+     * @param array $options
+     * @return array
+     */
+    function tonbankcard_mysql_pdo_options( array $mysql, string $profile, array $options = [] ) {
+        $ssl = tonbankcard_mysql_ssl_config( $mysql, $profile );
+        if ( empty( $ssl['enabled'] ) ) {
+            return $options;
+        }
+
+        $path_attributes = [
+            'key'    => 'PDO::MYSQL_ATTR_SSL_KEY',
+            'cert'   => 'PDO::MYSQL_ATTR_SSL_CERT',
+            'ca'     => 'PDO::MYSQL_ATTR_SSL_CA',
+            'capath' => 'PDO::MYSQL_ATTR_SSL_CAPATH',
+            'cipher' => 'PDO::MYSQL_ATTR_SSL_CIPHER',
+        ];
+
+        foreach ( $path_attributes as $key => $constant_name ) {
+            if ( '' === $ssl[ $key ] || ! defined( $constant_name ) ) {
+                continue;
+            }
+
+            $options[ constant( $constant_name ) ] = $ssl[ $key ];
+        }
+
+        if ( defined( 'PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT' ) ) {
+            $options[ constant( 'PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT' ) ] = (bool) $ssl['verify_server_cert'];
+        }
+
+        return $options;
     }
 }
 
@@ -601,20 +731,7 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
      * @return array
      */
     function tonbankcard_runtime_config() {
-        $profile = strtolower( trim( (string) tonbankcard_env( 'TONBANKCARD_PROFILE', 'local' ) ) );
-        $aliases = [
-            'dev'            => 'local',
-            'development'    => 'local',
-            'prod'           => 'production',
-            'production-web' => 'production',
-            'miniapp'        => 'telegram',
-            'mini-app'       => 'telegram',
-            'telegram-app'   => 'telegram',
-        ];
-        if ( isset( $aliases[ $profile ] ) ) {
-            $profile = $aliases[ $profile ];
-        }
-
+        $profile = tonbankcard_runtime_profile();
         $local_url    = tonbankcard_normalize_url( (string) tonbankcard_env( 'TONBANKCARD_LOCAL_BASE_URL', 'http://localhost:8888/' ) );
         $staging_url  = tonbankcard_normalize_url( (string) tonbankcard_env( 'TONBANKCARD_STAGING_BASE_URL', '' ) );
         $public_url   = tonbankcard_normalize_url( (string) tonbankcard_env( 'TONBANKCARD_PUBLIC_BASE_URL', 'local' === $profile ? $local_url : '' ) );
@@ -696,6 +813,7 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
         $tonapi_api_key     = (string) tonbankcard_env( 'TONAPI_API_KEY', '' );
         $upstash_token      = (string) tonbankcard_env( 'UPSTASH_REDIS_REST_TOKEN', '' );
         $mysql_password     = (string) tonbankcard_env( 'MYSQL_PASSWORD', '' );
+        $mysql_ssl          = tonbankcard_mysql_ssl_config_from_env( $profile );
         $changenow_link_id     = tonbankcard_runtime_admin_scalar( $admin_store, [ 'providers', 'changenow', 'link_id' ], (string) tonbankcard_env( 'CHANGENOW_LINK_ID', '' ) );
         $changenow_listing_url = tonbankcard_runtime_admin_scalar( $admin_store, [ 'providers', 'changenow', 'listing_url' ], (string) tonbankcard_env( 'CHANGENOW_LISTING_URL', '' ) );
         $yandex_metrica_counter_id = preg_replace( '/\D+/', '', (string) tonbankcard_env( 'YANDEX_METRICA_COUNTER_ID', '' ) );
@@ -808,6 +926,7 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
                     'user'                => (string) tonbankcard_env( 'MYSQL_USER', '' ),
                     'password'            => $mysql_password,
                     'password_configured' => '' !== trim( $mysql_password ),
+                    'ssl'                 => $mysql_ssl,
                 ],
                 'changenow' => [
                     'link_id'     => $changenow_link_id,
