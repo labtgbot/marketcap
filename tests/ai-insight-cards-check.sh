@@ -212,7 +212,7 @@ PHP
 php_check 'AI feedback should be validated and stored without raw insight subject text' \
     env -i PATH="$PATH" \
         TONBANKCARD_PROFILE=local \
-        TONBANKCARD_AI_FEEDBACK_STORE="$(mktemp "${TMPDIR:-/tmp}/tonbankcard-ai-feedback.XXXXXX.json")" \
+        TONBANKCARD_AI_FEEDBACK_STORE="$(mktemp -d "${TMPDIR:-/tmp}/tonbankcard-ai-feedback.XXXXXX")/feedback.json" \
         php <<'PHP'
 <?php
 require 'constants.php';
@@ -221,6 +221,12 @@ require __DIR__ . '/api/router.php';
 
 $store = getenv( 'TONBANKCARD_AI_FEEDBACK_STORE' );
 @unlink( $store );
+register_shutdown_function(
+    function () use ( $store ) {
+        @unlink( $store );
+        @rmdir( dirname( $store ) );
+    }
+);
 
 $response = tonbankcard_api_handle(
     [

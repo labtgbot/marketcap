@@ -62,8 +62,9 @@ Feedback is submitted to `POST /api/ai/feedback` with the validated insight id,
 insight type, feedback type, provider metadata, prompt version, source route,
 surface, market data age, and small sanitized metadata. The endpoint stores
 feedback for admin review in `ai_feedback` when MySQL or MariaDB is configured.
-Local development can use `TONBANKCARD_AI_FEEDBACK_STORE` as a JSON file
-fallback.
+Local development can use the JSON fallback under `TONBANKCARD_STATE_DIR`, or an
+explicit `TONBANKCARD_AI_FEEDBACK_STORE` file inside a private app-owned
+directory.
 
 Feedback storage does not persist raw prompts, raw provider responses, or raw
 insight subjects. Subjects and session tokens are hashed before durable storage.

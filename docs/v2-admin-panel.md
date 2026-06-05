@@ -10,7 +10,7 @@ Admin API access is token based. `TONBANKCARD_ADMIN_TOKEN` grants the owner role
 
 Telegram Mini App sessions and anonymous browser sessions are not accepted for admin routes. A Telegram initData header without an admin token still receives `401`.
 
-The admin store path is configured with `TONBANKCARD_ADMIN_STORE`. The store contains redacted configuration, operational settings, and the audit log. It must be writable by the PHP process before write actions can succeed.
+The admin store path defaults under `TONBANKCARD_STATE_DIR` and can be overridden with `TONBANKCARD_ADMIN_STORE`. The store contains redacted configuration, operational settings, and the audit log. The directory must be app-owned, writable by the PHP process, and private (`0700` directory, `0600` file) before write actions can succeed.
 
 ## Controls
 

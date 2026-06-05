@@ -41,6 +41,7 @@ For staging, production, and telegram profiles, set explicit values for:
 | `TONBANKCARD_STAGING_BASE_URL` | `staging` profile | Absolute HTTPS URL. |
 | `TONBANKCARD_PUBLIC_BASE_URL` | `production` and `telegram` profiles | HTTPS public website URL for canonical and shared links. |
 | `TONBANKCARD_TELEGRAM_BASE_URL` | `telegram` profile | HTTPS Mini App URL configured in BotFather. |
+| `TONBANKCARD_STATE_DIR` | Optional | Private directory for local JSON state. Defaults to `.tonbankcard-marketcap-state` beside the app directory, outside the web root. |
 | `TONBANKCARD_BOT_USERNAME` | Non-local profiles | Username only, without secret token. |
 | `TONBANKCARD_BOT_TOKEN` | `telegram` profile or alerts enabled | Secret; server-side only. |
 | `COINGECKO_API_PLAN` | Optional | `demo` for CoinGecko Public/Demo API or `pro` for CoinGecko Pro API. Defaults to `demo`. |
@@ -69,6 +70,25 @@ authentication header. Set `COINGECKO_API_KEY` only when more quota is needed;
 `demo` sends it as `x-cg-demo-api-key` and `pro` uses the Pro API root with
 `x-cg-pro-api-key`. The key is inserted only by the PHP backend and is never
 included in `window.GeckoClient` or browser request parameters.
+
+## Private JSON State
+
+`TONBANKCARD_STATE_DIR` controls the default directory for sensitive local JSON
+state: admin configuration (`TONBANKCARD_ADMIN_STORE`), local Telegram sessions
+(`TONBANKCARD_LOCAL_SESSION_STORE`), AI feedback (`TONBANKCARD_AI_FEEDBACK_STORE`),
+and TON manual curation (`TONBANKCARD_TON_CURATION_FILE`). When these store paths
+are unset, the app writes files under `TONBANKCARD_STATE_DIR`.
+
+The default state directory is outside `GECKO_CLIENT_DIR` and is created with
+private permissions. The app refuses to read or write a sensitive JSON store when
+the directory or existing file is group-readable, world-readable, group-writable,
+world-writable, owned by another user, not writable by PHP, or a symlink. Use
+directory mode `0700` and file mode `0600`.
+
+Explicit temp-file overrides are for controlled local development only. Do not
+point production, staging, or shared-host deployments at `/tmp` or another
+world-readable/traversable directory; create an app-owned private directory outside
+the web root instead.
 
 ## Transport Security
 

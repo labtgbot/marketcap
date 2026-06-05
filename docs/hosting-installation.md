@@ -105,10 +105,12 @@ find /var/www/marketcap -type d -exec chmod 755 {} \;
 find /var/www/marketcap -type f -exec chmod 644 {} \;
 ```
 
-The application does not need broad write access to the repository. If you set
-`TONBANKCARD_ADMIN_STORE`, `TONBANKCARD_TON_CURATION_FILE`, or
-`TONBANKCARD_AI_FEEDBACK_STORE`, place those JSON stores in a writable directory
-outside the public web root.
+The application does not need broad write access to the repository. Set
+`TONBANKCARD_STATE_DIR` to an app-owned private directory outside the public web
+root when local JSON stores are used. If you override `TONBANKCARD_ADMIN_STORE`,
+`TONBANKCARD_TON_CURATION_FILE`, or `TONBANKCARD_AI_FEEDBACK_STORE`, keep those
+files in a `0700` directory and `0600` file; do not use shared `/tmp` paths on a
+hosted deployment.
 
 ### 3. Create the database
 

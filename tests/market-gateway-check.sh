@@ -147,7 +147,7 @@ PHP
 php_check 'market gateway should expose manually curated TON assets as coin detail pages after CoinGecko misses' \
     env -i PATH="$PATH" \
         TONBANKCARD_ADMIN_TOKEN='ton-admin-secret' \
-        TONBANKCARD_ADMIN_STORE="$(mktemp)" \
+        TONBANKCARD_ADMIN_STORE="$(mktemp -d "${TMPDIR:-/tmp}/tonbankcard-market-admin.XXXXXX")/admin.json" \
         php <<'PHP'
 <?php
 require 'constants.php';
@@ -156,6 +156,12 @@ require __DIR__ . '/api/router.php';
 
 $store_path = (string) getenv( 'TONBANKCARD_ADMIN_STORE' );
 @unlink( $store_path );
+register_shutdown_function(
+    function () use ( $store_path ) {
+        @unlink( $store_path );
+        @rmdir( dirname( $store_path ) );
+    }
+);
 
 $payload = [
     'content' => [

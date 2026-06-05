@@ -201,6 +201,285 @@ if ( ! function_exists( 'tonbankcard_normalize_url' ) ) {
     }
 }
 
+if ( ! function_exists( 'tonbankcard_runtime_app_root' ) ) {
+    /**
+     * Returns the application root directory.
+     *
+     * @return string
+     */
+    function tonbankcard_runtime_app_root() {
+        return defined( 'GECKO_CLIENT_DIR' ) ? GECKO_CLIENT_DIR : dirname( __DIR__ );
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_runtime_state_dir' ) ) {
+    /**
+     * Returns the private directory used by default for sensitive local JSON state.
+     *
+     * @return string
+     */
+    function tonbankcard_runtime_state_dir() {
+        $configured = trim( (string) tonbankcard_env( 'TONBANKCARD_STATE_DIR', '' ) );
+        if ( '' !== $configured ) {
+            $trimmed = rtrim( $configured, DIRECTORY_SEPARATOR );
+            return '' === $trimmed ? $configured : $trimmed;
+        }
+
+        return dirname( tonbankcard_runtime_app_root() ) . DIRECTORY_SEPARATOR . '.tonbankcard-marketcap-state';
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_runtime_state_store_path' ) ) {
+    /**
+     * Builds a default sensitive JSON store path inside the private state dir.
+     *
+     * @param string $filename
+     * @return string
+     */
+    function tonbankcard_runtime_state_store_path( string $filename ) {
+        return tonbankcard_runtime_state_dir() . DIRECTORY_SEPARATOR . ltrim( $filename, DIRECTORY_SEPARATOR );
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_runtime_current_uid' ) ) {
+    /**
+     * Returns the effective process UID when the platform exposes it.
+     *
+     * @return int|null
+     */
+    function tonbankcard_runtime_current_uid() {
+        return function_exists( 'posix_geteuid' ) ? (int) posix_geteuid() : null;
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_runtime_sensitive_store_error' ) ) {
+    /**
+     * Builds a typed sensitive-store validation error.
+     *
+     * @param string $code
+     * @param string $message
+     * @param array $details
+     * @return array
+     */
+    function tonbankcard_runtime_sensitive_store_error( string $code, string $message, array $details = [] ) {
+        return [
+            'ok'      => FALSE,
+            'code'    => $code,
+            'message' => $message,
+            'details' => $details,
+        ];
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_runtime_path_owned_by_current_user' ) ) {
+    /**
+     * Checks whether a path is owned by the current process user when possible.
+     *
+     * @param string $path
+     * @return bool
+     */
+    function tonbankcard_runtime_path_owned_by_current_user( string $path ) {
+        $uid = tonbankcard_runtime_current_uid();
+        if ( null === $uid ) {
+            return TRUE;
+        }
+
+        $owner = @fileowner( $path );
+        return FALSE !== $owner && (int) $owner === $uid;
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_runtime_private_directory_status' ) ) {
+    /**
+     * Validates a sensitive-store directory without silently weakening fail-closed behavior.
+     *
+     * @param string $dir
+     * @param bool $create
+     * @return array
+     */
+    function tonbankcard_runtime_private_directory_status( string $dir, bool $create ) {
+        if ( '' === trim( $dir ) || FALSE !== strpos( $dir, "\0" ) ) {
+            return tonbankcard_runtime_sensitive_store_error(
+                'sensitive_store_directory_invalid',
+                'Sensitive store directory path is invalid.',
+                [ 'path' => $dir ]
+            );
+        }
+
+        $created = FALSE;
+        if ( ! file_exists( $dir ) ) {
+            if ( ! $create ) {
+                return tonbankcard_runtime_sensitive_store_error(
+                    'sensitive_store_directory_missing',
+                    'Sensitive store directory does not exist.',
+                    [ 'path' => $dir ]
+                );
+            }
+            if ( ! @mkdir( $dir, 0700, TRUE ) && ! is_dir( $dir ) ) {
+                return tonbankcard_runtime_sensitive_store_error(
+                    'sensitive_store_directory_create_failed',
+                    'Sensitive store directory could not be created.',
+                    [ 'path' => $dir ]
+                );
+            }
+            $created = TRUE;
+            @chmod( $dir, 0700 );
+        }
+
+        if ( is_link( $dir ) || ! is_dir( $dir ) ) {
+            return tonbankcard_runtime_sensitive_store_error(
+                'sensitive_store_directory_invalid',
+                'Sensitive store directory must be a real directory.',
+                [ 'path' => $dir ]
+            );
+        }
+
+        if ( ! tonbankcard_runtime_path_owned_by_current_user( $dir ) ) {
+            return tonbankcard_runtime_sensitive_store_error(
+                'sensitive_store_directory_owner_mismatch',
+                'Sensitive store directory must be owned by the PHP process user.',
+                [ 'path' => $dir ]
+            );
+        }
+
+        $perms = @fileperms( $dir );
+        if ( FALSE === $perms || 0 !== ( $perms & 0077 ) ) {
+            return tonbankcard_runtime_sensitive_store_error(
+                'sensitive_store_directory_not_private',
+                'Sensitive store directory must not be accessible to group or other users.',
+                [
+                    'path' => $dir,
+                    'mode' => FALSE === $perms ? null : sprintf( '%04o', $perms & 0777 ),
+                ]
+            );
+        }
+
+        if ( ! is_writable( $dir ) ) {
+            return tonbankcard_runtime_sensitive_store_error(
+                'sensitive_store_directory_not_writable',
+                'Sensitive store directory must be writable by the PHP process.',
+                [ 'path' => $dir ]
+            );
+        }
+
+        return [
+            'ok'      => TRUE,
+            'path'    => $dir,
+            'created' => $created,
+        ];
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_runtime_private_file_status' ) ) {
+    /**
+     * Validates an existing sensitive-store file.
+     *
+     * @param string $path
+     * @param string $mode
+     * @return array
+     */
+    function tonbankcard_runtime_private_file_status( string $path, string $mode ) {
+        if ( is_link( $path ) || ! is_file( $path ) ) {
+            return tonbankcard_runtime_sensitive_store_error(
+                'sensitive_store_file_invalid',
+                'Sensitive store path must be a real file.',
+                [ 'path' => $path ]
+            );
+        }
+
+        if ( ! tonbankcard_runtime_path_owned_by_current_user( $path ) ) {
+            return tonbankcard_runtime_sensitive_store_error(
+                'sensitive_store_file_owner_mismatch',
+                'Sensitive store file must be owned by the PHP process user.',
+                [ 'path' => $path ]
+            );
+        }
+
+        $perms = @fileperms( $path );
+        if ( FALSE === $perms || 0 !== ( $perms & 0077 ) ) {
+            return tonbankcard_runtime_sensitive_store_error(
+                'sensitive_store_file_not_private',
+                'Sensitive store file must not be accessible to group or other users.',
+                [
+                    'path' => $path,
+                    'mode' => FALSE === $perms ? null : sprintf( '%04o', $perms & 0777 ),
+                ]
+            );
+        }
+
+        if ( 'read' === $mode && ! is_readable( $path ) ) {
+            return tonbankcard_runtime_sensitive_store_error(
+                'sensitive_store_file_not_readable',
+                'Sensitive store file must be readable by the PHP process.',
+                [ 'path' => $path ]
+            );
+        }
+
+        if ( 'write' === $mode && ! is_writable( $path ) ) {
+            return tonbankcard_runtime_sensitive_store_error(
+                'sensitive_store_file_not_writable',
+                'Sensitive store file must be writable by the PHP process.',
+                [ 'path' => $path ]
+            );
+        }
+
+        return [
+            'ok'   => TRUE,
+            'path' => $path,
+        ];
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_runtime_sensitive_store_status' ) ) {
+    /**
+     * Validates a sensitive local JSON store path for fail-closed reads and writes.
+     *
+     * @param string $path
+     * @param array $options
+     * @return array
+     */
+    function tonbankcard_runtime_sensitive_store_status( string $path, array $options = [] ) {
+        $path = trim( $path );
+        $mode = isset( $options['mode'] ) && 'write' === $options['mode'] ? 'write' : 'read';
+        $create_dir = ! empty( $options['create_dir'] );
+        $require_file = ! empty( $options['require_file'] );
+
+        if ( '' === $path || FALSE !== strpos( $path, "\0" ) ) {
+            return tonbankcard_runtime_sensitive_store_error(
+                'sensitive_store_path_invalid',
+                'Sensitive store path is invalid.',
+                [ 'path' => $path ]
+            );
+        }
+
+        $dir = dirname( $path );
+        $dir_status = tonbankcard_runtime_private_directory_status( $dir, $create_dir );
+        if ( empty( $dir_status['ok'] ) ) {
+            return $dir_status;
+        }
+
+        if ( file_exists( $path ) ) {
+            $file_status = tonbankcard_runtime_private_file_status( $path, $mode );
+            if ( empty( $file_status['ok'] ) ) {
+                return $file_status;
+            }
+        } elseif ( $require_file ) {
+            return tonbankcard_runtime_sensitive_store_error(
+                'sensitive_store_file_missing',
+                'Sensitive store file does not exist.',
+                [ 'path' => $path ]
+            );
+        }
+
+        return [
+            'ok'     => TRUE,
+            'path'   => $path,
+            'dir'    => $dir,
+            'exists' => is_file( $path ),
+        ];
+    }
+}
+
 if ( ! function_exists( 'tonbankcard_runtime_admin_store_path' ) ) {
     /**
      * Returns the JSON admin configuration store path.
@@ -213,7 +492,7 @@ if ( ! function_exists( 'tonbankcard_runtime_admin_store_path' ) ) {
             return $path;
         }
 
-        return sys_get_temp_dir() . '/tonbankcard-marketcap-admin.json';
+        return tonbankcard_runtime_state_store_path( 'tonbankcard-marketcap-admin.json' );
     }
 }
 
@@ -226,7 +505,18 @@ if ( ! function_exists( 'tonbankcard_runtime_admin_store' ) ) {
      */
     function tonbankcard_runtime_admin_store( $path = null ) {
         $path = null === $path ? tonbankcard_runtime_admin_store_path() : (string) $path;
-        if ( '' === trim( $path ) || ! is_file( $path ) || ! is_readable( $path ) ) {
+        if ( '' === trim( $path ) || ! is_file( $path ) ) {
+            return [];
+        }
+
+        $status = tonbankcard_runtime_sensitive_store_status(
+            $path,
+            [
+                'mode'         => 'read',
+                'require_file' => TRUE,
+            ]
+        );
+        if ( empty( $status['ok'] ) || ! is_readable( $path ) ) {
             return [];
         }
 

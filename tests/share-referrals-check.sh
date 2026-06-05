@@ -197,8 +197,20 @@ function test_init_data( array $fields, string $bot_token ) {
     return http_build_query( $fields, '', '&', PHP_QUERY_RFC3986 );
 }
 
-$store = sys_get_temp_dir() . '/tonbankcard-test-share-referrals.json';
+$store_dir = sys_get_temp_dir() . '/tonbankcard-test-share-referrals-' . getmypid();
+if ( ! is_dir( $store_dir ) && ! mkdir( $store_dir, 0700, TRUE ) ) {
+    fwrite( STDERR, "Could not create private session store directory\n" );
+    exit( 1 );
+}
+chmod( $store_dir, 0700 );
+$store = $store_dir . '/sessions.json';
 @unlink( $store );
+register_shutdown_function(
+    function () use ( $store, $store_dir ) {
+        @unlink( $store );
+        @rmdir( $store_dir );
+    }
+);
 
 $runtime = $GLOBALS['runtime_config'];
 $config = $api;

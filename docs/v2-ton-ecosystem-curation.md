@@ -47,7 +47,7 @@ POST /api/ton/assets
 PUT /api/ton/assets
 ```
 
-Writes require `TONBANKCARD_TON_CURATION_FILE` and should use `TONBANKCARD_TON_CURATION_TOKEN` outside local development. Operators send the token with `X-TONBANKCARD-TON-Curation-Token`. The API validates, normalizes, and atomically writes the JSON store.
+Writes use the JSON store under `TONBANKCARD_STATE_DIR` by default, or an explicit `TONBANKCARD_TON_CURATION_FILE` inside a private app-owned directory. Outside local development, writes should use `TONBANKCARD_TON_CURATION_TOKEN`; operators send the token with `X-TONBANKCARD-TON-Curation-Token`. The API validates, normalizes, and atomically writes the JSON store.
 
 ## Search and Screener
 
@@ -60,11 +60,13 @@ The market table and screener use the same curation feed for TON tag filters. As
 Required configuration:
 
 ```sh
-TONBANKCARD_TON_CURATION_FILE=/path/to/ton-curation.json
+TONBANKCARD_STATE_DIR=/path/to/private-state
+# Optional override when this store needs a separate path:
+TONBANKCARD_TON_CURATION_FILE=/path/to/private-state/ton-curation.json
 TONBANKCARD_TON_CURATION_TOKEN=replace-with-admin-token
 ```
 
-The default local profile falls back to a temp-file path so the read API always exposes built-in curated defaults. Production should set an explicit writable file path or migrate the same model to the `0005_ton_ecosystem_curation` tables.
+The default local profile uses a private state directory so the read API always exposes built-in curated defaults without creating world-readable temp files. Production should set `TONBANKCARD_STATE_DIR` to a private directory outside the web root or migrate the same model to the `0005_ton_ecosystem_curation` tables.
 
 ## Catalog Pages
 

@@ -621,6 +621,11 @@ if ( ! function_exists( 'tonbankcard_installer_field_groups' ) ) {
                     ],
                     'TONBANKCARD_VERBOSE_TRACING' => [ 'label' => 'Verbose tracing', 'type' => 'boolean' ],
                     'TONBANKCARD_CLIENT_ERROR_REPORTING' => [ 'label' => 'Client error reporting', 'type' => 'boolean' ],
+                    'TONBANKCARD_STATE_DIR' => [
+                        'label' => 'Private state directory',
+                        'type'  => 'text',
+                        'help'  => 'Defaults outside the web root. Use an app-owned 0700 directory for local JSON stores.',
+                    ],
                     'TONBANKCARD_TON_CURATION_FILE' => [ 'label' => 'TON curation file', 'type' => 'text' ],
                     'TONBANKCARD_TON_CURATION_TOKEN' => [ 'label' => 'TON curation token', 'type' => 'password', 'secret' => TRUE ],
                     'TONBANKCARD_ADMIN_STORE' => [ 'label' => 'Admin store path', 'type' => 'text' ],
