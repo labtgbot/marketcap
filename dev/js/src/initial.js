@@ -9,11 +9,15 @@
 
     utils.isMobileUserAgent = () => /mobile/i.test(navigator.userAgent);
 
+    const validURLProtocols = ['http:', 'https:'];
+
     utils.validURLString = (url, base) => {
         if (!url) return null;
 
         try {
-            return (new URL(url, base)).toString();
+            const parsed = new URL(url, base);
+            if (validURLProtocols.indexOf(parsed.protocol) === -1) return null;
+            return parsed.toString();
         } catch (err) {
             return null;
         }
