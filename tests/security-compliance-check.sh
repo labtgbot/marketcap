@@ -71,6 +71,7 @@ assert_contains .htaccess 'RewriteRule \^ https://%\{HTTP_HOST\}%\{REQUEST_URI\}
 assert_contains .htaccess 'X-Content-Type-Options' 'static asset nosniff header'
 assert_contains .htaccess 'Referrer-Policy' 'static asset referrer policy header'
 assert_contains .htaccess 'Permissions-Policy' 'static asset permissions policy header'
+assert_contains .htaccess 'X-Frame-Options' 'static asset clickjacking fallback header'
 assert_contains .htaccess 'BLOCK SENSITIVE SOURCE AND INTERNAL FILES' 'sensitive source request protection section'
 assert_contains .htaccess 'install\|database\|docs\|tests\|dev' 'sensitive directory request deny-list'
 assert_contains .htaccess 'zip\|sql\|md' 'sensitive file extension request deny-list'
@@ -91,7 +92,7 @@ require __DIR__ . '/functions.php';
 
 $headers = tonbankcard_security_headers( 'html' );
 
-foreach ( [ 'Content-Security-Policy', 'Strict-Transport-Security', 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy' ] as $name ) {
+foreach ( [ 'Content-Security-Policy', 'Strict-Transport-Security', 'X-Frame-Options', 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy' ] as $name ) {
     if ( empty( $headers[ $name ] ) ) {
         fwrite( STDERR, "Missing $name security header\n" );
         exit( 1 );
@@ -106,6 +107,39 @@ foreach ( [ "default-src 'self'", "object-src 'none'", "base-uri 'self'", 'frame
     }
 }
 
+$script_src = '';
+foreach ( explode( ';', $csp ) as $directive ) {
+    $directive = trim( $directive );
+    if ( 0 === strpos( $directive, 'script-src ' ) ) {
+        $script_src = $directive;
+        break;
+    }
+}
+if ( '' === $script_src ) {
+    fwrite( STDERR, "CSP is missing script-src\n" );
+    exit( 1 );
+}
+if ( FALSE !== strpos( $script_src, "'unsafe-inline'" ) ) {
+    fwrite( STDERR, "script-src must not allow unsafe-inline: $script_src\n" );
+    exit( 1 );
+}
+if ( ! preg_match( "/'nonce-[A-Fa-f0-9]{32}'/", $script_src ) ) {
+    fwrite( STDERR, "script-src is missing a per-response nonce: $script_src\n" );
+    exit( 1 );
+}
+if ( ! function_exists( 'tonbankcard_csp_nonce' ) ) {
+    fwrite( STDERR, "Missing tonbankcard_csp_nonce helper\n" );
+    exit( 1 );
+}
+$nonce = tonbankcard_csp_nonce();
+if ( ! preg_match( '/^[A-Fa-f0-9]{32}$/', $nonce ) || $nonce !== tonbankcard_csp_nonce() ) {
+    fwrite( STDERR, "CSP nonce should be stable per request and 128-bit hex\n" );
+    exit( 1 );
+}
+if ( 'SAMEORIGIN' !== $headers['X-Frame-Options'] ) {
+    fwrite( STDERR, "X-Frame-Options should be SAMEORIGIN\n" );
+    exit( 1 );
+}
 if ( 'nosniff' !== $headers['X-Content-Type-Options'] ) {
     fwrite( STDERR, "X-Content-Type-Options should be nosniff\n" );
     exit( 1 );
@@ -141,7 +175,7 @@ $response = tonbankcard_api_handle(
     $api
 );
 
-foreach ( [ 'Strict-Transport-Security', 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy' ] as $name ) {
+foreach ( [ 'Strict-Transport-Security', 'X-Frame-Options', 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy' ] as $name ) {
     if ( empty( $response['headers'][ $name ] ) ) {
         fwrite( STDERR, "API response missing $name\n" );
         exit( 1 );
@@ -408,6 +442,13 @@ if ( 403 !== $response['status'] || ! is_array( $payload ) || 'admin_write_forbi
 PHP
 
 assert_contains views/app-head.php 'JSON_HEX_TAG' 'JSON-LD output should HTML-escape tag characters'
+assert_contains views/app-head.php 'tonbankcard_csp_nonce' 'CSP nonce attributes for inline head scripts'
+assert_contains views/app-scripts.php 'tonbankcard_csp_nonce' 'CSP nonce attributes for app template and bootstrap scripts'
+assert_contains "$doc" 'per-response CSP nonce' 'the script-src nonce hardening note'
+
+if grep -Eq 'onclick=' views/configuration-errors.php; then
+    fail 'configuration error page still uses inline JavaScript event handlers'
+fi
 
 if grep -Eq 'application/ld\+json.*JSON_UNESCAPED_SLASHES' views/app-head.php; then
     fail 'views/app-head.php still emits JSON-LD with JSON_UNESCAPED_SLASHES (allows </script> breakout)'

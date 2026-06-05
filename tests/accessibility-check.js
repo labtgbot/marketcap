@@ -182,8 +182,33 @@ async function gotoRoute(page, route) {
     await page.waitForTimeout(1200);
 }
 
+async function pageCspNonce(page) {
+    const nonce = await page.evaluate(() => {
+        const script = document.querySelector('script[nonce]');
+        return script ? (script.nonce || script.getAttribute('nonce') || '') : '';
+    });
+
+    if (!/^[a-f0-9]{32}$/i.test(nonce)) {
+        throw new Error('CSP nonce was not found in the rendered page');
+    }
+
+    return nonce;
+}
+
+async function addNonceScript(page, content) {
+    const nonce = await pageCspNonce(page);
+    await page.evaluate(({source, cspNonce}) => {
+        const script = document.createElement('script');
+        script.nonce = cspNonce;
+        script.setAttribute('nonce', cspNonce);
+        script.textContent = source;
+        document.head.appendChild(script);
+        script.remove();
+    }, {source: content, cspNonce: nonce});
+}
+
 async function auditRoute(page, route) {
-    await page.addScriptTag({content: axeSource});
+    await addNonceScript(page, axeSource);
 
     const result = await page.evaluate(async () => {
         return window.axe.run(document, {
@@ -288,7 +313,7 @@ async function auditKeyboard(page, keyboardFailures) {
 
     // --- Home: search + primary navigation + focus indicator ---------------
     await gotoRoute(page, {path: '/', label: 'home'});
-    await page.addScriptTag({content: a11yHelpers});
+    await addNonceScript(page, a11yHelpers);
 
     const homeSeq = await tabSequence(page, 45);
     log(`\nKeyboard: home reached ${homeSeq.length} focusable stop(s) via Tab`);
@@ -359,7 +384,7 @@ async function auditKeyboard(page, keyboardFailures) {
     let watchlistVisible = false;
     for (let attempt = 1; attempt <= 3 && !watchlistVisible; attempt++) {
         await gotoRoute(page, {path: '/markets', label: 'markets list'});
-        await page.addScriptTag({content: a11yHelpers});
+        await addNonceScript(page, a11yHelpers);
         try {
             await page.waitForSelector('.watchlist-icon-button', {timeout: 8000});
             watchlistVisible = true;
@@ -405,7 +430,7 @@ async function auditKeyboard(page, keyboardFailures) {
 
     // --- Coin detail: exchange widget ---------------------------------------
     await gotoRoute(page, {path: '/coins/bitcoin', label: 'coin detail'});
-    await page.addScriptTag({content: a11yHelpers});
+    await addNonceScript(page, a11yHelpers);
     try {
         await page.waitForSelector('.currency-exchange-widget', {timeout: 8000});
     } catch (err) {

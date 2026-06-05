@@ -110,6 +110,7 @@ function tonbankcard_normalize_path( string $path ) {
 function tonbankcard_security_headers( string $context = 'html', array $runtime = [] ) {
     $headers = [
         'X-Content-Type-Options'  => 'nosniff',
+        'X-Frame-Options'         => 'SAMEORIGIN',
         'Referrer-Policy'         => 'strict-origin-when-cross-origin',
         'Permissions-Policy'      => 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()',
         'Cross-Origin-Opener-Policy' => 'same-origin-allow-popups',
@@ -351,18 +352,34 @@ function tonbankcard_enforce_https_redirect( array $runtime = [], array $server 
 }
 
 /**
+ * Returns the per-request Content Security Policy nonce for inline script blocks.
+ *
+ * @return string
+ */
+function tonbankcard_csp_nonce() {
+    static $nonce = null;
+
+    if ( null === $nonce ) {
+        $nonce = bin2hex( random_bytes( 16 ) );
+    }
+
+    return $nonce;
+}
+
+/**
  * Builds the public shell Content Security Policy.
  *
  * @return string
  */
 function tonbankcard_content_security_policy() {
+    $script_nonce = "'nonce-" . tonbankcard_csp_nonce() . "'";
     $directives = [
         "default-src 'self'",
         "base-uri 'self'",
         "object-src 'none'",
         "form-action 'self'",
         "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org https://cdn.jsdelivr.net https://unpkg.com https://changenow.io https://mc.yandex.ru https://mc.yandex.com https://mc.webvisor.com https://mc.webvisor.org https://yastatic.net",
+        "script-src 'self' " . $script_nonce . " 'unsafe-eval' https://telegram.org https://cdn.jsdelivr.net https://unpkg.com https://changenow.io https://mc.yandex.ru https://mc.yandex.com https://mc.webvisor.com https://mc.webvisor.org https://yastatic.net",
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
         "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com",
         "img-src 'self' data: blob: https://assets.coingecko.com https://*.coingecko.com https://changenow.io https://*.changenow.io https://mc.yandex.ru https://mc.yandex.com https://mc.webvisor.com https://mc.webvisor.org",

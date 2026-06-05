@@ -153,9 +153,9 @@ GET /coins/%3C%2Fscript%3E%3Cscript%3Ealert(document.domain)%3C%2Fscript%3E
 → {"name":"</script><script>alert(document.domain)</script>", ...}
 ```
 
-The CSP includes `'unsafe-inline'` (F13), so the injected inline script executes.
-One-click reflected XSS in the app origin → session/CSRF-token theft, actions as
-the victim.
+In the original audit state, the CSP included `'unsafe-inline'` (F13), so the
+injected inline script executed. One-click reflected XSS in the app origin →
+session/CSRF-token theft, actions as the victim.
 
 **Fix:** drop `JSON_UNESCAPED_SLASHES` for in-`<script>` output and add
 `JSON_HEX_TAG` (ideally `JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT`); also sanitize
@@ -333,15 +333,23 @@ robust identity; bound request body size; consider requiring a validated session
 
 ### F13 — Weak CSP and missing `X-Frame-Options` (Medium)
 
-`functions.php:136` sets `script-src 'self' 'unsafe-inline' 'unsafe-eval' …` (and
-`style-src 'unsafe-inline'`). With `'unsafe-inline'`, CSP gives essentially no XSS
-protection (it is what makes F3 executable); `'unsafe-eval'` permits `eval`
-gadgets. Clickjacking protection relies solely on CSP `frame-ancestors` — there is
-no `X-Frame-Options` fallback header.
+Original finding: `functions.php:136` set
+`script-src 'self' 'unsafe-inline' 'unsafe-eval' …` (and
+`style-src 'unsafe-inline'`). With `'unsafe-inline'`, CSP gave essentially no XSS
+protection (it is what made F3 executable); `'unsafe-eval'` permitted `eval`
+gadgets. Clickjacking protection relied solely on CSP `frame-ancestors` — there
+was no `X-Frame-Options` fallback header.
 
 **Fix:** migrate inline scripts to nonce/hash allowlisting and drop
 `'unsafe-inline'`; use the Vue runtime build to drop `'unsafe-eval'`; add
 `X-Frame-Options: SAMEORIGIN`.
+
+**Current remediation:** #218 adds a per-response CSP nonce for public-shell
+script blocks, removes `'unsafe-inline'` from `script-src`, and emits
+`X-Frame-Options: SAMEORIGIN` from both PHP and Apache. `script-src 'unsafe-eval'`
+remains documented because the Vue 2 browser template compiler still requires
+it, and `style-src 'unsafe-inline'` remains documented for Vuetify runtime styles
+and legacy inline style attributes.
 
 ### F14 — Default secret/state stores in world-readable temp dir (Medium)
 
@@ -485,7 +493,7 @@ Priority legend: **P0** Critical · **P1** High · **P2** Medium · **P3** Low.
 - [ ] **[P1]** #193 — F10 Migrations non-transactional & non-idempotent
 - [ ] **[P2]** #194 — F11 Rate limiter fails open and is UA-bypassable
 - [ ] **[P2]** #195 — F12 Anonymous, unbounded AI insight endpoint
-- [ ] **[P2]** #196 — F13 Weak CSP and missing `X-Frame-Options`
+- [x] **[P2]** #196 — F13 Weak CSP and missing `X-Frame-Options`
 - [ ] **[P2]** #197 — F14 Default secret/state stores in world-readable temp dir
 - [ ] **[P2]** #198 — F15 DB connections never request TLS
 - [ ] **[P2]** #199 — F16 `validURLString` accepts dangerous schemes
@@ -518,7 +526,7 @@ postponed, with a rationale).
 | F10 — Migrations non-transactional | #193 | P1 | Planned | Idempotent up-migrations, a `GET_LOCK` advisory lock per run, and a SQL-aware statement splitter. |
 | F11 — Rate limiter fails open / UA-bypass | #194 | P2 | Resolved | Anonymous identity excludes `User-Agent`, and Redis outages use bounded in-process enforcement instead of allowing every request. Regression coverage in `tests/cache-rate-limit-check.sh`. PR #216. |
 | F12 — Unbounded anonymous AI endpoint | #195 | P2 | Resolved | `/api/ai/insight` now rejects oversized request bodies and normalized provider prompts before execution, and enforces Groq's declared `rate_limit` through a dedicated provider bucket independent of the global limiter. Regression coverage in `tests/ai-provider-check.sh`. PR #217. |
-| F13 — Weak CSP / missing `X-Frame-Options` | #196 | P2 | Planned | Migrate inline scripts to nonces, drop `'unsafe-inline'`/`'unsafe-eval'`, add `X-Frame-Options: SAMEORIGIN`. |
+| F13 — Weak CSP / missing `X-Frame-Options` | #196 | P2 | In progress | Public-shell script blocks now use a per-response CSP nonce, `script-src` no longer permits `'unsafe-inline'`, and PHP/Apache emit `X-Frame-Options: SAMEORIGIN`. Residual `script-src 'unsafe-eval'` and `style-src 'unsafe-inline'` risks are documented pending the Vue/style migration. Regression coverage in `tests/security-compliance-check.sh`. PR #218. |
 | F14 — World-readable temp secret stores | #197 | P2 | Planned | Default secret/state stores to a private `0700`/`0600` app-owned dir; fail closed if not private. |
 | F15 — DB connections never request TLS | #198 | P2 | Planned | Expose SSL options in the installer and set `MYSQL_ATTR_SSL_*` for non-local profiles. |
 | F16 — `validURLString` dangerous schemes | #199 | P2 | Planned | Restrict to `http(s)` (+ intentionally allowed schemes); validate the invoice-link scheme before navigation. |
