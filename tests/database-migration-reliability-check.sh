@@ -52,6 +52,13 @@ assert_contains "$installer" 'information_schema\.COLUMNS' 'installer column exi
 assert_contains "$installer" 'information_schema\.STATISTICS' 'installer index existence guards for DDL'
 assert_not_contains "$installer" 'preg_split.*;\s\*' 'the naive installer semicolon line splitter'
 
+assert_not_contains 'database/migrations/0007_smart_alerts.down.sql' "SET[[:space:]]+\`trigger_type\`[[:space:]]*=[[:space:]]*'percent_move'" 'a lossy trigger_type rewrite before shrinking the enum'
+assert_contains 'database/migrations/0007_smart_alerts.down.sql' 'removed_trigger_type_guard' 'a rollback guard for Stage 4-only alert trigger types'
+assert_contains 'database/migrations/0008_share_referral_attribution.down.sql' 'DELETE[[:space:]]+duplicate_attribution' 'duplicate referral attribution cleanup before restoring the old unique key'
+assert_contains 'database/migrations/0008_share_referral_attribution.down.sql' 'keeper_attribution\.`attributed_at` < duplicate_attribution\.`attributed_at`' 'first-touch winner selection before referral attribution de-duplication'
+assert_contains 'docs/v2-database-schema-and-migrations.md' '`0007_smart_alerts\.down\.sql` refuses to shrink' 'the smart-alert rollback safety note'
+assert_contains 'docs/v2-database-schema-and-migrations.md' '`0008_share_referral_attribution\.down\.sql` restores the older one-attribution' 'the referral rollback de-duplication note'
+
 if [ "$failures" -gt 0 ]; then
     exit 1
 fi

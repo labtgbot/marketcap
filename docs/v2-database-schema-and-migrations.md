@@ -166,6 +166,19 @@ Conventions for future migrations:
   database is unavailable, and run `php database/migrate.php up` against a local
   MySQL/MariaDB database before deploying migrations.
 
+Rollback notes for existing lossy changes:
+
+- `0007_smart_alerts.down.sql` refuses to shrink `alert_rules.trigger_type`
+  while any rule still uses `rank_change`, `sentiment_change`, or
+  `ton_ecosystem`. Operators must archive, delete, or intentionally convert
+  those rules before retrying rollback, because mapping them to `percent_move`
+  would corrupt alert semantics.
+- `0008_share_referral_attribution.down.sql` restores the older one-attribution
+  per-user model by keeping the earliest `attributed_at` row per
+  `referred_user_id` (lowest `id` as the tie-breaker) and deleting later
+  per-campaign duplicates before re-adding
+  `uniq_referral_attributions_referred`.
+
 ## Local Empty Database Setup
 
 Local development can initialize an empty MySQL or MariaDB database with the
