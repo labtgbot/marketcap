@@ -30,6 +30,10 @@ Stage 6 — launch-readiness and SEO-completeness audit follow-ups
   and verify the database server certificate by default (#198). Runtime and
   installer coverage live in `tests/runtime-configuration-check.sh` and
   `tests/automatic-installer-check.sh`.
+- Debug/error display now fails closed when `TONBANKCARD_PROFILE` is unset or
+  unknown, while an explicit `TONBANKCARD_PROFILE=local` or
+  `TONBANKCARD_DEBUG=true` still enables local troubleshooting (#200). Runtime
+  coverage lives in `tests/runtime-configuration-check.sh`.
 
 ### Added
 

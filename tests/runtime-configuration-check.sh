@@ -83,7 +83,7 @@ assert_contains docs/runtime-configuration.md 'x-cg-pro-api-key' 'CoinGecko Pro 
 assert_contains docs/runtime-configuration.md 'MYSQL_SSL_CA' 'MySQL TLS CA configuration'
 assert_contains docs/runtime-configuration.md 'MYSQL_ATTR_SSL_VERIFY_SERVER_CERT' 'MySQL TLS server certificate verification'
 
-php_check 'fresh checkout should default to a local development profile' \
+php_check 'unset profile should keep local defaults but fail closed for error display' \
     env -i PATH="$PATH" php <<'PHP'
 <?php
 require 'constants.php';
@@ -103,13 +103,54 @@ if ( GECKO_CLIENT_ENV !== 'development' ) {
     exit( 1 );
 }
 
-if ( GECKO_CLIENT_DISPLAY_ERRORS !== TRUE ) {
-    fwrite( STDERR, "Local profile should display errors by default\n" );
+if ( GECKO_CLIENT_DISPLAY_ERRORS !== FALSE ) {
+    fwrite( STDERR, "Unset profile should not display errors by default\n" );
     exit( 1 );
 }
 
 if ( ! empty( $GLOBALS['runtime_config']['security']['force_https'] ) || ! empty( $GLOBALS['runtime_config']['security']['hsts_enabled'] ) || ! empty( $GLOBALS['runtime_config']['security']['secure_cookies'] ) ) {
     fwrite( STDERR, "Local profile should not force HTTPS, HSTS, or Secure cookies by default\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'unknown profile should fail closed for error display' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_PROFILE=unexpected \
+        php <<'PHP'
+<?php
+require 'constants.php';
+
+if ( TONBANKCARD_PROFILE !== 'unexpected' ) {
+    fwrite( STDERR, 'Expected unknown profile to be preserved for validation, got ' . TONBANKCARD_PROFILE . "\n" );
+    exit( 1 );
+}
+
+if ( GECKO_CLIENT_DISPLAY_ERRORS !== FALSE ) {
+    fwrite( STDERR, "Unknown profile should not display errors by default\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'explicit local profile should keep development error display enabled' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_PROFILE=local \
+        php <<'PHP'
+<?php
+require 'constants.php';
+
+if ( TONBANKCARD_PROFILE !== 'local' ) {
+    fwrite( STDERR, 'Expected local profile, got ' . TONBANKCARD_PROFILE . "\n" );
+    exit( 1 );
+}
+
+if ( GECKO_CLIENT_ENV !== 'development' ) {
+    fwrite( STDERR, 'Expected development Gecko env for explicit local profile, got ' . GECKO_CLIENT_ENV . "\n" );
+    exit( 1 );
+}
+
+if ( GECKO_CLIENT_DISPLAY_ERRORS !== TRUE ) {
+    fwrite( STDERR, "Explicit local profile should display errors by default\n" );
     exit( 1 );
 }
 PHP
