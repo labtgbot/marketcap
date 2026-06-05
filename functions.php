@@ -104,9 +104,10 @@ function tonbankcard_normalize_path( string $path ) {
  * Returns browser security headers for the public shell or JSON API.
  *
  * @param string $context html|api
+ * @param array $runtime
  * @return array
  */
-function tonbankcard_security_headers( string $context = 'html' ) {
+function tonbankcard_security_headers( string $context = 'html', array $runtime = [] ) {
     $headers = [
         'X-Content-Type-Options'  => 'nosniff',
         'Referrer-Policy'         => 'strict-origin-when-cross-origin',
@@ -114,11 +115,239 @@ function tonbankcard_security_headers( string $context = 'html' ) {
         'Cross-Origin-Opener-Policy' => 'same-origin-allow-popups',
     ];
 
+    if ( tonbankcard_should_emit_hsts( $runtime ) ) {
+        $headers['Strict-Transport-Security'] = tonbankcard_hsts_header_value( $runtime );
+    }
+
     if ( 'html' === $context ) {
         $headers['Content-Security-Policy'] = tonbankcard_content_security_policy();
     }
 
     return $headers;
+}
+
+/**
+ * Returns normalized security runtime settings.
+ *
+ * @param array $runtime
+ * @return array
+ */
+function tonbankcard_runtime_security_config( array $runtime = [] ) {
+    $runtime = empty( $runtime ) && isset( $GLOBALS['runtime_config'] ) ? $GLOBALS['runtime_config'] : $runtime;
+    $security = isset( $runtime['security'] ) && is_array( $runtime['security'] ) ? $runtime['security'] : [];
+
+    return [
+        'force_https'    => ! empty( $security['force_https'] ),
+        'hsts_enabled'   => ! empty( $security['hsts_enabled'] ),
+        'hsts_header'    => empty( $security['hsts_header'] ) ? 'max-age=63072000; includeSubDomains; preload' : (string) $security['hsts_header'],
+        'secure_cookies' => ! empty( $security['secure_cookies'] ),
+    ];
+}
+
+/**
+ * Returns TRUE when the supplied absolute URL uses HTTPS.
+ *
+ * @param string $url
+ * @return bool
+ */
+function tonbankcard_url_is_https( string $url ) {
+    $parts = parse_url( $url );
+    return is_array( $parts )
+        && ! empty( $parts['scheme'] )
+        && 'https' === strtolower( (string) $parts['scheme'] );
+}
+
+/**
+ * Returns TRUE when the current request reached PHP over HTTPS or a trusted HTTPS proxy header.
+ *
+ * @param array $server
+ * @return bool
+ */
+function tonbankcard_request_is_https( array $server = [] ) {
+    $server = empty( $server ) ? $_SERVER : $server;
+
+    $https = strtolower( trim( (string) ( isset( $server['HTTPS'] ) ? $server['HTTPS'] : '' ) ) );
+    if ( '' !== $https && 'off' !== $https ) {
+        return TRUE;
+    }
+
+    $scheme = strtolower( trim( (string) ( isset( $server['REQUEST_SCHEME'] ) ? $server['REQUEST_SCHEME'] : '' ) ) );
+    if ( 'https' === $scheme ) {
+        return TRUE;
+    }
+
+    $forwarded_proto = strtolower( trim( (string) ( isset( $server['HTTP_X_FORWARDED_PROTO'] ) ? $server['HTTP_X_FORWARDED_PROTO'] : '' ) ) );
+    if ( '' !== $forwarded_proto ) {
+        $forwarded_proto = trim( explode( ',', $forwarded_proto )[0] );
+        if ( 'https' === $forwarded_proto ) {
+            return TRUE;
+        }
+    }
+
+    $forwarded_ssl = strtolower( trim( (string) ( isset( $server['HTTP_X_FORWARDED_SSL'] ) ? $server['HTTP_X_FORWARDED_SSL'] : '' ) ) );
+    if ( 'on' === $forwarded_ssl ) {
+        return TRUE;
+    }
+
+    return isset( $server['SERVER_PORT'] ) && '443' === (string) $server['SERVER_PORT'];
+}
+
+/**
+ * Returns TRUE when runtime or request context confirms HTTPS for HSTS emission.
+ *
+ * @param array $runtime
+ * @param array $server
+ * @return bool
+ */
+function tonbankcard_runtime_confirms_https( array $runtime = [], array $server = [] ) {
+    $runtime = empty( $runtime ) && isset( $GLOBALS['runtime_config'] ) ? $GLOBALS['runtime_config'] : $runtime;
+
+    if ( tonbankcard_request_is_https( $server ) ) {
+        return TRUE;
+    }
+
+    foreach ( [ 'active', 'public', 'telegram', 'staging' ] as $key ) {
+        if ( ! empty( $runtime['urls'][ $key ] ) && tonbankcard_url_is_https( (string) $runtime['urls'][ $key ] ) ) {
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
+/**
+ * Returns TRUE when HSTS should be emitted for the current response.
+ *
+ * @param array $runtime
+ * @param array $server
+ * @return bool
+ */
+function tonbankcard_should_emit_hsts( array $runtime = [], array $server = [] ) {
+    $security = tonbankcard_runtime_security_config( $runtime );
+    return ! empty( $security['hsts_enabled'] ) && tonbankcard_runtime_confirms_https( $runtime, $server );
+}
+
+/**
+ * Returns the configured HSTS header value.
+ *
+ * @param array $runtime
+ * @return string
+ */
+function tonbankcard_hsts_header_value( array $runtime = [] ) {
+    $security = tonbankcard_runtime_security_config( $runtime );
+    return $security['hsts_header'];
+}
+
+/**
+ * Returns TRUE when session cookies should carry the Secure attribute.
+ *
+ * @param array $runtime
+ * @return bool
+ */
+function tonbankcard_should_secure_session_cookies( array $runtime = [] ) {
+    $runtime = empty( $runtime ) && isset( $GLOBALS['runtime_config'] ) ? $GLOBALS['runtime_config'] : $runtime;
+    $security = tonbankcard_runtime_security_config( $runtime );
+    $active_url = isset( $runtime['urls']['active'] ) ? (string) $runtime['urls']['active'] : '';
+
+    return ! empty( $security['secure_cookies'] )
+        || ! empty( $security['force_https'] )
+        || tonbankcard_url_is_https( $active_url );
+}
+
+/**
+ * Returns a sanitized request host suitable for same-host HTTPS redirects.
+ *
+ * @param array $server
+ * @return string
+ */
+function tonbankcard_request_host( array $server = [] ) {
+    $server = empty( $server ) ? $_SERVER : $server;
+    $host = isset( $server['HTTP_HOST'] ) ? (string) $server['HTTP_HOST'] : ( isset( $server['SERVER_NAME'] ) ? (string) $server['SERVER_NAME'] : '' );
+    $host = trim( $host );
+
+    if ( '' === $host || preg_match( '/[\r\n\/\\\\]/', $host ) ) {
+        return '';
+    }
+
+    if ( ! preg_match( '/^[A-Za-z0-9.\-:\[\]]{1,253}$/', $host ) ) {
+        return '';
+    }
+
+    return $host;
+}
+
+/**
+ * Returns TRUE when a host points to local development.
+ *
+ * @param string $host
+ * @return bool
+ */
+function tonbankcard_host_is_local( string $host ) {
+    $host = strtolower( trim( $host ) );
+    if ( preg_match( '/^\[(.+)\](?::[0-9]+)?$/', $host, $matches ) ) {
+        $host = $matches[1];
+    } else {
+        $host = preg_replace( '/:[0-9]+$/', '', $host );
+    }
+
+    return 'localhost' === $host
+        || '::1' === $host
+        || '0.0.0.0' === $host
+        || 1 === preg_match( '/^127(?:\.[0-9]{1,3}){0,3}$/', $host );
+}
+
+/**
+ * Returns the HTTPS redirect target for the current request, or null when no redirect is needed.
+ *
+ * @param array $runtime
+ * @param array $server
+ * @return string|null
+ */
+function tonbankcard_https_redirect_url( array $runtime = [], array $server = [] ) {
+    $runtime = empty( $runtime ) && isset( $GLOBALS['runtime_config'] ) ? $GLOBALS['runtime_config'] : $runtime;
+    $server = empty( $server ) ? $_SERVER : $server;
+    $security = tonbankcard_runtime_security_config( $runtime );
+
+    if ( empty( $security['force_https'] ) || tonbankcard_request_is_https( $server ) ) {
+        return null;
+    }
+
+    $host = tonbankcard_request_host( $server );
+    if ( '' === $host || tonbankcard_host_is_local( $host ) ) {
+        return null;
+    }
+
+    $request_uri = isset( $server['REQUEST_URI'] ) ? (string) $server['REQUEST_URI'] : '/';
+    if ( '' === $request_uri || '/' !== $request_uri[0] || preg_match( '/[\r\n]/', $request_uri ) ) {
+        $request_uri = '/';
+    }
+    if ( 0 === stripos( $request_uri, '/.well-known/acme-challenge/' ) ) {
+        return null;
+    }
+
+    return 'https://' . $host . $request_uri;
+}
+
+/**
+ * Emits the configured HTTPS redirect and exits when the current request is plain HTTP.
+ *
+ * @param array $runtime
+ * @param array $server
+ * @return bool
+ */
+function tonbankcard_enforce_https_redirect( array $runtime = [], array $server = [] ) {
+    if ( headers_sent() ) {
+        return FALSE;
+    }
+
+    $redirect_url = tonbankcard_https_redirect_url( $runtime, $server );
+    if ( null === $redirect_url ) {
+        return FALSE;
+    }
+
+    header( 'Location: ' . $redirect_url, TRUE, 301 );
+    header( 'Cache-Control: no-store' );
+    exit;
 }
 
 /**
@@ -2348,6 +2577,21 @@ function tonbankcard_require_url( array &$invalid, string $name, string $url, st
 }
 
 /**
+ * Adds an invalid or missing HTTPS URL environment variable error.
+ *
+ * @param array $invalid
+ * @param string $name
+ * @param string $url
+ * @param string $message
+ * @param string $example
+ */
+function tonbankcard_require_https_url( array &$invalid, string $name, string $url, string $message, string $example ) {
+    if ( '' === trim( $url ) || ! tonbankcard_valid_absolute_url( $url ) || ! tonbankcard_url_is_https( $url ) ) {
+        $invalid[] = tonbankcard_env_error( $name, $message, $example );
+    }
+}
+
+/**
  * Returns TRUE when an environment value is a supported boolean string.
  *
  * @param string $name
@@ -2472,36 +2716,36 @@ function validate_runtime_config() {
             );
             break;
         case 'staging':
-            tonbankcard_require_url(
+            tonbankcard_require_https_url(
                 $invalid,
                 'TONBANKCARD_STAGING_BASE_URL',
                 $runtime['urls']['staging'],
-                'Enter the public staging absolute URL.',
+                'Enter the public staging HTTPS absolute URL.',
                 "'https://staging-marketcap.tonbankcard.com/'"
             );
             break;
         case 'production':
-            tonbankcard_require_url(
+            tonbankcard_require_https_url(
                 $invalid,
                 'TONBANKCARD_PUBLIC_BASE_URL',
                 $runtime['urls']['public'],
-                'Enter the production public website absolute URL.',
+                'Enter the production public website HTTPS absolute URL.',
                 "'https://marketcap.tonbankcard.com/'"
             );
             break;
         case 'telegram':
-            tonbankcard_require_url(
+            tonbankcard_require_https_url(
                 $invalid,
                 'TONBANKCARD_TELEGRAM_BASE_URL',
                 $runtime['urls']['telegram'],
-                'Enter the Telegram Mini App absolute URL.',
+                'Enter the Telegram Mini App HTTPS absolute URL.',
                 "'https://miniapp.tonbankcard.com/'"
             );
-            tonbankcard_require_url(
+            tonbankcard_require_https_url(
                 $invalid,
                 'TONBANKCARD_PUBLIC_BASE_URL',
                 $runtime['urls']['public'],
-                'Enter the public website absolute URL used by shared links and fallbacks.',
+                'Enter the public website HTTPS absolute URL used by shared links and fallbacks.',
                 "'https://marketcap.tonbankcard.com/'"
             );
             break;
@@ -2517,7 +2761,7 @@ function validate_runtime_config() {
         'TONBANKCARD_FEATURE_PREMIUM',
     ];
 
-    foreach ( array_merge( $feature_flags, [ 'TONBANKCARD_VERBOSE_TRACING', 'TONBANKCARD_CLIENT_ERROR_REPORTING' ] ) as $flag ) {
+    foreach ( array_merge( $feature_flags, [ 'TONBANKCARD_VERBOSE_TRACING', 'TONBANKCARD_CLIENT_ERROR_REPORTING', 'TONBANKCARD_FORCE_HTTPS', 'TONBANKCARD_HSTS_ENABLED', 'TONBANKCARD_SECURE_COOKIES' ] ) as $flag ) {
         if ( ! tonbankcard_env_bool_is_valid( $flag ) ) {
             $invalid[] = tonbankcard_env_error(
                 $flag,

@@ -49,6 +49,7 @@ assert_file .htaccess
 assert_contains "$doc" '^# TONBANKCARD V2 Security, Privacy, and Compliance Hardening$' 'the launch-hardening title'
 assert_contains "$doc" 'Issue: \[#38\]' 'the issue reference'
 assert_contains "$doc" 'Content-Security-Policy' 'the CSP launch control'
+assert_contains "$doc" 'Strict-Transport-Security' 'the HSTS launch control'
 assert_contains "$doc" 'CSRF' 'the CSRF launch control'
 assert_contains "$doc" 'Sensitive endpoint access matrix' 'the sensitive endpoint access matrix'
 assert_contains "$doc" 'Secret rotation plan' 'the secret rotation plan'
@@ -64,6 +65,9 @@ assert_contains "$doc" 'tests/security-compliance-check\.sh' 'the security test 
 assert_contains README.md 'docs/v2-security-privacy-compliance\.md' 'the security and compliance documentation link'
 assert_contains package.json '"test:security-compliance"' 'the security and compliance npm script'
 assert_contains package.json 'test:security-compliance' 'the aggregate security and compliance check'
+assert_contains .htaccess 'Strict-Transport-Security' 'the Apache HSTS header'
+assert_contains .htaccess 'RewriteCond %\{HTTPS\} !=on' 'the active Apache HTTPS redirect condition'
+assert_contains .htaccess 'RewriteRule \^ https://%\{HTTP_HOST\}%\{REQUEST_URI\}' 'the active Apache HTTPS redirect target'
 assert_contains .htaccess 'X-Content-Type-Options' 'static asset nosniff header'
 assert_contains .htaccess 'Referrer-Policy' 'static asset referrer policy header'
 assert_contains .htaccess 'Permissions-Policy' 'static asset permissions policy header'
@@ -75,8 +79,11 @@ assert_contains api/router.php 'X-TONBANKCARD-CSRF' 'the CSRF request header'
 assert_contains config/api.php 'X-TONBANKCARD-CSRF' 'the CORS allow-list CSRF header'
 assert_contains dev/js/src/initial.js 'csrf_token' 'frontend CSRF token capture'
 
-php_check 'public security headers should include CSP and browser hardening directives' \
-    env -i PATH="$PATH" php <<'PHP'
+php_check 'public HTTPS security headers should include CSP, HSTS, and browser hardening directives' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_PROFILE=production \
+        TONBANKCARD_PUBLIC_BASE_URL='https://marketcap.example.com/' \
+        php <<'PHP'
 <?php
 require 'constants.php';
 require GECKO_CLIENT_CONFIG_DIR . '/site.php';
@@ -84,7 +91,7 @@ require __DIR__ . '/functions.php';
 
 $headers = tonbankcard_security_headers( 'html' );
 
-foreach ( [ 'Content-Security-Policy', 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy' ] as $name ) {
+foreach ( [ 'Content-Security-Policy', 'Strict-Transport-Security', 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy' ] as $name ) {
     if ( empty( $headers[ $name ] ) ) {
         fwrite( STDERR, "Missing $name security header\n" );
         exit( 1 );
@@ -103,10 +110,18 @@ if ( 'nosniff' !== $headers['X-Content-Type-Options'] ) {
     fwrite( STDERR, "X-Content-Type-Options should be nosniff\n" );
     exit( 1 );
 }
+
+if ( 'max-age=63072000; includeSubDomains; preload' !== $headers['Strict-Transport-Security'] ) {
+    fwrite( STDERR, "Unexpected HSTS header: " . $headers['Strict-Transport-Security'] . "\n" );
+    exit( 1 );
+}
 PHP
 
 php_check 'API responses should inherit non-CSP security headers' \
-    env -i PATH="$PATH" php <<'PHP'
+    env -i PATH="$PATH" \
+        TONBANKCARD_PROFILE=production \
+        TONBANKCARD_PUBLIC_BASE_URL='https://marketcap.example.com/' \
+        php <<'PHP'
 <?php
 require 'constants.php';
 require GECKO_CLIENT_CONFIG_DIR . '/site.php';
@@ -126,7 +141,7 @@ $response = tonbankcard_api_handle(
     $api
 );
 
-foreach ( [ 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy' ] as $name ) {
+foreach ( [ 'Strict-Transport-Security', 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy' ] as $name ) {
     if ( empty( $response['headers'][ $name ] ) ) {
         fwrite( STDERR, "API response missing $name\n" );
         exit( 1 );
@@ -135,6 +150,78 @@ foreach ( [ 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy' ] 
 
 if ( isset( $response['headers']['Content-Security-Policy'] ) ) {
     fwrite( STDERR, "JSON API responses should not emit the HTML CSP\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'forced HTTP requests should resolve to the HTTPS URL for redirect' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_PROFILE=production \
+        TONBANKCARD_PUBLIC_BASE_URL='https://marketcap.example.com/' \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/site.php';
+require __DIR__ . '/functions.php';
+
+if ( ! function_exists( 'tonbankcard_https_redirect_url' ) ) {
+    fwrite( STDERR, "Missing tonbankcard_https_redirect_url helper\n" );
+    exit( 1 );
+}
+
+$redirect_url = tonbankcard_https_redirect_url(
+    $GLOBALS['runtime_config'],
+    [
+        'HTTPS'       => 'off',
+        'HTTP_HOST'   => 'marketcap.example.com',
+        'REQUEST_URI' => '/markets?tab=ton',
+    ]
+);
+
+if ( 'https://marketcap.example.com/markets?tab=ton' !== $redirect_url ) {
+    fwrite( STDERR, "Unexpected HTTPS redirect URL: " . var_export( $redirect_url, TRUE ) . "\n" );
+    exit( 1 );
+}
+
+$local_redirect = tonbankcard_https_redirect_url(
+    [
+        'security' => [ 'force_https' => TRUE ],
+    ],
+    [
+        'HTTPS'       => 'off',
+        'HTTP_HOST'   => 'localhost:8888',
+        'REQUEST_URI' => '/markets',
+    ]
+);
+
+if ( null !== $local_redirect ) {
+    fwrite( STDERR, "Localhost should not be force-redirected: " . $local_redirect . "\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'production session cookies should stay Secure even when the active request arrived over HTTP' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_PROFILE=production \
+        TONBANKCARD_PUBLIC_BASE_URL='http://marketcap.example.com/' \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/functions.php';
+require __DIR__ . '/api/router.php';
+
+$cookie = tonbankcard_api_session_cookie_header(
+    [
+        'session_token'        => str_repeat( 'a', 64 ),
+        'expires_at_timestamp' => time() + 3600,
+    ],
+    $GLOBALS['runtime_config'],
+    [ 'session_ttl_seconds' => 3600 ]
+);
+
+if ( FALSE === strpos( $cookie, '; Secure' ) ) {
+    fwrite( STDERR, "Production session cookie is missing Secure: $cookie\n" );
     exit( 1 );
 }
 PHP

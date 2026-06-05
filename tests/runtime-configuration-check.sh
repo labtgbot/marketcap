@@ -45,6 +45,9 @@ assert_file config/runtime.php
 assert_contains .env.example '^TONBANKCARD_PROFILE=local$' 'the local runtime profile'
 assert_contains .env.example '^TONBANKCARD_PUBLIC_BASE_URL=' 'the public website base URL'
 assert_contains .env.example '^TONBANKCARD_TELEGRAM_BASE_URL=' 'the Telegram Mini App base URL'
+assert_contains .env.example '^TONBANKCARD_FORCE_HTTPS=' 'the HTTPS redirect control'
+assert_contains .env.example '^TONBANKCARD_HSTS_ENABLED=' 'the HSTS control'
+assert_contains .env.example '^TONBANKCARD_SECURE_COOKIES=' 'the secure cookie control'
 assert_contains .env.example '^TONBANKCARD_BOT_USERNAME=' 'the Telegram bot username'
 assert_contains .env.example '^TONBANKCARD_BOT_TOKEN=' 'the Telegram bot token'
 assert_contains .env.example '^COINGECKO_API_PLAN=demo$' 'the CoinGecko API plan'
@@ -69,6 +72,8 @@ assert_contains docs/runtime-configuration.md 'Missing production values' 'produ
 assert_contains docs/runtime-configuration.md 'Secret values are never rendered' 'secret-safe validation behavior'
 assert_contains docs/runtime-configuration.md 'TONBANKCARD_PUBLIC_BASE_URL' 'public website URL configuration'
 assert_contains docs/runtime-configuration.md 'TONBANKCARD_TELEGRAM_BASE_URL' 'Telegram Mini App URL configuration'
+assert_contains docs/runtime-configuration.md 'TONBANKCARD_FORCE_HTTPS' 'HTTPS redirect configuration'
+assert_contains docs/runtime-configuration.md 'Strict-Transport-Security' 'HSTS runtime behavior'
 assert_contains docs/runtime-configuration.md 'COINGECKO_API_PLAN.*demo' 'CoinGecko API plan behavior'
 assert_contains docs/runtime-configuration.md 'x-cg-pro-api-key' 'CoinGecko Pro key header behavior'
 
@@ -94,6 +99,11 @@ if ( GECKO_CLIENT_ENV !== 'development' ) {
 
 if ( GECKO_CLIENT_DISPLAY_ERRORS !== TRUE ) {
     fwrite( STDERR, "Local profile should display errors by default\n" );
+    exit( 1 );
+}
+
+if ( ! empty( $GLOBALS['runtime_config']['security']['force_https'] ) || ! empty( $GLOBALS['runtime_config']['security']['hsts_enabled'] ) || ! empty( $GLOBALS['runtime_config']['security']['secure_cookies'] ) ) {
+    fwrite( STDERR, "Local profile should not force HTTPS, HSTS, or Secure cookies by default\n" );
     exit( 1 );
 }
 PHP
@@ -174,6 +184,13 @@ if ( ! isset( $coingecko['api_key_configured'] ) || $coingecko['api_key_configur
 if ( ! isset( $coingecko['api_plan'] ) || 'demo' !== $coingecko['api_plan'] ) {
     fwrite( STDERR, "CoinGecko API plan should default to demo\n" );
     exit( 1 );
+}
+
+foreach ( [ 'force_https', 'hsts_enabled', 'secure_cookies' ] as $flag ) {
+    if ( empty( $GLOBALS['runtime_config']['security'][ $flag ] ) ) {
+        fwrite( STDERR, "Production profile should enable security flag by default: $flag\n" );
+        exit( 1 );
+    }
 }
 PHP
 

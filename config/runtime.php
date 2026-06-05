@@ -348,6 +348,13 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
             }
         }
 
+        $active_url_parts = parse_url( $active_url );
+        $active_url_is_https = is_array( $active_url_parts )
+            && ! empty( $active_url_parts['scheme'] )
+            && 'https' === strtolower( (string) $active_url_parts['scheme'] );
+        $force_https = tonbankcard_env_bool( 'TONBANKCARD_FORCE_HTTPS', 'local' !== $profile );
+        $hsts_enabled = tonbankcard_env_bool( 'TONBANKCARD_HSTS_ENABLED', $force_https && 'local' !== $profile );
+
         $changenow_feature = tonbankcard_env_bool( 'TONBANKCARD_FEATURE_CHANGENOW', FALSE );
         $feature_flags = [
             'ai'           => tonbankcard_env_bool( 'TONBANKCARD_FEATURE_AI', FALSE ),
@@ -460,6 +467,12 @@ if ( ! function_exists( 'tonbankcard_runtime_config' ) ) {
                 'staging'  => $staging_url,
                 'public'   => $public_url,
                 'telegram' => $telegram_url,
+            ],
+            'security'      => [
+                'force_https'    => $force_https,
+                'hsts_enabled'   => $hsts_enabled,
+                'hsts_header'    => 'max-age=63072000; includeSubDomains; preload',
+                'secure_cookies' => tonbankcard_env_bool( 'TONBANKCARD_SECURE_COOKIES', $force_https || $active_url_is_https ),
             ],
             'telegram'      => [
                 'bot_username'              => (string) tonbankcard_env( 'TONBANKCARD_BOT_USERNAME', '' ),
