@@ -932,7 +932,7 @@ if ( ! function_exists( 'tonbankcard_installer_format_env_value' ) ) {
             return $value;
         }
 
-        return '"' . str_replace( [ '\\', '"' ], [ '\\\\', '\\"' ], $value ) . '"';
+        return '"' . str_replace( [ '\\', "\r", "\n", '"' ], [ '\\\\', '\\r', '\\n', '\\"' ], $value ) . '"';
     }
 }
 
