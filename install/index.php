@@ -59,9 +59,10 @@ if ( ! empty( $lock_state['allowed'] ) && 'POST' === ( isset( $_SERVER['REQUEST_
                     'text' => $migration_result['message'],
                 ];
             } catch ( Throwable $error ) {
+                tonbankcard_installer_log_error( 'database migrations failed', $error );
                 $messages[] = [
                     'type' => 'error',
-                    'text' => tonbankcard_installer_translate( 'Database migrations failed:', $installer_language ) . ' ' . $error->getMessage(),
+                    'text' => tonbankcard_installer_migration_failure_message( $installer_language ),
                 ];
             }
         } elseif ( 'write_env' === $action ) {
@@ -90,9 +91,10 @@ if ( ! empty( $lock_state['allowed'] ) && 'POST' === ( isset( $_SERVER['REQUEST_
                             'text' => $migration_result['message'],
                         ];
                     } catch ( Throwable $error ) {
+                        tonbankcard_installer_log_error( 'database migrations failed after .env write', $error );
                         $messages[] = [
                             'type' => 'error',
-                            'text' => tonbankcard_installer_translate( 'The .env file was written, but migrations failed:', $installer_language ) . ' ' . $error->getMessage(),
+                            'text' => tonbankcard_installer_migration_failure_message( $installer_language, TRUE ),
                         ];
                     }
                 }

@@ -30,6 +30,21 @@ assert_contains() {
     fi
 }
 
+assert_not_contains() {
+    file=$1
+    pattern=$2
+    description=$3
+
+    if [ ! -f "$file" ]; then
+        fail "Cannot inspect missing file: $file"
+        return
+    fi
+
+    if grep -Eq "$pattern" "$file"; then
+        fail "$file still contains $description"
+    fi
+}
+
 php_check() {
     description=$1
     shift
@@ -41,6 +56,7 @@ php_check() {
 
 assert_file install/index.php
 assert_file install/includes/installer.php
+assert_file install/.htaccess
 assert_file "$doc"
 assert_file .env.example
 assert_file README.md
@@ -57,6 +73,9 @@ assert_contains "$doc" 'Telegram Mini App' 'Telegram Mini App configuration'
 assert_contains "$doc" '\.env' 'environment file generation'
 assert_contains "$doc" 'database migrations' 'database migration execution'
 assert_contains "$doc" 'TONBANKCARD_INSTALLER_ENABLED' 'installer lock guidance'
+assert_contains "$doc" 'out-of-band TONBANKCARD_INSTALLER_TOKEN' 'first-run installer token requirement'
+assert_contains "$doc" 'install/\.htaccess' 'default Apache installer deny rule'
+assert_contains "$doc" 'delete the install/ directory' 'post-install removal guidance'
 assert_contains "$doc" '## Language Selection' 'installer language selection guidance'
 assert_contains "$doc" 'English and Russian' 'English and Russian installer support'
 assert_contains "$doc" '## Field Filling Reference' 'field filling reference'
@@ -68,6 +87,9 @@ assert_contains "$doc" 'TONBANKCARD_FEATURE_ALERTS' 'feature flag field guidance
 
 assert_contains .env.example '^TONBANKCARD_INSTALLER_ENABLED=false$' 'the installer enabled flag'
 assert_contains .env.example '^TONBANKCARD_INSTALLER_TOKEN=' 'the installer token'
+assert_contains install/.htaccess 'Require all denied' 'the default Apache installer access denial'
+assert_not_contains install/includes/installer.php 'uniqid|mt_rand' 'weak installer token entropy fallbacks'
+assert_not_contains install/index.php '\$error->getMessage\(\)' 'raw migration error reflection'
 assert_contains README.md 'docs/automatic-hosting-installer\.md' 'the automatic installer documentation link'
 assert_contains README.md 'npm run test:automatic-installer' 'the automatic installer npm check'
 assert_contains package.json '"test:automatic-installer"' 'the automatic installer npm script'
@@ -190,11 +212,16 @@ foreach ( $expected as $line ) {
     }
 }
 
-foreach ( [ 'TONBANKCARD_ALERT_WORKER_TOKEN=', 'TONBANKCARD_SEARCH_REFRESH_TOKEN=' ] as $prefix ) {
+foreach ( [ 'TONBANKCARD_INSTALLER_TOKEN=', 'TONBANKCARD_ALERT_WORKER_TOKEN=', 'TONBANKCARD_SEARCH_REFRESH_TOKEN=' ] as $prefix ) {
     if ( ! preg_match( '/^' . preg_quote( $prefix, '/' ) . '[A-Za-z0-9._:-]{24,}$/m', $env ) ) {
         fwrite( STDERR, "Expected generated token for $prefix\n" );
         exit( 1 );
     }
+}
+
+if ( ! preg_match( '/^TONBANKCARD_INSTALLER_TOKEN=[a-f0-9]{48}$/m', $env ) ) {
+    fwrite( STDERR, "Installer re-entry token should be generated from 24 random bytes\n" );
+    exit( 1 );
 }
 
 if ( tonbankcard_installer_display_value( 'TONBANKCARD_BOT_TOKEN', $prepared['TONBANKCARD_BOT_TOKEN'] ) !== 'configured' ) {
@@ -286,7 +313,7 @@ if ( FALSE === strpos( $env, 'MYSQL_PASSWORD="secret\r\nTONBANKCARD_ADMIN_TOKEN=
 }
 PHP
 
-php_check 'installer lock should allow first run and require an explicit token after .env exists' \
+php_check 'installer lock should require explicit tokens before first run and after .env exists' \
     env -i PATH="$PATH" php <<'PHP'
 <?php
 require 'install/includes/installer.php';
@@ -295,10 +322,24 @@ $root = sys_get_temp_dir() . '/tonbankcard-installer-' . bin2hex( random_bytes( 
 mkdir( $root, 0700, TRUE );
 
 $state = tonbankcard_installer_lock_state( $root, [] );
-if ( empty( $state['allowed'] ) || empty( $state['first_run'] ) ) {
-    fwrite( STDERR, "Installer should be allowed before .env exists\n" );
+if ( ! empty( $state['allowed'] ) || empty( $state['first_run'] ) || empty( $state['token_required'] ) ) {
+    fwrite( STDERR, "Installer should require an out-of-band token before .env exists\n" );
     exit( 1 );
 }
+
+$state = tonbankcard_installer_lock_state( $root, [ 'token' => 'wrong-token' ] );
+if ( ! empty( $state['allowed'] ) || empty( $state['token_required'] ) ) {
+    fwrite( STDERR, "Installer should reject a wrong first-run token\n" );
+    exit( 1 );
+}
+
+putenv( 'TONBANKCARD_INSTALLER_TOKEN=first-run-secret-1234567890' );
+$state = tonbankcard_installer_lock_state( $root, [ 'token' => 'first-run-secret-1234567890' ] );
+if ( empty( $state['allowed'] ) || empty( $state['first_run'] ) || empty( $state['token_valid'] ) ) {
+    fwrite( STDERR, "Installer should allow the configured first-run token\n" );
+    exit( 1 );
+}
+putenv( 'TONBANKCARD_INSTALLER_TOKEN' );
 
 file_put_contents( $root . '/.env', "TONBANKCARD_INSTALLER_ENABLED=false\n" );
 $state = tonbankcard_installer_lock_state( $root, [] );
@@ -322,6 +363,45 @@ if ( empty( $state['allowed'] ) || empty( $state['token_valid'] ) ) {
 
 unlink( $root . '/.env' );
 rmdir( $root );
+PHP
+
+php_check 'installer should not reflect raw database failure details to users' \
+    env -i PATH="$PATH" php <<'PHP'
+<?php
+require 'install/includes/installer.php';
+
+$values = tonbankcard_installer_default_values();
+$values['MYSQL_DSN'] = 'mysql:host=127.0.0.1;port=1;dbname=marketcap;charset=utf8mb4';
+$values['MYSQL_USER'] = 'marketcap_user';
+$values['MYSQL_PASSWORD'] = 'secret-password';
+
+$log_file = tempnam( sys_get_temp_dir(), 'tonbankcard-installer-db-error-' );
+ini_set( 'error_log', $log_file );
+register_shutdown_function(
+    function () use ( $log_file ) {
+        if ( is_file( $log_file ) ) {
+            unlink( $log_file );
+        }
+    }
+);
+
+$result = tonbankcard_installer_test_database( $values );
+if ( ! empty( $result['ok'] ) ) {
+    fwrite( STDERR, "Database check should fail for the closed local port fixture\n" );
+    exit( 1 );
+}
+
+$expected = tonbankcard_installer_translate( 'Database connection failed. Review the PHP error log for details, then check credentials and server access.' );
+if ( $expected !== $result['message'] ) {
+    fwrite( STDERR, "Database failure message should be generic, got: " . $result['message'] . "\n" );
+    exit( 1 );
+}
+
+$log = file_get_contents( $log_file );
+if ( FALSE === $log || FALSE === strpos( $log, 'TONBANKCARD installer database connection failed:' ) ) {
+    fwrite( STDERR, "Database failure details should be written to the PHP error log\n" );
+    exit( 1 );
+}
 PHP
 
 php_check 'installer should list migration files before applying them' \
