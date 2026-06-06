@@ -137,7 +137,7 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
     $started_at = microtime( TRUE );
 
     $request_id = tonbankcard_api_request_id( $request['headers'] );
-    $headers    = tonbankcard_api_base_headers( $request, $config, $request_id );
+    $headers    = tonbankcard_api_base_headers( $request, $config, $request_id, $runtime );
 
     try {
         if ( 'OPTIONS' === $request['method'] ) {
@@ -913,11 +913,12 @@ function tonbankcard_api_request_id( array $headers ) {
  * @param array $request
  * @param array $config
  * @param string $request_id
+ * @param array $runtime
  * @return array
  */
-function tonbankcard_api_base_headers( array $request, array $config, string $request_id ) {
+function tonbankcard_api_base_headers( array $request, array $config, string $request_id, array $runtime = [] ) {
     $security_headers = function_exists( 'tonbankcard_security_headers' )
-        ? tonbankcard_security_headers( 'api' )
+        ? tonbankcard_security_headers( 'api', $runtime )
         : [
             'X-Content-Type-Options' => 'nosniff',
             'Referrer-Policy'        => 'strict-origin-when-cross-origin',
@@ -1176,12 +1177,13 @@ function tonbankcard_api_local_browser_session_response( array $request, array $
  */
 function tonbankcard_api_telegram_session_settings( array $config ) {
     $settings = isset( $config['telegram_session'] ) && is_array( $config['telegram_session'] ) ? $config['telegram_session'] : [];
+    $default_store_path = tonbankcard_runtime_state_store_path( 'tonbankcard-marketcap-sessions.json' );
 
     return [
         'init_data_max_age_seconds'     => isset( $settings['init_data_max_age_seconds'] ) ? max( 60, (int) $settings['init_data_max_age_seconds'] ) : 86400,
         'auth_date_future_skew_seconds' => isset( $settings['auth_date_future_skew_seconds'] ) ? max( 0, (int) $settings['auth_date_future_skew_seconds'] ) : 60,
         'session_ttl_seconds'           => isset( $settings['session_ttl_seconds'] ) ? max( 300, (int) $settings['session_ttl_seconds'] ) : 2592000,
-        'local_session_store_path'      => ! empty( $settings['local_session_store_path'] ) ? (string) $settings['local_session_store_path'] : sys_get_temp_dir() . '/tonbankcard-marketcap-sessions.json',
+        'local_session_store_path'      => ! empty( $settings['local_session_store_path'] ) ? (string) $settings['local_session_store_path'] : $default_store_path,
     ];
 }
 
@@ -1513,14 +1515,19 @@ function tonbankcard_api_session_database_connection( array $runtime, &$error = 
     }
 
     try {
+        $profile = isset( $runtime['profile'] ) ? (string) $runtime['profile'] : 'local';
         return new PDO(
             $mysql['dsn'],
             $mysql['user'],
             isset( $mysql['password'] ) ? $mysql['password'] : '',
-            [
-                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            ]
+            tonbankcard_mysql_pdo_options(
+                $mysql,
+                $profile,
+                [
+                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                ]
+            )
         );
     } catch ( Throwable $exception ) {
         $error = 'Session database connection failed.';
@@ -1660,7 +1667,24 @@ function tonbankcard_api_store_database_session_record( PDO $pdo, array $session
  * @return array
  */
 function tonbankcard_api_store_local_session_record( array $session, array $settings ) {
-    $path = $settings['local_session_store_path'];
+    $path = trim( (string) $settings['local_session_store_path'] );
+    if ( function_exists( 'tonbankcard_runtime_sensitive_store_status' ) ) {
+        $status = tonbankcard_runtime_sensitive_store_status(
+            $path,
+            [
+                'mode'       => 'write',
+                'create_dir' => TRUE,
+            ]
+        );
+        if ( empty( $status['ok'] ) ) {
+            return [
+                'ok'      => FALSE,
+                'storage' => 'local_file',
+                'error'   => isset( $status['code'] ) ? $status['code'] : 'sensitive_store_unavailable',
+            ];
+        }
+    }
+
     $dir = dirname( $path );
     if ( ! is_dir( $dir ) && ! mkdir( $dir, 0700, TRUE ) ) {
         return [
@@ -1784,8 +1808,11 @@ function tonbankcard_api_session_cookie_header( array $session, array $runtime, 
         . '; HttpOnly'
         . '; SameSite=Lax';
 
-    $active_url = isset( $runtime['urls']['active'] ) ? (string) $runtime['urls']['active'] : '';
-    if ( 0 === strpos( $active_url, 'https://' ) ) {
+    $secure_cookie = function_exists( 'tonbankcard_should_secure_session_cookies' )
+        ? tonbankcard_should_secure_session_cookies( $runtime )
+        : 0 === strpos( (string) ( isset( $runtime['urls']['active'] ) ? $runtime['urls']['active'] : '' ), 'https://' );
+
+    if ( $secure_cookie ) {
         $cookie .= '; Secure';
     }
 
@@ -2167,7 +2194,11 @@ function tonbankcard_api_database_check( array $runtime, array $config ) {
             $mysql['dsn'],
             isset( $mysql['user'] ) ? $mysql['user'] : '',
             isset( $mysql['password'] ) ? $mysql['password'] : '',
-            [ PDO::ATTR_TIMEOUT => isset( $config['readiness']['timeout_seconds'] ) ? (int) $config['readiness']['timeout_seconds'] : 2 ]
+            tonbankcard_mysql_pdo_options(
+                $mysql,
+                $profile,
+                [ PDO::ATTR_TIMEOUT => isset( $config['readiness']['timeout_seconds'] ) ? (int) $config['readiness']['timeout_seconds'] : 2 ]
+            )
         );
 
         return [

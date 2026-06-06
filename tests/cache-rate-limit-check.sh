@@ -377,6 +377,113 @@ if ( ! isset( $metrics_payload['data']['rate_limit']['blocked'] ) || $metrics_pa
 }
 PHP
 
+php_check 'anonymous rate limiter should not mint a fresh bucket when User-Agent changes' \
+    env -i PATH="$PATH" \
+        UPSTASH_REDIS_REST_URL='https://redis.example' \
+        UPSTASH_REDIS_REST_TOKEN='redis-secret-token' \
+        TONBANKCARD_CACHE_ENABLED=false \
+        TONBANKCARD_RATE_LIMIT_ENABLED=true \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$store = [];
+$rate_limit_keys = [];
+$test_api = $api;
+$test_api['rate_limit']['policies']['anonymous_web']['max_requests'] = 1;
+$test_api['rate_limit']['policies']['anonymous_web']['window_seconds'] = 60;
+$test_api['redis']['transport'] = function ( $command ) use ( &$store, &$rate_limit_keys ) {
+    $op = strtoupper( (string) $command[0] );
+    if ( 'INCR' === $op ) {
+        if ( FALSE !== strpos( $command[1], ':rate_limit:anonymous_web:' ) ) {
+            $rate_limit_keys[ $command[1] ] = TRUE;
+        }
+        $store[ $command[1] ] = (string) ( (int) ( isset( $store[ $command[1] ] ) ? $store[ $command[1] ] : 0 ) + 1 );
+        return [ 'ok' => TRUE, 'result' => (int) $store[ $command[1] ] ];
+    }
+    if ( 'EXPIRE' === $op ) {
+        return [ 'ok' => TRUE, 'result' => 1 ];
+    }
+    if ( 'TTL' === $op ) {
+        return [ 'ok' => TRUE, 'result' => 60 ];
+    }
+    return [ 'ok' => TRUE, 'result' => null ];
+};
+
+$request = [
+    'method'  => 'GET',
+    'path'    => '/api',
+    'headers' => [
+        'x-forwarded-for' => '203.0.113.30',
+        'user-agent'      => 'RotatingUA/1',
+    ],
+    'body'    => '',
+];
+$first = tonbankcard_api_handle( $request, [], $GLOBALS['runtime_config'], $test_api );
+$request['headers']['user-agent'] = 'RotatingUA/2';
+$second = tonbankcard_api_handle( $request, [], $GLOBALS['runtime_config'], $test_api );
+
+if ( 200 !== $first['status'] ) {
+    fwrite( STDERR, 'Expected first anonymous request to pass, got ' . $first['status'] . "\n" );
+    exit( 1 );
+}
+if ( 429 !== $second['status'] ) {
+    fwrite( STDERR, 'Expected User-Agent rotation to keep the same anonymous bucket, got ' . $second['status'] . "\n" );
+    exit( 1 );
+}
+if ( 1 !== count( $rate_limit_keys ) ) {
+    fwrite( STDERR, 'Expected one anonymous rate-limit bucket, got ' . count( $rate_limit_keys ) . "\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'rate limiter should fall back to bounded in-process enforcement when Redis is unavailable' \
+    env -i PATH="$PATH" \
+        UPSTASH_REDIS_REST_URL='https://redis.example' \
+        UPSTASH_REDIS_REST_TOKEN='redis-secret-token' \
+        TONBANKCARD_CACHE_ENABLED=false \
+        TONBANKCARD_RATE_LIMIT_ENABLED=true \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$test_api = $api;
+$test_api['rate_limit']['policies']['anonymous_web']['max_requests'] = 1;
+$test_api['rate_limit']['policies']['anonymous_web']['window_seconds'] = 60;
+$test_api['redis']['transport'] = function ( $command ) {
+    return [ 'ok' => FALSE, 'error' => 'redis_outage' ];
+};
+
+$request = [
+    'method'  => 'GET',
+    'path'    => '/api',
+    'headers' => [
+        'x-forwarded-for' => '203.0.113.40',
+        'user-agent'      => 'RedisOutage',
+    ],
+    'body'    => '',
+];
+$first = tonbankcard_api_handle( $request, [], $GLOBALS['runtime_config'], $test_api );
+$second = tonbankcard_api_handle( $request, [], $GLOBALS['runtime_config'], $test_api );
+
+if ( 200 !== $first['status'] ) {
+    fwrite( STDERR, 'Expected first Redis-outage request to pass under fallback limiter, got ' . $first['status'] . "\n" );
+    exit( 1 );
+}
+if ( 429 !== $second['status'] ) {
+    fwrite( STDERR, 'Expected Redis outage fallback limiter to block the second request, got ' . $second['status'] . "\n" );
+    exit( 1 );
+}
+if ( ! isset( $second['headers']['Retry-After'] ) || ! isset( $second['headers']['X-RateLimit-Limit'] ) || '1' !== $second['headers']['X-RateLimit-Limit'] ) {
+    fwrite( STDERR, "Fallback rate-limit response is missing standard headers\n" );
+    exit( 1 );
+}
+PHP
+
 php_check 'coalescing should wait for a duplicate market request instead of starting another provider call when cached data appears' \
     env -i PATH="$PATH" \
         UPSTASH_REDIS_REST_URL='https://redis.example' \

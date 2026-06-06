@@ -108,6 +108,18 @@ function tonbankcard_api_ai_handle( array $request, array $runtime, array $confi
         return tonbankcard_api_method_not_allowed_response( [ 'POST', 'OPTIONS' ], $request_id, $headers );
     }
 
+    $size_error = tonbankcard_api_ai_request_size_error( $request, $config );
+    if ( null !== $size_error ) {
+        return tonbankcard_api_error_response(
+            $size_error['status'],
+            $size_error['code'],
+            $size_error['message'],
+            $size_error['details'],
+            $request_id,
+            $headers
+        );
+    }
+
     $payload = tonbankcard_api_json_body( $request );
     $validation = tonbankcard_api_ai_validate_request_payload( $payload );
     if ( empty( $validation['ok'] ) ) {
@@ -121,7 +133,7 @@ function tonbankcard_api_ai_handle( array $request, array $runtime, array $confi
         );
     }
 
-    return tonbankcard_api_ai_insight_response( $validation['context'], $runtime, $config, $provider, $request_id, $headers );
+    return tonbankcard_api_ai_insight_response( $validation['context'], $request, $runtime, $config, $provider, $request_id, $headers );
 }
 
 /**
@@ -223,6 +235,184 @@ function tonbankcard_api_ai_provider_health_check( array $runtime, array $config
         ],
         'message'       => $configured ? 'Groq is configured server-side for AI insight generation.' : ( $required ? 'Groq API key is required when AI features are enabled.' : 'Groq is optional while AI features are disabled.' ),
     ];
+}
+
+/**
+ * Returns bounded AI request and provider prompt limits.
+ *
+ * @param array $config
+ * @return array
+ */
+function tonbankcard_api_ai_limits( array $config ) {
+    $ai = isset( $config['ai'] ) && is_array( $config['ai'] ) ? $config['ai'] : [];
+    $limits = isset( $ai['limits'] ) && is_array( $ai['limits'] ) ? $ai['limits'] : [];
+
+    return [
+        'max_request_body_bytes' => isset( $limits['max_request_body_bytes'] ) ? max( 1, (int) $limits['max_request_body_bytes'] ) : 16384,
+        'max_prompt_bytes'       => isset( $limits['max_prompt_bytes'] ) ? max( 1, (int) $limits['max_prompt_bytes'] ) : 12288,
+    ];
+}
+
+/**
+ * Rejects AI insight requests that exceed the configured raw body limit.
+ *
+ * @param array $request
+ * @param array $config
+ * @return array|null
+ */
+function tonbankcard_api_ai_request_size_error( array $request, array $config ) {
+    $limits = tonbankcard_api_ai_limits( $config );
+    $max_bytes = $limits['max_request_body_bytes'];
+    $body = isset( $request['body'] ) ? (string) $request['body'] : '';
+    $actual_bytes = strlen( $body );
+
+    if ( $actual_bytes <= $max_bytes ) {
+        return null;
+    }
+
+    return [
+        'status'  => 413,
+        'code'    => 'ai_request_too_large',
+        'message' => 'AI insight request body is too large.',
+        'details' => [
+            'limit_bytes' => $max_bytes,
+            'actual_bytes' => $actual_bytes,
+        ],
+    ];
+}
+
+/**
+ * Rejects AI insight requests that would create an oversized provider prompt.
+ *
+ * @param array $context
+ * @param array $provider
+ * @param array $config
+ * @return array|null
+ */
+function tonbankcard_api_ai_prompt_size_error( array $context, array $provider, array $config ) {
+    $limits = tonbankcard_api_ai_limits( $config );
+    $max_bytes = $limits['max_prompt_bytes'];
+    $actual_bytes = tonbankcard_api_ai_prompt_size_bytes( $context, $provider );
+
+    if ( $actual_bytes <= $max_bytes ) {
+        return null;
+    }
+
+    return [
+        'status'  => 413,
+        'code'    => 'ai_prompt_too_large',
+        'message' => 'AI insight prompt is too large after normalization.',
+        'details' => [
+            'limit_bytes' => $max_bytes,
+            'actual_bytes' => $actual_bytes,
+        ],
+    ];
+}
+
+/**
+ * Measures the largest prompt message payload across initial and retry attempts.
+ *
+ * @param array $context
+ * @param array $provider
+ * @return int
+ */
+function tonbankcard_api_ai_prompt_size_bytes( array $context, array $provider ) {
+    $max_bytes = 0;
+    foreach ( [ 1, 2 ] as $attempt ) {
+        $messages = tonbankcard_api_ai_prompt_messages( $context, $provider, $attempt );
+        $encoded = json_encode( $messages, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE );
+        if ( FALSE === $encoded ) {
+            return PHP_INT_MAX;
+        }
+        $max_bytes = max( $max_bytes, strlen( $encoded ) );
+    }
+
+    return $max_bytes;
+}
+
+/**
+ * Applies the provider-declared AI rate limit as a dedicated server-side bucket.
+ *
+ * @param array $request
+ * @param array $runtime
+ * @param array $config
+ * @param array $provider
+ * @return array
+ */
+function tonbankcard_api_ai_provider_rate_limit_check( array $request, array $runtime, array $config, array $provider ) {
+    $limit = isset( $provider['rate_limit'] ) && is_array( $provider['rate_limit'] ) ? $provider['rate_limit'] : [];
+    $window_seconds = isset( $limit['window_seconds'] ) ? max( 1, (int) $limit['window_seconds'] ) : 60;
+    $max_requests = isset( $limit['max_requests'] ) ? max( 1, (int) $limit['max_requests'] ) : 20;
+    $policy_name = 'ai_provider_' . tonbankcard_api_ai_rate_limit_provider_slug( isset( $provider['name'] ) ? (string) $provider['name'] : 'provider' );
+
+    $identity_key = tonbankcard_api_ai_provider_rate_limit_identity_key( $request );
+
+    $redis = tonbankcard_api_redis_settings( $runtime, $config );
+    if ( empty( $redis['enabled'] ) ) {
+        tonbankcard_api_metric_increment( $runtime, $config, 'rate_limit.unavailable' );
+        return tonbankcard_api_rate_limit_fallback_check( $policy_name, $identity_key, $window_seconds, $max_requests );
+    }
+
+    $key = $redis['key_prefix'] . ':rate_limit:' . $policy_name . ':' . $identity_key;
+    $increment = tonbankcard_api_redis_command( $runtime, $config, [ 'INCR', $key ] );
+    if ( empty( $increment['ok'] ) ) {
+        tonbankcard_api_metric_increment( $runtime, $config, 'rate_limit.unavailable' );
+        return tonbankcard_api_rate_limit_fallback_check( $policy_name, $identity_key, $window_seconds, $max_requests );
+    }
+
+    $count = (int) $increment['result'];
+    if ( 1 === $count ) {
+        tonbankcard_api_redis_command( $runtime, $config, [ 'EXPIRE', $key, $window_seconds ] );
+    }
+
+    $ttl_response = tonbankcard_api_redis_command( $runtime, $config, [ 'TTL', $key ] );
+    $retry_after = ! empty( $ttl_response['ok'] ) && (int) $ttl_response['result'] > 0 ? (int) $ttl_response['result'] : $window_seconds;
+    $decision = tonbankcard_api_rate_limit_decision( $policy_name, $max_requests, $window_seconds, $count, $retry_after );
+
+    if ( empty( $decision['allowed'] ) ) {
+        tonbankcard_api_metric_increment( $runtime, $config, 'rate_limit.blocked' );
+        return $decision;
+    }
+
+    tonbankcard_api_metric_increment( $runtime, $config, 'rate_limit.allowed' );
+    return $decision;
+}
+
+/**
+ * Normalizes provider names for rate-limit policy names.
+ *
+ * @param string $provider_name
+ * @return string
+ */
+function tonbankcard_api_ai_rate_limit_provider_slug( string $provider_name ) {
+    $slug = strtolower( trim( $provider_name ) );
+    $slug = preg_replace( '/[^a-z0-9_.-]/', '_', $slug );
+    $slug = trim( $slug, '._-' );
+
+    return '' === $slug ? 'provider' : substr( $slug, 0, 64 );
+}
+
+/**
+ * Builds a provider limiter identity without trusting spoofable session headers.
+ *
+ * @param array $request
+ * @return string
+ */
+function tonbankcard_api_ai_provider_rate_limit_identity_key( array $request ) {
+    $headers = [];
+    foreach ( isset( $request['headers'] ) && is_array( $request['headers'] ) ? $request['headers'] : [] as $name => $value ) {
+        $headers[ strtolower( (string) $name ) ] = is_array( $value ) ? implode( ',', $value ) : (string) $value;
+    }
+
+    $session_token = function_exists( 'tonbankcard_api_session_token_from_request' )
+        ? tonbankcard_api_session_token_from_request( [ 'headers' => $headers ] )
+        : null;
+    if ( null !== $session_token ) {
+        return hash( 'sha256', 'session|' . $session_token );
+    }
+
+    $ip = function_exists( 'tonbankcard_api_request_ip' ) ? tonbankcard_api_request_ip( [ 'headers' => $headers ] ) : null;
+    return hash( 'sha256', 'anonymous|' . ( null === $ip ? 'unknown' : $ip ) );
 }
 
 /**
@@ -336,6 +526,7 @@ function tonbankcard_api_ai_insight_cache_context( array $context, array $provid
  * Builds an insight response or a graceful unavailable fallback.
  *
  * @param array $context
+ * @param array $request
  * @param array $runtime
  * @param array $config
  * @param array $provider
@@ -343,7 +534,7 @@ function tonbankcard_api_ai_insight_cache_context( array $context, array $provid
  * @param array $headers
  * @return array
  */
-function tonbankcard_api_ai_insight_response( array $context, array $runtime, array $config, array $provider, string $request_id, array $headers ) {
+function tonbankcard_api_ai_insight_response( array $context, array $request, array $runtime, array $config, array $provider, string $request_id, array $headers ) {
     if ( empty( $provider['feature_enabled'] ) ) {
         return tonbankcard_api_ai_unavailable_response( 'ai_disabled', $provider, $request_id, $headers );
     }
@@ -354,6 +545,18 @@ function tonbankcard_api_ai_insight_response( array $context, array $runtime, ar
 
     if ( ! in_array( $context['feature'], $provider['enabled_features'], TRUE ) ) {
         return tonbankcard_api_ai_unavailable_response( 'feature_disabled', $provider, $request_id, $headers );
+    }
+
+    $prompt_size_error = tonbankcard_api_ai_prompt_size_error( $context, $provider, $config );
+    if ( null !== $prompt_size_error ) {
+        return tonbankcard_api_error_response(
+            $prompt_size_error['status'],
+            $prompt_size_error['code'],
+            $prompt_size_error['message'],
+            $prompt_size_error['details'],
+            $request_id,
+            $headers
+        );
     }
 
     $cache_context = tonbankcard_api_ai_insight_cache_context( $context, $provider, $runtime, $config );
@@ -376,6 +579,27 @@ function tonbankcard_api_ai_insight_response( array $context, array $runtime, ar
                 ]
             );
         }
+    }
+
+    $provider_rate_limit = tonbankcard_api_ai_provider_rate_limit_check( $request, $runtime, $config, $provider );
+    if ( empty( $provider_rate_limit['allowed'] ) ) {
+        if ( ! empty( $provider_rate_limit['headers'] ) && is_array( $provider_rate_limit['headers'] ) ) {
+            $headers = array_merge( $headers, $provider_rate_limit['headers'] );
+        }
+
+        return tonbankcard_api_error_response(
+            429,
+            'rate_limited',
+            'Too many AI provider requests. Try again after the retry window resets.',
+            [
+                'policy'              => isset( $provider_rate_limit['policy'] ) ? $provider_rate_limit['policy'] : 'ai_provider',
+                'limit'               => isset( $provider_rate_limit['limit'] ) ? (int) $provider_rate_limit['limit'] : null,
+                'window_seconds'      => isset( $provider_rate_limit['window'] ) ? (int) $provider_rate_limit['window'] : null,
+                'retry_after_seconds' => isset( $provider_rate_limit['retry_after'] ) ? (int) $provider_rate_limit['retry_after'] : null,
+            ],
+            $request_id,
+            $headers
+        );
     }
 
     $execution = tonbankcard_api_ai_execute_prompt( $context, $provider, $config );
@@ -630,11 +854,12 @@ function tonbankcard_api_ai_store_feedback( array $feedback, array $runtime, arr
  */
 function tonbankcard_api_ai_feedback_settings( array $config ) {
     $ai = isset( $config['ai'] ) && is_array( $config['ai'] ) ? $config['ai'] : [];
+    $default_store_path = tonbankcard_runtime_state_store_path( 'tonbankcard-marketcap-ai-feedback.json' );
 
     return [
         'local_feedback_store_path' => ! empty( $ai['feedback_store_path'] )
             ? (string) $ai['feedback_store_path']
-            : sys_get_temp_dir() . '/tonbankcard-marketcap-ai-feedback.json',
+            : $default_store_path,
     ];
 }
 
@@ -745,7 +970,24 @@ function tonbankcard_api_ai_feedback_user_id( PDO $pdo, $session_hash ) {
  * @return array
  */
 function tonbankcard_api_ai_store_local_feedback( array $feedback, array $settings ) {
-    $path = $settings['local_feedback_store_path'];
+    $path = trim( (string) $settings['local_feedback_store_path'] );
+    if ( function_exists( 'tonbankcard_runtime_sensitive_store_status' ) ) {
+        $status = tonbankcard_runtime_sensitive_store_status(
+            $path,
+            [
+                'mode'       => 'write',
+                'create_dir' => TRUE,
+            ]
+        );
+        if ( empty( $status['ok'] ) ) {
+            return [
+                'ok'      => FALSE,
+                'storage' => 'local_file',
+                'error'   => isset( $status['code'] ) ? $status['code'] : 'sensitive_store_unavailable',
+            ];
+        }
+    }
+
     $dir = dirname( $path );
     if ( ! is_dir( $dir ) && ! mkdir( $dir, 0700, TRUE ) ) {
         return [

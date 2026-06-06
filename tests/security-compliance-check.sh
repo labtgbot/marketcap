@@ -39,16 +39,27 @@ php_check() {
     fi
 }
 
+js_check() {
+    description=$1
+    shift
+
+    if ! "$@"; then
+        fail "$description"
+    fi
+}
+
 assert_file "$doc"
 assert_file functions.php
 assert_file api/router.php
 assert_file config/api.php
 assert_file dev/js/src/initial.js
+assert_file tests/url-scheme-check.js
 assert_file .htaccess
 
 assert_contains "$doc" '^# TONBANKCARD V2 Security, Privacy, and Compliance Hardening$' 'the launch-hardening title'
 assert_contains "$doc" 'Issue: \[#38\]' 'the issue reference'
 assert_contains "$doc" 'Content-Security-Policy' 'the CSP launch control'
+assert_contains "$doc" 'Strict-Transport-Security' 'the HSTS launch control'
 assert_contains "$doc" 'CSRF' 'the CSRF launch control'
 assert_contains "$doc" 'Sensitive endpoint access matrix' 'the sensitive endpoint access matrix'
 assert_contains "$doc" 'Secret rotation plan' 'the secret rotation plan'
@@ -64,16 +75,26 @@ assert_contains "$doc" 'tests/security-compliance-check\.sh' 'the security test 
 assert_contains README.md 'docs/v2-security-privacy-compliance\.md' 'the security and compliance documentation link'
 assert_contains package.json '"test:security-compliance"' 'the security and compliance npm script'
 assert_contains package.json 'test:security-compliance' 'the aggregate security and compliance check'
+assert_contains .htaccess 'Strict-Transport-Security' 'the Apache HSTS header'
+assert_contains .htaccess 'RewriteCond %\{HTTPS\} !=on' 'the active Apache HTTPS redirect condition'
+assert_contains .htaccess 'RewriteRule \^ https://%\{HTTP_HOST\}%\{REQUEST_URI\}' 'the active Apache HTTPS redirect target'
 assert_contains .htaccess 'X-Content-Type-Options' 'static asset nosniff header'
 assert_contains .htaccess 'Referrer-Policy' 'static asset referrer policy header'
 assert_contains .htaccess 'Permissions-Policy' 'static asset permissions policy header'
+assert_contains .htaccess 'X-Frame-Options' 'static asset clickjacking fallback header'
+assert_contains .htaccess 'BLOCK SENSITIVE SOURCE AND INTERNAL FILES' 'sensitive source request protection section'
+assert_contains .htaccess 'install\|database\|docs\|tests\|dev' 'sensitive directory request deny-list'
+assert_contains .htaccess 'zip\|sql\|md' 'sensitive file extension request deny-list'
 assert_contains functions.php 'Content-Security-Policy' 'the public CSP header helper'
 assert_contains api/router.php 'X-TONBANKCARD-CSRF' 'the CSRF request header'
 assert_contains config/api.php 'X-TONBANKCARD-CSRF' 'the CORS allow-list CSRF header'
 assert_contains dev/js/src/initial.js 'csrf_token' 'frontend CSRF token capture'
 
-php_check 'public security headers should include CSP and browser hardening directives' \
-    env -i PATH="$PATH" php <<'PHP'
+php_check 'public HTTPS security headers should include CSP, HSTS, and browser hardening directives' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_PROFILE=production \
+        TONBANKCARD_PUBLIC_BASE_URL='https://marketcap.example.com/' \
+        php <<'PHP'
 <?php
 require 'constants.php';
 require GECKO_CLIENT_CONFIG_DIR . '/site.php';
@@ -81,7 +102,7 @@ require __DIR__ . '/functions.php';
 
 $headers = tonbankcard_security_headers( 'html' );
 
-foreach ( [ 'Content-Security-Policy', 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy' ] as $name ) {
+foreach ( [ 'Content-Security-Policy', 'Strict-Transport-Security', 'X-Frame-Options', 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy' ] as $name ) {
     if ( empty( $headers[ $name ] ) ) {
         fwrite( STDERR, "Missing $name security header\n" );
         exit( 1 );
@@ -96,14 +117,55 @@ foreach ( [ "default-src 'self'", "object-src 'none'", "base-uri 'self'", 'frame
     }
 }
 
+$script_src = '';
+foreach ( explode( ';', $csp ) as $directive ) {
+    $directive = trim( $directive );
+    if ( 0 === strpos( $directive, 'script-src ' ) ) {
+        $script_src = $directive;
+        break;
+    }
+}
+if ( '' === $script_src ) {
+    fwrite( STDERR, "CSP is missing script-src\n" );
+    exit( 1 );
+}
+if ( FALSE !== strpos( $script_src, "'unsafe-inline'" ) ) {
+    fwrite( STDERR, "script-src must not allow unsafe-inline: $script_src\n" );
+    exit( 1 );
+}
+if ( ! preg_match( "/'nonce-[A-Fa-f0-9]{32}'/", $script_src ) ) {
+    fwrite( STDERR, "script-src is missing a per-response nonce: $script_src\n" );
+    exit( 1 );
+}
+if ( ! function_exists( 'tonbankcard_csp_nonce' ) ) {
+    fwrite( STDERR, "Missing tonbankcard_csp_nonce helper\n" );
+    exit( 1 );
+}
+$nonce = tonbankcard_csp_nonce();
+if ( ! preg_match( '/^[A-Fa-f0-9]{32}$/', $nonce ) || $nonce !== tonbankcard_csp_nonce() ) {
+    fwrite( STDERR, "CSP nonce should be stable per request and 128-bit hex\n" );
+    exit( 1 );
+}
+if ( 'SAMEORIGIN' !== $headers['X-Frame-Options'] ) {
+    fwrite( STDERR, "X-Frame-Options should be SAMEORIGIN\n" );
+    exit( 1 );
+}
 if ( 'nosniff' !== $headers['X-Content-Type-Options'] ) {
     fwrite( STDERR, "X-Content-Type-Options should be nosniff\n" );
+    exit( 1 );
+}
+
+if ( 'max-age=63072000; includeSubDomains; preload' !== $headers['Strict-Transport-Security'] ) {
+    fwrite( STDERR, "Unexpected HSTS header: " . $headers['Strict-Transport-Security'] . "\n" );
     exit( 1 );
 }
 PHP
 
 php_check 'API responses should inherit non-CSP security headers' \
-    env -i PATH="$PATH" php <<'PHP'
+    env -i PATH="$PATH" \
+        TONBANKCARD_PROFILE=production \
+        TONBANKCARD_PUBLIC_BASE_URL='https://marketcap.example.com/' \
+        php <<'PHP'
 <?php
 require 'constants.php';
 require GECKO_CLIENT_CONFIG_DIR . '/site.php';
@@ -123,7 +185,7 @@ $response = tonbankcard_api_handle(
     $api
 );
 
-foreach ( [ 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy' ] as $name ) {
+foreach ( [ 'Strict-Transport-Security', 'X-Frame-Options', 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy' ] as $name ) {
     if ( empty( $response['headers'][ $name ] ) ) {
         fwrite( STDERR, "API response missing $name\n" );
         exit( 1 );
@@ -132,6 +194,78 @@ foreach ( [ 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy' ] 
 
 if ( isset( $response['headers']['Content-Security-Policy'] ) ) {
     fwrite( STDERR, "JSON API responses should not emit the HTML CSP\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'forced HTTP requests should resolve to the HTTPS URL for redirect' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_PROFILE=production \
+        TONBANKCARD_PUBLIC_BASE_URL='https://marketcap.example.com/' \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/site.php';
+require __DIR__ . '/functions.php';
+
+if ( ! function_exists( 'tonbankcard_https_redirect_url' ) ) {
+    fwrite( STDERR, "Missing tonbankcard_https_redirect_url helper\n" );
+    exit( 1 );
+}
+
+$redirect_url = tonbankcard_https_redirect_url(
+    $GLOBALS['runtime_config'],
+    [
+        'HTTPS'       => 'off',
+        'HTTP_HOST'   => 'marketcap.example.com',
+        'REQUEST_URI' => '/markets?tab=ton',
+    ]
+);
+
+if ( 'https://marketcap.example.com/markets?tab=ton' !== $redirect_url ) {
+    fwrite( STDERR, "Unexpected HTTPS redirect URL: " . var_export( $redirect_url, TRUE ) . "\n" );
+    exit( 1 );
+}
+
+$local_redirect = tonbankcard_https_redirect_url(
+    [
+        'security' => [ 'force_https' => TRUE ],
+    ],
+    [
+        'HTTPS'       => 'off',
+        'HTTP_HOST'   => 'localhost:8888',
+        'REQUEST_URI' => '/markets',
+    ]
+);
+
+if ( null !== $local_redirect ) {
+    fwrite( STDERR, "Localhost should not be force-redirected: " . $local_redirect . "\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'production session cookies should stay Secure even when the active request arrived over HTTP' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_PROFILE=production \
+        TONBANKCARD_PUBLIC_BASE_URL='http://marketcap.example.com/' \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/functions.php';
+require __DIR__ . '/api/router.php';
+
+$cookie = tonbankcard_api_session_cookie_header(
+    [
+        'session_token'        => str_repeat( 'a', 64 ),
+        'expires_at_timestamp' => time() + 3600,
+    ],
+    $GLOBALS['runtime_config'],
+    [ 'session_ttl_seconds' => 3600 ]
+);
+
+if ( FALSE === strpos( $cookie, '; Secure' ) ) {
+    fwrite( STDERR, "Production session cookie is missing Secure: $cookie\n" );
     exit( 1 );
 }
 PHP
@@ -234,8 +368,20 @@ require GECKO_CLIENT_CONFIG_DIR . '/api.php';
 require __DIR__ . '/functions.php';
 require __DIR__ . '/api/router.php';
 
-$store = sys_get_temp_dir() . '/tonbankcard-test-security-session.json';
+$store_dir = sys_get_temp_dir() . '/tonbankcard-test-security-session-' . getmypid();
+if ( ! is_dir( $store_dir ) && ! mkdir( $store_dir, 0700, TRUE ) ) {
+    fwrite( STDERR, "Could not create private session store directory\n" );
+    exit( 1 );
+}
+chmod( $store_dir, 0700 );
+$store = $store_dir . '/sessions.json';
 @unlink( $store );
+register_shutdown_function(
+    function () use ( $store, $store_dir ) {
+        @unlink( $store );
+        @rmdir( $store_dir );
+    }
+);
 
 $runtime = $GLOBALS['runtime_config'];
 $runtime['profile'] = 'local';
@@ -292,8 +438,20 @@ require __DIR__ . '/functions.php';
 require __DIR__ . '/api/router.php';
 
 $runtime = $GLOBALS['runtime_config'];
-$runtime['admin']['store_path'] = sys_get_temp_dir() . '/tonbankcard-test-security-admin.json';
+$admin_store_dir = sys_get_temp_dir() . '/tonbankcard-test-security-admin-' . getmypid();
+if ( ! is_dir( $admin_store_dir ) && ! mkdir( $admin_store_dir, 0700, TRUE ) ) {
+    fwrite( STDERR, "Could not create private admin store directory\n" );
+    exit( 1 );
+}
+chmod( $admin_store_dir, 0700 );
+$runtime['admin']['store_path'] = $admin_store_dir . '/admin.json';
 @unlink( $runtime['admin']['store_path'] );
+register_shutdown_function(
+    function () use ( $runtime, $admin_store_dir ) {
+        @unlink( $runtime['admin']['store_path'] );
+        @rmdir( $admin_store_dir );
+    }
+);
 
 $response = tonbankcard_api_handle(
     [
@@ -318,6 +476,13 @@ if ( 403 !== $response['status'] || ! is_array( $payload ) || 'admin_write_forbi
 PHP
 
 assert_contains views/app-head.php 'JSON_HEX_TAG' 'JSON-LD output should HTML-escape tag characters'
+assert_contains views/app-head.php 'tonbankcard_csp_nonce' 'CSP nonce attributes for inline head scripts'
+assert_contains views/app-scripts.php 'tonbankcard_csp_nonce' 'CSP nonce attributes for app template and bootstrap scripts'
+assert_contains "$doc" 'per-response CSP nonce' 'the script-src nonce hardening note'
+
+if grep -Eq 'onclick=' views/configuration-errors.php; then
+    fail 'configuration error page still uses inline JavaScript event handlers'
+fi
 
 if grep -Eq 'application/ld\+json.*JSON_UNESCAPED_SLASHES' views/app-head.php; then
     fail 'views/app-head.php still emits JSON-LD with JSON_UNESCAPED_SLASHES (allows </script> breakout)'
@@ -451,6 +616,9 @@ foreach ( $cases as $case ) {
     }
 }
 PHP
+
+js_check 'frontend URL helpers should reject dangerous schemes before href/navigation sinks' \
+    node tests/url-scheme-check.js
 
 if [ "$failures" -gt 0 ]; then
     exit 1

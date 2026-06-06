@@ -3,6 +3,8 @@
  * TONBANKCARD automatic hosting installer helpers.
  */
 
+require_once dirname( __DIR__, 2 ) . '/config/runtime.php';
+
 if ( ! function_exists( 'tonbankcard_installer_root_dir' ) ) {
     /**
      * Returns the repository root for installer operations.
@@ -229,6 +231,18 @@ if ( ! function_exists( 'tonbankcard_installer_translations' ) ) {
                 'Use utf8mb4 for production.' => 'Используйте utf8mb4 для production.',
                 'Database user' => 'Пользователь базы данных',
                 'Database password' => 'Пароль базы данных',
+                'Database TLS CA file' => 'Файл CA для TLS базы данных',
+                'Required for non-local profiles so PDO can request TLS and verify the database server certificate.' => 'Обязательно для нелокальных профилей, чтобы PDO запрашивал TLS и проверял сертификат сервера базы данных.',
+                'Verify database TLS certificate' => 'Проверять TLS-сертификат базы данных',
+                'Keep true for managed or remote databases.' => 'Оставьте true для управляемых или удаленных баз данных.',
+                'Database TLS client certificate' => 'Клиентский TLS-сертификат базы данных',
+                'Optional MYSQL_ATTR_SSL_CERT path when the database requires client certificates.' => 'Необязательный путь MYSQL_ATTR_SSL_CERT, если базе данных нужны клиентские сертификаты.',
+                'Database TLS client key' => 'Клиентский TLS-ключ базы данных',
+                'Optional MYSQL_ATTR_SSL_KEY path when the database requires client certificates.' => 'Необязательный путь MYSQL_ATTR_SSL_KEY, если базе данных нужны клиентские сертификаты.',
+                'Database TLS CA directory' => 'Каталог CA для TLS базы данных',
+                'Optional MYSQL_ATTR_SSL_CAPATH directory.' => 'Необязательный каталог MYSQL_ATTR_SSL_CAPATH.',
+                'Database TLS cipher list' => 'Список TLS-шифров базы данных',
+                'Optional MYSQL_ATTR_SSL_CIPHER list from the database provider.' => 'Необязательный список MYSQL_ATTR_SSL_CIPHER от провайдера базы данных.',
                 'Step 5. Providers, cache, and AI' => 'Шаг 5. Провайдеры, кеш и AI',
                 'Configure provider keys and cache services. Secrets stay in .env and are not rendered to the public app.' => 'Настройте ключи провайдеров и сервисы кеша. Секреты остаются в .env и не выводятся в публичное приложение.',
                 'CoinGecko API plan' => 'Тариф CoinGecko API',
@@ -325,6 +339,7 @@ if ( ! function_exists( 'tonbankcard_installer_translations' ) ) {
                 'Database migrations failed. Review the PHP error log for details, then check migration status and database access.' => 'Миграции базы данных завершились ошибкой. Подробности записаны в PHP error log; проверьте статус миграций и доступ к базе данных.',
                 'The .env file was written, but migrations failed. Review the PHP error log for details, then check migration status and database access.' => 'Файл .env был записан, но миграции завершились ошибкой. Подробности записаны в PHP error log; проверьте статус миграций и доступ к базе данных.',
                 'MYSQL_DSN and MYSQL_USER are required before testing the database.' => 'MYSQL_DSN и MYSQL_USER обязательны перед проверкой базы данных.',
+                'MySQL TLS CA file' => 'Файл CA для TLS MySQL',
                 'No pending migrations.' => 'Нет ожидающих миграций.',
                 'Applied %d migration(s).' => 'Применено миграций: %d.',
                 'TONBANKCARD_PROFILE must be local, staging, production, or telegram.' => 'TONBANKCARD_PROFILE должен быть local, staging, production или telegram.',
@@ -523,6 +538,41 @@ if ( ! function_exists( 'tonbankcard_installer_field_groups' ) ) {
                         'type'   => 'password',
                         'secret' => TRUE,
                     ],
+                    'MYSQL_SSL_CA' => [
+                        'label'       => 'Database TLS CA file',
+                        'type'        => 'text',
+                        'placeholder' => '/etc/mysql/managed-ca.pem',
+                        'help'        => 'Required for non-local profiles so PDO can request TLS and verify the database server certificate.',
+                    ],
+                    'MYSQL_SSL_VERIFY_SERVER_CERT' => [
+                        'label' => 'Verify database TLS certificate',
+                        'type'  => 'boolean',
+                        'help'  => 'Keep true for managed or remote databases.',
+                    ],
+                    'MYSQL_SSL_CERT' => [
+                        'label'       => 'Database TLS client certificate',
+                        'type'        => 'text',
+                        'placeholder' => '/etc/mysql/client-cert.pem',
+                        'help'        => 'Optional MYSQL_ATTR_SSL_CERT path when the database requires client certificates.',
+                    ],
+                    'MYSQL_SSL_KEY' => [
+                        'label'       => 'Database TLS client key',
+                        'type'        => 'text',
+                        'placeholder' => '/etc/mysql/client-key.pem',
+                        'help'        => 'Optional MYSQL_ATTR_SSL_KEY path when the database requires client certificates.',
+                    ],
+                    'MYSQL_SSL_CAPATH' => [
+                        'label'       => 'Database TLS CA directory',
+                        'type'        => 'text',
+                        'placeholder' => '/etc/ssl/certs',
+                        'help'        => 'Optional MYSQL_ATTR_SSL_CAPATH directory.',
+                    ],
+                    'MYSQL_SSL_CIPHER' => [
+                        'label'       => 'Database TLS cipher list',
+                        'type'        => 'text',
+                        'placeholder' => 'TLS_AES_256_GCM_SHA384',
+                        'help'        => 'Optional MYSQL_ATTR_SSL_CIPHER list from the database provider.',
+                    ],
                 ],
             ],
             'providers'    => [
@@ -653,6 +703,11 @@ if ( ! function_exists( 'tonbankcard_installer_field_groups' ) ) {
                     ],
                     'TONBANKCARD_VERBOSE_TRACING' => [ 'label' => 'Verbose tracing', 'type' => 'boolean' ],
                     'TONBANKCARD_CLIENT_ERROR_REPORTING' => [ 'label' => 'Client error reporting', 'type' => 'boolean' ],
+                    'TONBANKCARD_STATE_DIR' => [
+                        'label' => 'Private state directory',
+                        'type'  => 'text',
+                        'help'  => 'Defaults outside the web root. Use an app-owned 0700 directory for local JSON stores.',
+                    ],
                     'TONBANKCARD_TON_CURATION_FILE' => [ 'label' => 'TON curation file', 'type' => 'text' ],
                     'TONBANKCARD_TON_CURATION_TOKEN' => [ 'label' => 'TON curation token', 'type' => 'password', 'secret' => TRUE ],
                     'TONBANKCARD_ADMIN_STORE' => [ 'label' => 'Admin store path', 'type' => 'text' ],
@@ -1137,6 +1192,7 @@ if ( ! function_exists( 'tonbankcard_installer_validate_values' ) ) {
                 'MYSQL_DSN'                    => tonbankcard_installer_translate( 'MySQL DSN', $language ),
                 'MYSQL_USER'                   => tonbankcard_installer_translate( 'MySQL user', $language ),
                 'MYSQL_PASSWORD'               => tonbankcard_installer_translate( 'MySQL password', $language ),
+                'MYSQL_SSL_CA'                 => tonbankcard_installer_translate( 'MySQL TLS CA file', $language ),
             ] as $key => $label ) {
                 if ( empty( $prepared[ $key ] ) ) {
                     $errors[] = sprintf( tonbankcard_installer_translate( '%s is required for non-local installs (%s).', $language ), $key, $label );
@@ -1311,6 +1367,7 @@ if ( ! function_exists( 'tonbankcard_installer_database_connection' ) ) {
         $dsn = isset( $prepared['MYSQL_DSN'] ) ? trim( (string) $prepared['MYSQL_DSN'] ) : '';
         $user = isset( $prepared['MYSQL_USER'] ) ? (string) $prepared['MYSQL_USER'] : '';
         $password = isset( $prepared['MYSQL_PASSWORD'] ) ? (string) $prepared['MYSQL_PASSWORD'] : '';
+        $profile = isset( $prepared['TONBANKCARD_PROFILE'] ) ? (string) $prepared['TONBANKCARD_PROFILE'] : 'local';
 
         if ( '' === $dsn || '' === $user ) {
             throw new RuntimeException( tonbankcard_installer_translate( 'MYSQL_DSN and MYSQL_USER are required before testing the database.', $language ) );
@@ -1320,10 +1377,26 @@ if ( ! function_exists( 'tonbankcard_installer_database_connection' ) ) {
             $dsn,
             $user,
             $password,
-            [
-                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            ]
+            tonbankcard_mysql_pdo_options(
+                [
+                    'ssl' => tonbankcard_mysql_ssl_config(
+                        [
+                            'ca'                 => isset( $prepared['MYSQL_SSL_CA'] ) ? $prepared['MYSQL_SSL_CA'] : '',
+                            'cert'               => isset( $prepared['MYSQL_SSL_CERT'] ) ? $prepared['MYSQL_SSL_CERT'] : '',
+                            'key'                => isset( $prepared['MYSQL_SSL_KEY'] ) ? $prepared['MYSQL_SSL_KEY'] : '',
+                            'capath'             => isset( $prepared['MYSQL_SSL_CAPATH'] ) ? $prepared['MYSQL_SSL_CAPATH'] : '',
+                            'cipher'             => isset( $prepared['MYSQL_SSL_CIPHER'] ) ? $prepared['MYSQL_SSL_CIPHER'] : '',
+                            'verify_server_cert' => isset( $prepared['MYSQL_SSL_VERIFY_SERVER_CERT'] ) ? $prepared['MYSQL_SSL_VERIFY_SERVER_CERT'] : 'true',
+                        ],
+                        $profile
+                    ),
+                ],
+                $profile,
+                [
+                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                ]
+            )
         );
     }
 }
@@ -1490,20 +1563,532 @@ if ( ! function_exists( 'tonbankcard_installer_sql_statements' ) ) {
      * @return array
      */
     function tonbankcard_installer_sql_statements( string $sql ) {
-        $parts = preg_split( '/;\s*(?:\r?\n|$)/', $sql );
-        if ( ! is_array( $parts ) ) {
-            return [];
-        }
-
         $statements = [];
-        foreach ( $parts as $part ) {
-            $statement = trim( $part );
-            if ( '' !== $statement ) {
-                $statements[] = $statement;
+        $buffer = '';
+        $quote = null;
+        $line_comment = FALSE;
+        $block_comment = FALSE;
+        $length = strlen( $sql );
+
+        for ( $i = 0; $i < $length; $i++ ) {
+            $char = $sql[ $i ];
+            $next = ( $i + 1 < $length ) ? $sql[ $i + 1 ] : '';
+            $buffer .= $char;
+
+            if ( $line_comment ) {
+                if ( "\n" === $char ) {
+                    $line_comment = FALSE;
+                }
+                continue;
+            }
+
+            if ( $block_comment ) {
+                if ( '*' === $char && '/' === $next ) {
+                    $buffer .= $next;
+                    $i++;
+                    $block_comment = FALSE;
+                }
+                continue;
+            }
+
+            if ( null !== $quote ) {
+                if ( ( "'" === $quote || '"' === $quote ) && '\\' === $char && '' !== $next ) {
+                    $buffer .= $next;
+                    $i++;
+                    continue;
+                }
+
+                if ( $quote === $char ) {
+                    if ( '' !== $next && $quote === $next ) {
+                        $buffer .= $next;
+                        $i++;
+                        continue;
+                    }
+
+                    $quote = null;
+                }
+                continue;
+            }
+
+            if ( '-' === $char && '-' === $next && tonbankcard_installer_is_dash_comment_start( $sql, $i ) ) {
+                $buffer .= $next;
+                $i++;
+                $line_comment = TRUE;
+                continue;
+            }
+
+            if ( '#' === $char ) {
+                $line_comment = TRUE;
+                continue;
+            }
+
+            if ( '/' === $char && '*' === $next ) {
+                $buffer .= $next;
+                $i++;
+                $block_comment = TRUE;
+                continue;
+            }
+
+            if ( "'" === $char || '"' === $char || '`' === $char ) {
+                $quote = $char;
+                continue;
+            }
+
+            if ( ';' === $char ) {
+                $statement = trim( substr( $buffer, 0, -1 ) );
+                if ( '' !== $statement ) {
+                    $statements[] = $statement;
+                }
+                $buffer = '';
             }
         }
 
+        $statement = trim( $buffer );
+        if ( '' !== $statement ) {
+            $statements[] = $statement;
+        }
+
         return $statements;
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_is_dash_comment_start' ) ) {
+    /**
+     * @param string $sql
+     * @param int $offset
+     * @return bool
+     */
+    function tonbankcard_installer_is_dash_comment_start( string $sql, int $offset ) {
+        $next_offset = $offset + 2;
+        if ( ! isset( $sql[ $next_offset ] ) ) {
+            return TRUE;
+        }
+
+        return ctype_space( $sql[ $next_offset ] );
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_strip_leading_comments' ) ) {
+    /**
+     * @param string $sql
+     * @return string
+     */
+    function tonbankcard_installer_strip_leading_comments( string $sql ) {
+        $offset = 0;
+        $length = strlen( $sql );
+
+        while ( $offset < $length ) {
+            while ( $offset < $length && ctype_space( $sql[ $offset ] ) ) {
+                $offset++;
+            }
+
+            if ( $offset >= $length ) {
+                return '';
+            }
+
+            if ( '#' === $sql[ $offset ] ) {
+                $line_end = strpos( $sql, "\n", $offset );
+                if ( FALSE === $line_end ) {
+                    return '';
+                }
+                $offset = $line_end + 1;
+                continue;
+            }
+
+            if ( '-' === $sql[ $offset ] && isset( $sql[ $offset + 1 ] ) && '-' === $sql[ $offset + 1 ] && tonbankcard_installer_is_dash_comment_start( $sql, $offset ) ) {
+                $line_end = strpos( $sql, "\n", $offset );
+                if ( FALSE === $line_end ) {
+                    return '';
+                }
+                $offset = $line_end + 1;
+                continue;
+            }
+
+            if ( '/' === $sql[ $offset ] && isset( $sql[ $offset + 1 ] ) && '*' === $sql[ $offset + 1 ] ) {
+                $comment_end = strpos( $sql, '*/', $offset + 2 );
+                if ( FALSE === $comment_end ) {
+                    return '';
+                }
+                $offset = $comment_end + 2;
+                continue;
+            }
+
+            break;
+        }
+
+        return ltrim( substr( $sql, $offset ) );
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_unquote_identifier' ) ) {
+    /**
+     * @param string $identifier
+     * @return string
+     */
+    function tonbankcard_installer_unquote_identifier( string $identifier ) {
+        $identifier = trim( $identifier );
+        if ( strlen( $identifier ) >= 2 && '`' === $identifier[0] && '`' === $identifier[ strlen( $identifier ) - 1 ] ) {
+            return str_replace( '``', '`', substr( $identifier, 1, -1 ) );
+        }
+
+        return trim( $identifier, "` \t\r\n" );
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_split_sql_list' ) ) {
+    /**
+     * @param string $sql
+     * @return array
+     */
+    function tonbankcard_installer_split_sql_list( string $sql ) {
+        $items = [];
+        $buffer = '';
+        $quote = null;
+        $line_comment = FALSE;
+        $block_comment = FALSE;
+        $depth = 0;
+        $length = strlen( $sql );
+
+        for ( $i = 0; $i < $length; $i++ ) {
+            $char = $sql[ $i ];
+            $next = ( $i + 1 < $length ) ? $sql[ $i + 1 ] : '';
+            $buffer .= $char;
+
+            if ( $line_comment ) {
+                if ( "\n" === $char ) {
+                    $line_comment = FALSE;
+                }
+                continue;
+            }
+
+            if ( $block_comment ) {
+                if ( '*' === $char && '/' === $next ) {
+                    $buffer .= $next;
+                    $i++;
+                    $block_comment = FALSE;
+                }
+                continue;
+            }
+
+            if ( null !== $quote ) {
+                if ( ( "'" === $quote || '"' === $quote ) && '\\' === $char && '' !== $next ) {
+                    $buffer .= $next;
+                    $i++;
+                    continue;
+                }
+
+                if ( $quote === $char ) {
+                    if ( '' !== $next && $quote === $next ) {
+                        $buffer .= $next;
+                        $i++;
+                        continue;
+                    }
+
+                    $quote = null;
+                }
+                continue;
+            }
+
+            if ( '-' === $char && '-' === $next && tonbankcard_installer_is_dash_comment_start( $sql, $i ) ) {
+                $buffer .= $next;
+                $i++;
+                $line_comment = TRUE;
+                continue;
+            }
+
+            if ( '#' === $char ) {
+                $line_comment = TRUE;
+                continue;
+            }
+
+            if ( '/' === $char && '*' === $next ) {
+                $buffer .= $next;
+                $i++;
+                $block_comment = TRUE;
+                continue;
+            }
+
+            if ( "'" === $char || '"' === $char || '`' === $char ) {
+                $quote = $char;
+                continue;
+            }
+
+            if ( '(' === $char ) {
+                $depth++;
+                continue;
+            }
+
+            if ( ')' === $char && $depth > 0 ) {
+                $depth--;
+                continue;
+            }
+
+            if ( ',' === $char && 0 === $depth ) {
+                $item = trim( substr( $buffer, 0, -1 ) );
+                if ( '' !== $item ) {
+                    $items[] = $item;
+                }
+                $buffer = '';
+            }
+        }
+
+        $item = trim( $buffer );
+        if ( '' !== $item ) {
+            $items[] = $item;
+        }
+
+        return $items;
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_parse_alter_table' ) ) {
+    /**
+     * @param string $statement
+     * @return array|null
+     */
+    function tonbankcard_installer_parse_alter_table( string $statement ) {
+        $normalized = tonbankcard_installer_strip_leading_comments( $statement );
+        if ( ! preg_match( '/\AALTER\s+TABLE\s+((?:`(?:``|[^`])+`)|[A-Za-z0-9_]+)\s+(.+)\z/is', $normalized, $matches ) ) {
+            return null;
+        }
+
+        return [
+            'table_sql' => $matches[1],
+            'table'     => tonbankcard_installer_unquote_identifier( $matches[1] ),
+            'clauses'   => tonbankcard_installer_split_sql_list( $matches[2] ),
+        ];
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_column_exists' ) ) {
+    /**
+     * @param PDO $pdo
+     * @param string $table
+     * @param string $column
+     * @return bool
+     */
+    function tonbankcard_installer_column_exists( PDO $pdo, string $table, string $column ) {
+        $statement = $pdo->prepare(
+            'SELECT COUNT(*) AS found FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table AND COLUMN_NAME = :column'
+        );
+        $statement->execute(
+            [
+                ':table'  => $table,
+                ':column' => $column,
+            ]
+        );
+        $row = $statement->fetch();
+
+        return is_array( $row ) && isset( $row['found'] ) && (int) $row['found'] > 0;
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_index_exists' ) ) {
+    /**
+     * @param PDO $pdo
+     * @param string $table
+     * @param string $index
+     * @return bool
+     */
+    function tonbankcard_installer_index_exists( PDO $pdo, string $table, string $index ) {
+        $statement = $pdo->prepare(
+            'SELECT COUNT(*) AS found FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table AND INDEX_NAME = :index'
+        );
+        $statement->execute(
+            [
+                ':table' => $table,
+                ':index' => $index,
+            ]
+        );
+        $row = $statement->fetch();
+
+        return is_array( $row ) && isset( $row['found'] ) && (int) $row['found'] > 0;
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_should_skip_alter_clause' ) ) {
+    /**
+     * @param PDO $pdo
+     * @param string $table
+     * @param string $clause
+     * @return bool
+     */
+    function tonbankcard_installer_should_skip_alter_clause( PDO $pdo, string $table, string $clause ) {
+        $normalized = tonbankcard_installer_strip_leading_comments( $clause );
+
+        if ( preg_match( '/\AADD\s+(?:UNIQUE\s+|FULLTEXT\s+|SPATIAL\s+)?(?:KEY|INDEX)\s+((?:`(?:``|[^`])+`)|[A-Za-z0-9_]+)/i', $normalized, $matches ) ) {
+            return tonbankcard_installer_index_exists( $pdo, $table, tonbankcard_installer_unquote_identifier( $matches[1] ) );
+        }
+
+        if ( preg_match( '/\AADD\s+COLUMN\s+((?:`(?:``|[^`])+`)|[A-Za-z0-9_]+)/i', $normalized, $matches ) ) {
+            return tonbankcard_installer_column_exists( $pdo, $table, tonbankcard_installer_unquote_identifier( $matches[1] ) );
+        }
+
+        if ( preg_match( '/\AADD\s+((?:`(?:``|[^`])+`)|[A-Za-z0-9_]+)/i', $normalized, $matches ) ) {
+            $identifier = tonbankcard_installer_unquote_identifier( $matches[1] );
+            if ( '`' !== $matches[1][0] && in_array( strtoupper( $identifier ), [ 'UNIQUE', 'FULLTEXT', 'SPATIAL', 'KEY', 'INDEX', 'PRIMARY', 'CONSTRAINT', 'FOREIGN', 'CHECK' ], TRUE ) ) {
+                return FALSE;
+            }
+
+            return tonbankcard_installer_column_exists( $pdo, $table, $identifier );
+        }
+
+        if ( preg_match( '/\ADROP\s+(?:KEY|INDEX)\s+((?:`(?:``|[^`])+`)|[A-Za-z0-9_]+)/i', $normalized, $matches ) ) {
+            return ! tonbankcard_installer_index_exists( $pdo, $table, tonbankcard_installer_unquote_identifier( $matches[1] ) );
+        }
+
+        if ( preg_match( '/\ADROP\s+COLUMN\s+((?:`(?:``|[^`])+`)|[A-Za-z0-9_]+)/i', $normalized, $matches ) ) {
+            return ! tonbankcard_installer_column_exists( $pdo, $table, tonbankcard_installer_unquote_identifier( $matches[1] ) );
+        }
+
+        return FALSE;
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_exec_guarded_alter' ) ) {
+    /**
+     * @param PDO $pdo
+     * @param string $statement
+     * @return bool
+     */
+    function tonbankcard_installer_exec_guarded_alter( PDO $pdo, string $statement ) {
+        $alter = tonbankcard_installer_parse_alter_table( $statement );
+        if ( null === $alter ) {
+            return FALSE;
+        }
+
+        $clauses = [];
+        foreach ( $alter['clauses'] as $clause ) {
+            if ( tonbankcard_installer_should_skip_alter_clause( $pdo, $alter['table'], $clause ) ) {
+                continue;
+            }
+
+            $clauses[] = $clause;
+        }
+
+        if ( empty( $clauses ) ) {
+            return TRUE;
+        }
+
+        $pdo->exec( 'ALTER TABLE ' . $alter['table_sql'] . "\n  " . implode( ",\n  ", $clauses ) );
+
+        return TRUE;
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_exec_statement' ) ) {
+    /**
+     * @param PDO $pdo
+     * @param string $statement
+     * @return void
+     */
+    function tonbankcard_installer_exec_statement( PDO $pdo, string $statement ) {
+        if ( tonbankcard_installer_exec_guarded_alter( $pdo, $statement ) ) {
+            return;
+        }
+
+        $pdo->exec( $statement );
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_acquire_migration_lock' ) ) {
+    /**
+     * @param PDO $pdo
+     * @return void
+     */
+    function tonbankcard_installer_acquire_migration_lock( PDO $pdo ) {
+        $statement = $pdo->prepare( 'SELECT GET_LOCK(:lock_name, :timeout_seconds) AS acquired' );
+        $statement->execute(
+            [
+                ':lock_name'       => 'tonbankcard_migrations',
+                ':timeout_seconds' => 30,
+            ]
+        );
+        $row = $statement->fetch();
+
+        if ( ! is_array( $row ) || ! isset( $row['acquired'] ) || 1 !== (int) $row['acquired'] ) {
+            throw new RuntimeException( 'Could not acquire migration lock: tonbankcard_migrations' );
+        }
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_release_migration_lock' ) ) {
+    /**
+     * @param PDO $pdo
+     * @return void
+     */
+    function tonbankcard_installer_release_migration_lock( PDO $pdo ) {
+        $statement = $pdo->prepare( 'SELECT RELEASE_LOCK(:lock_name) AS released' );
+        $statement->execute( [ ':lock_name' => 'tonbankcard_migrations' ] );
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_with_migration_lock' ) ) {
+    /**
+     * @param PDO $pdo
+     * @param callable $callback
+     * @return mixed
+     */
+    function tonbankcard_installer_with_migration_lock( PDO $pdo, callable $callback ) {
+        tonbankcard_installer_acquire_migration_lock( $pdo );
+
+        try {
+            return $callback();
+        } finally {
+            tonbankcard_installer_release_migration_lock( $pdo );
+        }
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_is_comment_only_statement' ) ) {
+    /**
+     * @param string $part
+     * @return bool
+     */
+    function tonbankcard_installer_is_comment_only_statement( string $part ) {
+        return '' === tonbankcard_installer_strip_leading_comments( $part );
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_filter_comment_only_statements' ) ) {
+    /**
+     * @param array $parts
+     * @return array
+     */
+    function tonbankcard_installer_filter_comment_only_statements( array $parts ) {
+        $statements = [];
+        foreach ( $parts as $part ) {
+            $statement = trim( $part );
+            if ( '' === $statement ) {
+                continue;
+            }
+
+            if ( tonbankcard_installer_is_comment_only_statement( $statement ) ) {
+                continue;
+            }
+
+            $statements[] = $statement;
+        }
+
+        return $statements;
+    }
+}
+
+if ( ! function_exists( 'tonbankcard_installer_exec_migration_file' ) ) {
+    /**
+     * @param PDO $pdo
+     * @param string $file
+     * @return void
+     */
+    function tonbankcard_installer_exec_migration_file( PDO $pdo, string $file ) {
+        $sql = file_get_contents( $file );
+        if ( FALSE === $sql ) {
+            throw new RuntimeException( 'Cannot read migration file: ' . $file );
+        }
+
+        foreach ( tonbankcard_installer_filter_comment_only_statements( tonbankcard_installer_sql_statements( $sql ) ) as $statement ) {
+            tonbankcard_installer_exec_statement( $pdo, $statement );
+        }
     }
 }
 
@@ -1529,44 +2114,42 @@ if ( ! function_exists( 'tonbankcard_installer_apply_migrations' ) ) {
      */
     function tonbankcard_installer_apply_migrations( array $values, string $dir, string $language = 'en' ) {
         $pdo = tonbankcard_installer_database_connection( $values, $language );
-        tonbankcard_installer_ensure_migration_ledger( $pdo );
-        $applied = array_fill_keys( tonbankcard_installer_applied_migrations( $pdo ), TRUE );
-        $applied_now = [];
+        return tonbankcard_installer_with_migration_lock(
+            $pdo,
+            function () use ( $pdo, $dir, $language ) {
+                tonbankcard_installer_ensure_migration_ledger( $pdo );
+                $applied = array_fill_keys( tonbankcard_installer_applied_migrations( $pdo ), TRUE );
+                $applied_now = [];
 
-        foreach ( tonbankcard_installer_migration_files( $dir ) as $version => $file ) {
-            if ( isset( $applied[ $version ] ) ) {
-                continue;
+                foreach ( tonbankcard_installer_migration_files( $dir ) as $version => $file ) {
+                    if ( isset( $applied[ $version ] ) ) {
+                        continue;
+                    }
+
+                    tonbankcard_installer_exec_migration_file( $pdo, $file );
+
+                    $insert = $pdo->prepare(
+                        'INSERT INTO schema_migrations (version, description, checksum) VALUES (:version, :description, :checksum)'
+                    );
+                    $insert->execute(
+                        [
+                            ':version'     => $version,
+                            ':description' => tonbankcard_installer_migration_description( $version ),
+                            ':checksum'    => hash_file( 'sha256', $file ),
+                        ]
+                    );
+
+                    $applied_now[] = $version;
+                }
+
+                return [
+                    'ok'       => TRUE,
+                    'applied'  => $applied_now,
+                    'message'  => empty( $applied_now )
+                        ? tonbankcard_installer_translate( 'No pending migrations.', $language )
+                        : sprintf( tonbankcard_installer_translate( 'Applied %d migration(s).', $language ), count( $applied_now ) ),
+                ];
             }
-
-            $sql = file_get_contents( $file );
-            if ( FALSE === $sql ) {
-                throw new RuntimeException( 'Cannot read migration file: ' . $file );
-            }
-
-            foreach ( tonbankcard_installer_sql_statements( $sql ) as $statement ) {
-                $pdo->exec( $statement );
-            }
-
-            $insert = $pdo->prepare(
-                'INSERT INTO schema_migrations (version, description, checksum) VALUES (:version, :description, :checksum)'
-            );
-            $insert->execute(
-                [
-                    ':version'     => $version,
-                    ':description' => tonbankcard_installer_migration_description( $version ),
-                    ':checksum'    => hash_file( 'sha256', $file ),
-                ]
-            );
-
-            $applied_now[] = $version;
-        }
-
-        return [
-            'ok'       => TRUE,
-            'applied'  => $applied_now,
-            'message'  => empty( $applied_now )
-                ? tonbankcard_installer_translate( 'No pending migrations.', $language )
-                : sprintf( tonbankcard_installer_translate( 'Applied %d migration(s).', $language ), count( $applied_now ) ),
-        ];
+        );
     }
 }

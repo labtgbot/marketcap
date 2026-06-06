@@ -55,6 +55,8 @@ assert_contains "$doc" 'TONBANKCARD_PUBLIC_BASE_URL' 'public base URL configurat
 assert_contains "$doc" 'MYSQL_DSN' 'database DSN configuration'
 assert_contains "$doc" 'MYSQL_USER' 'database user configuration'
 assert_contains "$doc" 'MYSQL_PASSWORD' 'database password configuration'
+assert_contains "$doc" 'MYSQL_SSL_CA' 'database TLS CA configuration'
+assert_contains "$doc" 'MYSQL_SSL_VERIFY_SERVER_CERT' 'database TLS verification configuration'
 assert_contains "$doc" 'CREATE DATABASE marketcap' 'database creation SQL'
 assert_contains "$doc" 'php database/migrate\.php dry-run' 'migration dry-run command'
 assert_contains "$doc" 'php database/migrate\.php up' 'migration apply command'

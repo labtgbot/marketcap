@@ -45,6 +45,10 @@ assert_file config/runtime.php
 assert_contains .env.example '^TONBANKCARD_PROFILE=local$' 'the local runtime profile'
 assert_contains .env.example '^TONBANKCARD_PUBLIC_BASE_URL=' 'the public website base URL'
 assert_contains .env.example '^TONBANKCARD_TELEGRAM_BASE_URL=' 'the Telegram Mini App base URL'
+assert_contains .env.example '^TONBANKCARD_FORCE_HTTPS=' 'the HTTPS redirect control'
+assert_contains .env.example '^TONBANKCARD_HSTS_ENABLED=' 'the HSTS control'
+assert_contains .env.example '^TONBANKCARD_SECURE_COOKIES=' 'the secure cookie control'
+assert_contains .env.example '^TONBANKCARD_STATE_DIR=' 'the private state directory'
 assert_contains .env.example '^TONBANKCARD_BOT_USERNAME=' 'the Telegram bot username'
 assert_contains .env.example '^TONBANKCARD_BOT_TOKEN=' 'the Telegram bot token'
 assert_contains .env.example '^COINGECKO_API_PLAN=demo$' 'the CoinGecko API plan'
@@ -55,6 +59,8 @@ assert_contains .env.example '^UPSTASH_REDIS_REST_TOKEN=' 'the Upstash Redis RES
 assert_contains .env.example '^MYSQL_DSN=' 'the MySQL DSN'
 assert_contains .env.example '^MYSQL_USER=' 'the MySQL user'
 assert_contains .env.example '^MYSQL_PASSWORD=' 'the MySQL password'
+assert_contains .env.example '^MYSQL_SSL_CA=' 'the MySQL TLS CA path'
+assert_contains .env.example '^MYSQL_SSL_VERIFY_SERVER_CERT=true$' 'the MySQL TLS certificate verification flag'
 assert_contains .env.example '^CHANGENOW_LINK_ID=' 'the ChangeNOW link id'
 assert_contains .env.example '^TONBANKCARD_FEATURE_AI=false$' 'the AI feature flag'
 assert_contains .env.example '^TONBANKCARD_FEATURE_ALERTS=false$' 'the alerts feature flag'
@@ -69,10 +75,15 @@ assert_contains docs/runtime-configuration.md 'Missing production values' 'produ
 assert_contains docs/runtime-configuration.md 'Secret values are never rendered' 'secret-safe validation behavior'
 assert_contains docs/runtime-configuration.md 'TONBANKCARD_PUBLIC_BASE_URL' 'public website URL configuration'
 assert_contains docs/runtime-configuration.md 'TONBANKCARD_TELEGRAM_BASE_URL' 'Telegram Mini App URL configuration'
+assert_contains docs/runtime-configuration.md 'TONBANKCARD_FORCE_HTTPS' 'HTTPS redirect configuration'
+assert_contains docs/runtime-configuration.md 'Strict-Transport-Security' 'HSTS runtime behavior'
+assert_contains docs/runtime-configuration.md 'TONBANKCARD_STATE_DIR' 'private state directory configuration'
 assert_contains docs/runtime-configuration.md 'COINGECKO_API_PLAN.*demo' 'CoinGecko API plan behavior'
 assert_contains docs/runtime-configuration.md 'x-cg-pro-api-key' 'CoinGecko Pro key header behavior'
+assert_contains docs/runtime-configuration.md 'MYSQL_SSL_CA' 'MySQL TLS CA configuration'
+assert_contains docs/runtime-configuration.md 'MYSQL_ATTR_SSL_VERIFY_SERVER_CERT' 'MySQL TLS server certificate verification'
 
-php_check 'fresh checkout should default to a local development profile' \
+php_check 'unset profile should keep local defaults but fail closed for error display' \
     env -i PATH="$PATH" php <<'PHP'
 <?php
 require 'constants.php';
@@ -92,8 +103,54 @@ if ( GECKO_CLIENT_ENV !== 'development' ) {
     exit( 1 );
 }
 
+if ( GECKO_CLIENT_DISPLAY_ERRORS !== FALSE ) {
+    fwrite( STDERR, "Unset profile should not display errors by default\n" );
+    exit( 1 );
+}
+
+if ( ! empty( $GLOBALS['runtime_config']['security']['force_https'] ) || ! empty( $GLOBALS['runtime_config']['security']['hsts_enabled'] ) || ! empty( $GLOBALS['runtime_config']['security']['secure_cookies'] ) ) {
+    fwrite( STDERR, "Local profile should not force HTTPS, HSTS, or Secure cookies by default\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'unknown profile should fail closed for error display' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_PROFILE=unexpected \
+        php <<'PHP'
+<?php
+require 'constants.php';
+
+if ( TONBANKCARD_PROFILE !== 'unexpected' ) {
+    fwrite( STDERR, 'Expected unknown profile to be preserved for validation, got ' . TONBANKCARD_PROFILE . "\n" );
+    exit( 1 );
+}
+
+if ( GECKO_CLIENT_DISPLAY_ERRORS !== FALSE ) {
+    fwrite( STDERR, "Unknown profile should not display errors by default\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'explicit local profile should keep development error display enabled' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_PROFILE=local \
+        php <<'PHP'
+<?php
+require 'constants.php';
+
+if ( TONBANKCARD_PROFILE !== 'local' ) {
+    fwrite( STDERR, 'Expected local profile, got ' . TONBANKCARD_PROFILE . "\n" );
+    exit( 1 );
+}
+
+if ( GECKO_CLIENT_ENV !== 'development' ) {
+    fwrite( STDERR, 'Expected development Gecko env for explicit local profile, got ' . GECKO_CLIENT_ENV . "\n" );
+    exit( 1 );
+}
+
 if ( GECKO_CLIENT_DISPLAY_ERRORS !== TRUE ) {
-    fwrite( STDERR, "Local profile should display errors by default\n" );
+    fwrite( STDERR, "Explicit local profile should display errors by default\n" );
     exit( 1 );
 }
 PHP
@@ -119,7 +176,7 @@ $names = array_map(
     $invalid
 );
 
-foreach ( [ 'TONBANKCARD_PUBLIC_BASE_URL', 'TONBANKCARD_BOT_USERNAME', 'UPSTASH_REDIS_REST_URL', 'MYSQL_DSN' ] as $required ) {
+foreach ( [ 'TONBANKCARD_PUBLIC_BASE_URL', 'TONBANKCARD_BOT_USERNAME', 'UPSTASH_REDIS_REST_URL', 'MYSQL_DSN', 'MYSQL_SSL_CA' ] as $required ) {
     if ( ! in_array( $required, $names, TRUE ) ) {
         fwrite( STDERR, "Missing validation entry for $required\n" );
         exit( 1 );
@@ -145,6 +202,7 @@ php_check 'production profile should preserve keyless CoinGecko gateway integrat
         MYSQL_DSN='mysql:host=127.0.0.1;dbname=marketcap;charset=utf8mb4' \
         MYSQL_USER='marketcap' \
         MYSQL_PASSWORD='mysql-secret-password' \
+        MYSQL_SSL_CA='/etc/mysql/managed-ca.pem' \
         TONBANKCARD_FEATURE_AI=false \
         TONBANKCARD_FEATURE_ALERTS=false \
         TONBANKCARD_FEATURE_CHANGENOW=false \
@@ -173,6 +231,64 @@ if ( ! isset( $coingecko['api_key_configured'] ) || $coingecko['api_key_configur
 
 if ( ! isset( $coingecko['api_plan'] ) || 'demo' !== $coingecko['api_plan'] ) {
     fwrite( STDERR, "CoinGecko API plan should default to demo\n" );
+    exit( 1 );
+}
+
+foreach ( [ 'force_https', 'hsts_enabled', 'secure_cookies' ] as $flag ) {
+    if ( empty( $GLOBALS['runtime_config']['security'][ $flag ] ) ) {
+        fwrite( STDERR, "Production profile should enable security flag by default: $flag\n" );
+        exit( 1 );
+    }
+}
+PHP
+
+php_check 'non-local MySQL runtime config should build TLS PDO options' \
+    env -i PATH="$PATH" \
+        TONBANKCARD_PROFILE=production \
+        MYSQL_DSN='mysql:host=db.example.com;dbname=marketcap;charset=utf8mb4' \
+        MYSQL_USER='marketcap' \
+        MYSQL_PASSWORD='mysql-secret-password' \
+        MYSQL_SSL_CA='/etc/mysql/managed-ca.pem' \
+        MYSQL_SSL_VERIFY_SERVER_CERT=true \
+        php <<'PHP'
+<?php
+require 'constants.php';
+
+$mysql = $GLOBALS['runtime_config']['providers']['mysql'];
+if ( ! isset( $mysql['ssl']['ca'] ) || '/etc/mysql/managed-ca.pem' !== $mysql['ssl']['ca'] ) {
+    fwrite( STDERR, 'Runtime config should expose MYSQL_SSL_CA under providers.mysql.ssl.ca' . "\n" );
+    exit( 1 );
+}
+
+$options = tonbankcard_mysql_pdo_options(
+    $mysql,
+    $GLOBALS['runtime_config']['profile'],
+    [ PDO::ATTR_TIMEOUT => 2 ]
+);
+
+if ( ! isset( $options[ PDO::MYSQL_ATTR_SSL_CA ] ) || '/etc/mysql/managed-ca.pem' !== $options[ PDO::MYSQL_ATTR_SSL_CA ] ) {
+    fwrite( STDERR, 'Expected PDO options to include MYSQL_ATTR_SSL_CA for production' . "\n" );
+    exit( 1 );
+}
+
+if ( ! array_key_exists( PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT, $options ) || TRUE !== $options[ PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT ] ) {
+    fwrite( STDERR, 'Expected PDO options to verify the MySQL server certificate in production' . "\n" );
+    exit( 1 );
+}
+
+$local_options = tonbankcard_mysql_pdo_options(
+    [
+        'ssl' => [
+            'ca'                 => '/etc/mysql/local-ca.pem',
+            'verify_server_cert' => TRUE,
+        ],
+    ],
+    'local',
+    []
+);
+
+if ( ! empty( $local_options ) ) {
+    fwrite( STDERR, 'Local profile should not request MySQL TLS unless explicitly enabled' . "\n" );
     exit( 1 );
 }
 PHP
@@ -220,6 +336,99 @@ if ( base_url() !== 'https://miniapp.tonbankcard.com/' ) {
 
 if ( empty( $GLOBALS['runtime_config']['urls']['public'] ) || $GLOBALS['runtime_config']['urls']['public'] !== 'https://marketcap.tonbankcard.com/' ) {
     fwrite( STDERR, "Public website URL is not preserved alongside Telegram URL\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'sensitive local JSON stores should default to a private app-owned state directory' \
+    env -i PATH="$PATH" php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+
+if ( ! function_exists( 'tonbankcard_runtime_state_dir' ) || ! function_exists( 'tonbankcard_runtime_sensitive_store_status' ) ) {
+    fwrite( STDERR, "Missing sensitive state store helpers\n" );
+    exit( 1 );
+}
+
+$state_dir = tonbankcard_runtime_state_dir();
+$root = rtrim( GECKO_CLIENT_DIR, DIRECTORY_SEPARATOR ) . DIRECTORY_SEPARATOR;
+if ( 0 === strpos( rtrim( $state_dir, DIRECTORY_SEPARATOR ) . DIRECTORY_SEPARATOR, $root ) ) {
+    fwrite( STDERR, "Default state directory must be outside the web root: $state_dir\n" );
+    exit( 1 );
+}
+
+$paths = [
+    $GLOBALS['runtime_config']['admin']['store_path'],
+    $api['telegram_session']['local_session_store_path'],
+    $api['ai']['feedback_store_path'],
+    $api['ton_ecosystem']['curation_store_path'],
+];
+
+foreach ( $paths as $path ) {
+    if ( dirname( $path ) !== $state_dir ) {
+        fwrite( STDERR, "Sensitive store does not use the private state directory: $path\n" );
+        exit( 1 );
+    }
+}
+
+$status = tonbankcard_runtime_sensitive_store_status(
+    $api['telegram_session']['local_session_store_path'],
+    [
+        'mode'       => 'write',
+        'create_dir' => TRUE,
+    ]
+);
+if ( empty( $status['ok'] ) ) {
+    fwrite( STDERR, 'Default sensitive store was not accepted: ' . json_encode( $status ) . "\n" );
+    exit( 1 );
+}
+
+$perms = fileperms( $state_dir );
+if ( FALSE === $perms || 0 !== ( $perms & 0077 ) ) {
+    fwrite( STDERR, sprintf( "State directory is not private: %o\n", FALSE === $perms ? 0 : ( $perms & 0777 ) ) );
+    exit( 1 );
+}
+PHP
+
+php_check 'sensitive local JSON stores should refuse world-readable directories' \
+    env -i PATH="$PATH" php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/site.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/functions.php';
+require __DIR__ . '/api/router.php';
+
+$world_dir = sys_get_temp_dir() . '/tonbankcard-world-state-' . getmypid();
+if ( ! is_dir( $world_dir ) && ! mkdir( $world_dir, 0777, TRUE ) ) {
+    fwrite( STDERR, "Could not create world-readable test directory\n" );
+    exit( 1 );
+}
+chmod( $world_dir, 0777 );
+
+$session = [
+    'telegram_user_id'       => null,
+    'telegram_language_code' => null,
+    'telegram_is_premium'    => FALSE,
+    'session_token'          => str_repeat( 'a', 64 ),
+    'session_token_hash'     => str_repeat( 'b', 64 ),
+    'start_param'            => null,
+];
+
+$result = tonbankcard_api_store_local_session_record(
+    $session,
+    [
+        'local_session_store_path' => $world_dir . '/sessions.json',
+    ]
+);
+
+chmod( $world_dir, 0700 );
+@unlink( $world_dir . '/sessions.json' );
+@rmdir( $world_dir );
+
+if ( ! empty( $result['ok'] ) ) {
+    fwrite( STDERR, "World-readable sensitive store directory was accepted\n" );
     exit( 1 );
 }
 PHP

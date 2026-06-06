@@ -19,6 +19,21 @@ Stage 6 — launch-readiness and SEO-completeness audit follow-ups
   `TONBANKCARD_BOT_WEBHOOK_SECRET` is still validated with `hash_equals`
   (`401 telegram_bot_unauthorized` on mismatch), and the secret is documented as
   mandatory for webhook deployments. Covered by `tests/telegram-bot-check.sh`.
+- Non-local deployments now force HTTP requests to HTTPS by default, emit
+  `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
+  once HTTPS is confirmed, and keep session cookies `Secure` even if a
+  production request reaches PHP over plain HTTP (#192). The redirect is
+  configurable with `TONBANKCARD_FORCE_HTTPS`; HSTS and cookie behavior are
+  covered by `tests/security-compliance-check.sh`.
+- Non-local MySQL/MariaDB connections now request TLS with configurable
+  `MYSQL_SSL_*` PDO options, require a CA file for production-style profiles,
+  and verify the database server certificate by default (#198). Runtime and
+  installer coverage live in `tests/runtime-configuration-check.sh` and
+  `tests/automatic-installer-check.sh`.
+- Debug/error display now fails closed when `TONBANKCARD_PROFILE` is unset or
+  unknown, while an explicit `TONBANKCARD_PROFILE=local` or
+  `TONBANKCARD_DEBUG=true` still enables local troubleshooting (#200). Runtime
+  coverage lives in `tests/runtime-configuration-check.sh`.
 
 ### Added
 

@@ -572,12 +572,110 @@ function tonbankcard_api_rate_limit_identity( array $request ) {
     }
 
     $ip = function_exists( 'tonbankcard_api_request_ip' ) ? tonbankcard_api_request_ip( [ 'headers' => $headers ] ) : null;
-    $user_agent = isset( $headers['user-agent'] ) ? $headers['user-agent'] : '';
 
     return [
         'policy' => 'anonymous_web',
-        'key'    => hash( 'sha256', 'anonymous|' . ( null === $ip ? 'unknown' : $ip ) . '|' . $user_agent ),
+        'key'    => hash( 'sha256', 'anonymous|' . ( null === $ip ? 'unknown' : $ip ) ),
     ];
+}
+
+/**
+ * Builds a normalized rate-limit decision and headers.
+ *
+ * @param string $policy_name
+ * @param int $max_requests
+ * @param int $window_seconds
+ * @param int $count
+ * @param int $retry_after
+ * @return array
+ */
+function tonbankcard_api_rate_limit_decision( string $policy_name, int $max_requests, int $window_seconds, int $count, int $retry_after ) {
+    $retry_after = max( 1, $retry_after );
+    $remaining = max( 0, $max_requests - $count );
+    $headers = [
+        'X-RateLimit-Limit'     => (string) $max_requests,
+        'X-RateLimit-Remaining' => (string) $remaining,
+        'X-RateLimit-Reset'     => (string) ( time() + $retry_after ),
+        'X-RateLimit-Policy'    => $policy_name,
+    ];
+
+    if ( $count > $max_requests ) {
+        $headers['Retry-After'] = (string) $retry_after;
+
+        return [
+            'allowed'      => FALSE,
+            'headers'      => $headers,
+            'retry_after'  => $retry_after,
+            'policy'       => $policy_name,
+            'limit'        => $max_requests,
+            'window'       => $window_seconds,
+        ];
+    }
+
+    return [
+        'allowed' => TRUE,
+        'headers' => $headers,
+    ];
+}
+
+/**
+ * Applies a bounded per-process fallback when Redis cannot enforce limits.
+ *
+ * @param string $policy_name
+ * @param string $identity_key
+ * @param int $window_seconds
+ * @param int $max_requests
+ * @return array
+ */
+function tonbankcard_api_rate_limit_fallback_check( string $policy_name, string $identity_key, int $window_seconds, int $max_requests ) {
+    static $buckets = [];
+
+    $now = time();
+    $bucket_key = $policy_name . ':' . $identity_key;
+    $max_buckets = 4096;
+
+    foreach ( $buckets as $key => $bucket ) {
+        if ( ! is_array( $bucket ) || empty( $bucket['reset_at'] ) || (int) $bucket['reset_at'] <= $now ) {
+            unset( $buckets[ $key ] );
+        }
+    }
+
+    if ( ! isset( $buckets[ $bucket_key ] ) ) {
+        if ( count( $buckets ) >= $max_buckets ) {
+            $oldest_key = null;
+            $oldest_seen = PHP_INT_MAX;
+            foreach ( $buckets as $key => $bucket ) {
+                $seen = isset( $bucket['last_seen'] ) ? (int) $bucket['last_seen'] : (int) $bucket['reset_at'];
+                if ( $seen < $oldest_seen ) {
+                    $oldest_key = $key;
+                    $oldest_seen = $seen;
+                }
+            }
+            if ( null !== $oldest_key ) {
+                unset( $buckets[ $oldest_key ] );
+            }
+        }
+
+        $buckets[ $bucket_key ] = [
+            'count'     => 0,
+            'reset_at'  => $now + $window_seconds,
+            'last_seen' => $now,
+        ];
+    }
+
+    if ( (int) $buckets[ $bucket_key ]['reset_at'] <= $now ) {
+        $buckets[ $bucket_key ] = [
+            'count'     => 0,
+            'reset_at'  => $now + $window_seconds,
+            'last_seen' => $now,
+        ];
+    }
+
+    $buckets[ $bucket_key ]['count'] = (int) $buckets[ $bucket_key ]['count'] + 1;
+    $buckets[ $bucket_key ]['last_seen'] = $now;
+    $retry_after = max( 1, (int) $buckets[ $bucket_key ]['reset_at'] - $now );
+
+    return tonbankcard_api_rate_limit_decision( $policy_name, $max_requests, $window_seconds, (int) $buckets[ $bucket_key ]['count'], $retry_after );
 }
 
 /**
@@ -598,23 +696,24 @@ function tonbankcard_api_rate_limit_check( array $request, array $runtime, array
         return [ 'allowed' => TRUE, 'headers' => [] ];
     }
 
-    $redis = tonbankcard_api_redis_settings( $runtime, $config );
-    if ( empty( $redis['enabled'] ) ) {
-        tonbankcard_api_metric_increment( $runtime, $config, 'rate_limit.unavailable' );
-        return [ 'allowed' => TRUE, 'headers' => [] ];
-    }
-
     $identity = tonbankcard_api_rate_limit_identity( $request );
     $policy_name = $identity['policy'];
     $policy = isset( $settings['policies'][ $policy_name ] ) ? $settings['policies'][ $policy_name ] : $settings['policies']['anonymous_web'];
     $window_seconds = isset( $policy['window_seconds'] ) ? max( 1, (int) $policy['window_seconds'] ) : 60;
     $max_requests = isset( $policy['max_requests'] ) ? max( 1, (int) $policy['max_requests'] ) : 60;
+
+    $redis = tonbankcard_api_redis_settings( $runtime, $config );
+    if ( empty( $redis['enabled'] ) ) {
+        tonbankcard_api_metric_increment( $runtime, $config, 'rate_limit.unavailable' );
+        return tonbankcard_api_rate_limit_fallback_check( $policy_name, $identity['key'], $window_seconds, $max_requests );
+    }
+
     $key = $redis['key_prefix'] . ':rate_limit:' . $policy_name . ':' . $identity['key'];
 
     $increment = tonbankcard_api_redis_command( $runtime, $config, [ 'INCR', $key ] );
     if ( empty( $increment['ok'] ) ) {
         tonbankcard_api_metric_increment( $runtime, $config, 'rate_limit.unavailable' );
-        return [ 'allowed' => TRUE, 'headers' => [] ];
+        return tonbankcard_api_rate_limit_fallback_check( $policy_name, $identity['key'], $window_seconds, $max_requests );
     }
 
     $count = (int) $increment['result'];
@@ -624,32 +723,13 @@ function tonbankcard_api_rate_limit_check( array $request, array $runtime, array
 
     $ttl_response = tonbankcard_api_redis_command( $runtime, $config, [ 'TTL', $key ] );
     $retry_after = ! empty( $ttl_response['ok'] ) && (int) $ttl_response['result'] > 0 ? (int) $ttl_response['result'] : $window_seconds;
-    $remaining = max( 0, $max_requests - $count );
-    $headers = [
-        'X-RateLimit-Limit'     => (string) $max_requests,
-        'X-RateLimit-Remaining' => (string) $remaining,
-        'X-RateLimit-Reset'     => (string) ( time() + $retry_after ),
-        'X-RateLimit-Policy'    => $policy_name,
-    ];
+    $decision = tonbankcard_api_rate_limit_decision( $policy_name, $max_requests, $window_seconds, $count, $retry_after );
 
-    if ( $count > $max_requests ) {
+    if ( empty( $decision['allowed'] ) ) {
         tonbankcard_api_metric_increment( $runtime, $config, 'rate_limit.blocked' );
-        $headers['Retry-After'] = (string) $retry_after;
-
-        return [
-            'allowed'      => FALSE,
-            'headers'      => $headers,
-            'retry_after'  => $retry_after,
-            'policy'       => $policy_name,
-            'limit'        => $max_requests,
-            'window'       => $window_seconds,
-        ];
+        return $decision;
     }
 
     tonbankcard_api_metric_increment( $runtime, $config, 'rate_limit.allowed' );
-
-    return [
-        'allowed' => TRUE,
-        'headers' => $headers,
-    ];
+    return $decision;
 }

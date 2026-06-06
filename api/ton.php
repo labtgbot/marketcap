@@ -577,6 +577,20 @@ function tonbankcard_api_ton_read_store( array $settings, array &$warnings ) {
         return [];
     }
 
+    if ( function_exists( 'tonbankcard_runtime_sensitive_store_status' ) ) {
+        $status = tonbankcard_runtime_sensitive_store_status(
+            $path,
+            [
+                'mode'         => 'read',
+                'require_file' => TRUE,
+            ]
+        );
+        if ( empty( $status['ok'] ) ) {
+            $warnings[] = 'ton_curation_store_unsafe';
+            return [];
+        }
+    }
+
     $raw = file_get_contents( $path );
     if ( FALSE === $raw || '' === trim( $raw ) ) {
         return [];
@@ -739,8 +753,27 @@ function tonbankcard_api_ton_save_manual_curation( array $body, array $runtime, 
             'ok'      => FALSE,
             'status'  => 503,
             'code'    => 'ton_curation_store_unconfigured',
-            'message' => 'Set TONBANKCARD_TON_CURATION_FILE before writing TON curation data.',
+            'message' => 'Set TONBANKCARD_STATE_DIR or TONBANKCARD_TON_CURATION_FILE before writing TON curation data.',
         ];
+    }
+
+    if ( function_exists( 'tonbankcard_runtime_sensitive_store_status' ) ) {
+        $store_status = tonbankcard_runtime_sensitive_store_status(
+            $path,
+            [
+                'mode'       => 'write',
+                'create_dir' => TRUE,
+            ]
+        );
+        if ( empty( $store_status['ok'] ) ) {
+            return [
+                'ok'      => FALSE,
+                'status'  => 503,
+                'code'    => isset( $store_status['code'] ) ? $store_status['code'] : 'ton_curation_store_unsafe',
+                'message' => 'TON curation store path must point to a private app-owned directory and file.',
+                'details' => isset( $store_status['details'] ) && is_array( $store_status['details'] ) ? $store_status['details'] : [],
+            ];
+        }
     }
 
     $normalized = [
@@ -800,6 +833,7 @@ function tonbankcard_api_ton_save_manual_curation( array $body, array $runtime, 
             'message' => 'TON curation store could not be written.',
         ];
     }
+    @chmod( $path, 0600 );
 
     return [ 'ok' => TRUE ];
 }

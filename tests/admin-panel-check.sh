@@ -108,7 +108,7 @@ PHP
 
 php_check 'Admin API should require admin auth, enforce read-only support, audit writes, merge runtime flags, and redact secrets' \
     env -i PATH="$PATH" \
-        TONBANKCARD_ADMIN_STORE="$(mktemp)" \
+        TONBANKCARD_ADMIN_STORE="$(mktemp -d "${TMPDIR:-/tmp}/tonbankcard-admin-store.XXXXXX")/admin.json" \
         TEST_ENV_FILE="$PWD/.env" \
         TONBANKCARD_ADMIN_TOKEN='owner-secret-token' \
         TONBANKCARD_ADMIN_SUPPORT_TOKEN='support-secret-token' \
@@ -151,6 +151,12 @@ require __DIR__ . '/api/router.php';
 
 $store_path = (string) getenv( 'TONBANKCARD_ADMIN_STORE' );
 @unlink( $store_path );
+register_shutdown_function(
+    function () use ( $store_path ) {
+        @unlink( $store_path );
+        @rmdir( dirname( $store_path ) );
+    }
+);
 
 function call_admin_api( array $request, array $runtime, array $api ) {
     return tonbankcard_api_handle( array_merge( [ 'body' => '' ], $request ), [], $runtime, $api );
@@ -452,6 +458,11 @@ if ( ! function_exists( 'esc_attr' ) ) {
 if ( ! function_exists( 'esc_url' ) ) {
     function esc_url( $value ) {
         return htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' );
+    }
+}
+if ( ! function_exists( 'tonbankcard_csp_nonce' ) ) {
+    function tonbankcard_csp_nonce() {
+        return str_repeat( 'a', 32 );
     }
 }
 if ( ! function_exists( 'vendor_url' ) ) {

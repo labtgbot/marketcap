@@ -31,6 +31,7 @@ $router_base_path = '/' === $router_base_path ? '' : rtrim( $router_base_path, '
 $admin_base_path = $router_base_path . '/admin';
 $is_admin_page = $request_path === $admin_base_path || 0 === strpos( $request_path, $admin_base_path . '/' );
 $should_render_yandex_metrica = ! empty( $yandex_metrica['enabled'] ) && '' !== $yandex_metrica_counter_id && ! $is_admin_page;
+$csp_nonce = tonbankcard_csp_nonce();
 
 ?>
 <head>
@@ -103,7 +104,7 @@ $should_render_yandex_metrica = ! empty( $yandex_metrica['enabled'] ) && '' !== 
 
         if ( 'telegram' === TONBANKCARD_PROFILE ) {
             ?>
-            <script src="https://telegram.org/js/telegram-web-app.js"></script>
+            <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" src="https://telegram.org/js/telegram-web-app.js"></script>
             <?php
         }
 
@@ -253,10 +254,10 @@ $should_render_yandex_metrica = ! empty( $yandex_metrica['enabled'] ) && '' !== 
          * Print Linked Data (JSON-LD)
          */
         ?>
-        <script type="application/ld+json"><?php echo json_encode( $linked_data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE ); ?></script>
+        <script nonce="<?php echo esc_attr( $csp_nonce ); ?>" type="application/ld+json"><?php echo json_encode( $linked_data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE ); ?></script>
         <?php if ( $should_render_yandex_metrica ) : ?>
         <!-- Yandex.Metrika counter -->
-        <script>
+        <script nonce="<?php echo esc_attr( $csp_nonce ); ?>">
             window.tonbankcardYandexMetrica = {
                 enabled: true,
                 counterId: <?php echo esc_attr( $yandex_metrica_counter_id ); ?>,

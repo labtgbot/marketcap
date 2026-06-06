@@ -1,6 +1,10 @@
 # marketcap
 
-This repository now includes the extracted Gecko Client project from `gecko-client.zip`.
+This repository contains the extracted Gecko Client project. The original
+`gecko-client.zip` provenance archive is not tracked in this repository; keep
+any required audit copy as a GitHub Release artifact or another approved
+artifact-store object with checksum notes instead of committing it to the source
+tree.
 
 ## Local Development
 
@@ -41,11 +45,13 @@ Open these browser URLs while the server is running:
 - Search: focus the top search field on the home page and search for a coin or exchange.
 
 Copy `.env.example` to `.env` only when you need local overrides. A fresh
-checkout defaults to the `local` profile without requiring secrets.
+checkout defaults to the `local` profile without requiring secrets, but PHP
+error display stays off until `TONBANKCARD_PROFILE=local` or
+`TONBANKCARD_DEBUG=true` is set explicitly.
 
-Optional V2 database setup uses the `MYSQL_DSN`, `MYSQL_USER`, and
-`MYSQL_PASSWORD` values from `.env.example`. After creating an empty local MySQL
-or MariaDB database, initialize it with:
+Optional V2 database setup uses the `MYSQL_DSN`, `MYSQL_USER`,
+`MYSQL_PASSWORD`, and non-local `MYSQL_SSL_*` values from `.env.example`. After
+creating an empty local MySQL or MariaDB database, initialize it with:
 
 ```sh
 php database/migrate.php dry-run
@@ -108,9 +114,12 @@ npm run test:design-system
 npm run test:pwa-telegram
 npm run test:admin-panel
 npm run test:security-compliance
+npm run test:legal-baseline
 npm run test:launch-readiness
 npm run test:hosting-installation
 npm run test:automatic-installer
+npm run test:runtime-config
+npm run test:router-attrs
 npm run validate:bundle
 npm run test:smoke
 ```
@@ -138,7 +147,9 @@ registry for shareable web routes.
   checked-in bundles with `node dev/js/tools/build.js`. Install `uglify-js`
   locally first if the minified bundle also needs to be regenerated.
 - If the app renders a configuration error, check `.env` values or temporarily
-  move `.env` aside to use the default local profile.
+  move `.env` aside to use the default local profile. Use
+  `TONBANKCARD_PROFILE=local` or `TONBANKCARD_DEBUG=true` only for local error
+  display while troubleshooting.
 
 See [docs/improvements-v2-analysis.md](docs/improvements-v2-analysis.md) for the Telegram Mini App improvement analysis from issue #1.
 

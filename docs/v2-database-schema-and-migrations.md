@@ -130,6 +130,13 @@ Migrations are plain SQL files under `database/migrations/` with matching
 runner records applied versions, descriptions, checksums, and timestamps in
 `schema_migrations`.
 
+`up` and `down` runs acquire the MySQL/MariaDB advisory lock
+`tonbankcard_migrations` before reading the ledger, so CLI runs and the
+installer cannot apply the same pending migration concurrently. The runner also
+guards `ALTER TABLE` `ADD/DROP COLUMN` and `ADD/DROP KEY` clauses through
+`information_schema`, allowing a re-run to recover after a DDL statement was
+applied but the ledger row was not recorded.
+
 Use these commands:
 
 ```sh
@@ -143,7 +150,8 @@ Conventions for future migrations:
 
 - Keep migrations additive unless a destructive change has a tested rollback and
   a deployment note.
-- Put one SQL statement per semicolon-terminated block. Do not use stored
+- Put one SQL statement per semicolon-terminated block. Semicolons inside SQL
+  strings and comments are supported by the runner, but do not use stored
   procedures, custom delimiters, or migration-time application code.
 - Include an up migration and a down migration. Down migrations may be best
   effort when data loss is unavoidable, but the risk must be documented in the
@@ -157,6 +165,19 @@ Conventions for future migrations:
 - Run `php database/migrate.php dry-run` in CI-friendly checks when a live
   database is unavailable, and run `php database/migrate.php up` against a local
   MySQL/MariaDB database before deploying migrations.
+
+Rollback notes for existing lossy changes:
+
+- `0007_smart_alerts.down.sql` refuses to shrink `alert_rules.trigger_type`
+  while any rule still uses `rank_change`, `sentiment_change`, or
+  `ton_ecosystem`. Operators must archive, delete, or intentionally convert
+  those rules before retrying rollback, because mapping them to `percent_move`
+  would corrupt alert semantics.
+- `0008_share_referral_attribution.down.sql` restores the older one-attribution
+  per-user model by keeping the earliest `attributed_at` row per
+  `referred_user_id` (lowest `id` as the tie-breaker) and deleting later
+  per-campaign duplicates before re-adding
+  `uniq_referral_attributions_referred`.
 
 ## Local Empty Database Setup
 

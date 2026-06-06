@@ -61,11 +61,13 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
             max-width: 1200px;
         }
         #reload {
+            display: inline-block;
             font-size: 16px;
             background: #1867c0;
             color: #fff;
             padding: 0.5em;
             border: none;
+            text-decoration: none;
         }
     </style>
 </head>
@@ -106,7 +108,6 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
         </div>
     <?php endforeach; ?>
 
-    <button id="reload" onclick="location.reload()">&orarr; Refresh</button>
+    <a id="reload" href="">&orarr; Refresh</a>
 </body>
 </html>
-

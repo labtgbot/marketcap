@@ -189,9 +189,9 @@ const fs = require('fs');
 const vm = require('vm');
 
 const html = fs.readFileSync(process.env.YANDEX_METRICA_HTML, 'utf8');
-const match = html.match(/<!-- Yandex\.Metrika counter -->\s*<script>([\s\S]*?)<\/script>/);
+const match = html.match(/<!-- Yandex\.Metrika counter -->\s*<script\b(?=[^>]*\bnonce=)[^>]*>([\s\S]*?)<\/script>/);
 if (!match) {
-  throw new Error('Yandex Metrica script block was not found');
+  throw new Error('Yandex Metrica script block with CSP nonce was not found');
 }
 
 const insertedScripts = [];

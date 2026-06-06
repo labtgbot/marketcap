@@ -23,9 +23,10 @@ Feature toggles:
 | `TONBANKCARD_CACHE_ENABLED` | Enabled when Upstash is configured. | Enables shared market data cache reads, writes, stale fallback, and duplicate request coalescing. |
 | `TONBANKCARD_RATE_LIMIT_ENABLED` | Enabled outside local profiles when Upstash is configured. | Enables Redis-backed API request limits. |
 
-Redis timeout defaults to 2 seconds, and cache/rate-limit failures are
-fail-open for page rendering. When Redis is unavailable, API routes continue to
-serve uncached provider responses unless the upstream provider itself fails.
+Redis timeout defaults to 2 seconds. Cache failures remain fail-open for page
+rendering so API routes can serve uncached provider responses unless the
+upstream provider itself fails. Rate-limit failures use a bounded in-process
+fallback limiter instead of disabling enforcement while Redis is unavailable.
 
 ## Cache TTLs
 
@@ -80,14 +81,14 @@ The limiter classifies requests without storing raw identifiers in Redis keys:
 
 | Policy | Identity source | Default |
 | --- | --- | ---: |
-| `anonymous_web` | Hashed IP and user agent. | 120 requests per 60 seconds. |
+| `anonymous_web` | Hashed IP address. | 120 requests per 60 seconds. |
 | `telegram_session` | Hashed `tonbankcard_session`, `X-TONBANKCARD-Session`, or `X-Telegram-Init-Data`. | 240 requests per 60 seconds. |
 | `admin_action` | Admin path or admin/auth header. | 30 requests per 60 seconds. |
 
 Blocked requests return `429 rate_limited` with a clear message, `Retry-After`,
 `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, and
-`X-RateLimit-Policy`. Redis errors are fail-open and increment an unavailable
-counter when possible.
+`X-RateLimit-Policy`. Redis errors increment an unavailable counter when
+possible and fall back to per-process enforcement with bounded memory use.
 
 ## Metrics
 
@@ -115,4 +116,5 @@ npm run test:cache-rate-limit
 
 The check verifies configuration, documentation, cache miss/hit behavior,
 stale upstream fallback, secret redaction, rate-limit identity classes,
-clear 429 responses, metrics counters, and duplicate market request coalescing.
+User-Agent rotation resistance, Redis-outage fallback enforcement, clear 429
+responses, metrics counters, and duplicate market request coalescing.

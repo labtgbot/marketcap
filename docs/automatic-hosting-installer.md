@@ -97,6 +97,8 @@ empty during the first production boot unless the related feature is enabled.
 | `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_CHARSET` | Database connection parts. `MYSQL_CHARSET` should normally be `utf8mb4`; `MYSQL_PORT` is often `3306` or blank on shared hosting. | Hosting MySQL or MariaDB database panel. |
 | `MYSQL_DSN` | Full DSN such as `mysql:host=127.0.0.1;dbname=marketcap;charset=utf8mb4`. The installer builds it from helper fields when left empty. | Built by the installer or copied from hosting database docs. |
 | `MYSQL_USER` and `MYSQL_PASSWORD` | Database user and password with permissions for the application database. | Hosting MySQL or MariaDB database panel. |
+| `MYSQL_SSL_CA` and `MYSQL_SSL_VERIFY_SERVER_CERT` | CA certificate path and verification flag used by `PDO::MYSQL_ATTR_SSL_CA` and `PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT`. Keep verification `true` for non-local installs. | Managed database TLS settings or hosting support docs. |
+| `MYSQL_SSL_CERT`, `MYSQL_SSL_KEY`, `MYSQL_SSL_CAPATH`, `MYSQL_SSL_CIPHER` | Optional advanced `PDO::MYSQL_ATTR_SSL_*` paths and cipher list when the database provider requires client certificates or a custom CA directory. | Managed database TLS settings. |
 | `COINGECKO_API_PLAN` and `COINGECKO_API_KEY` | Use `demo` without a key for first boot. Use `pro` only when a Pro key is available. | CoinGecko account. |
 | `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` | Redis REST endpoint and token. Required for non-local installs because readiness and provider caching expect Redis. | Upstash database details page. |
 | `GROQ_API_KEY`, `GROQ_MODEL_ID`, `GROQ_BASE_URL` | AI provider settings. Keep `TONBANKCARD_FEATURE_AI=false` until the Groq key is configured. | Groq console. |
