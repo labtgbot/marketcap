@@ -221,6 +221,8 @@ See [docs/v2-security-privacy-compliance.md](docs/v2-security-privacy-compliance
 
 See [docs/v2-launch-readiness.md](docs/v2-launch-readiness.md) for the BotFather Main Mini App setup, localized launch assets, production verification matrix, support workflow, admin runbook, rollout, rollback, and incident response plan from issue #40. Run `npm run test:launch-readiness` to verify the launch documentation gate.
 
+See [docs/code-logic-audit-2026-06-12.md](docs/code-logic-audit-2026-06-12.md) for the post-Stage 7 code-logic and security audit from issue #229. Run `npm run test:code-logic-audit-229` to verify the audit documentation gate.
+
 See [docs/hosting-installation.md](docs/hosting-installation.md) for the production hosting installation guide from issue #82. Run `npm run test:hosting-installation` to verify the hosting documentation gate.
 
 See [docs/automatic-hosting-installer.md](docs/automatic-hosting-installer.md) for the guarded browser installer from issue #84. Run `npm run test:automatic-installer` to verify the installer gate.
