@@ -861,7 +861,7 @@ function tonbankcard_api_ton_curation_allowed( array $request, array $runtime, a
     $provided = '';
     if ( isset( $request['headers']['x-tonbankcard-ton-curation-token'] ) ) {
         $provided = trim( (string) $request['headers']['x-tonbankcard-ton-curation-token'] );
-    } elseif ( isset( $request['query']['token'] ) ) {
+    } elseif ( isset( $runtime['profile'] ) && 'local' === $runtime['profile'] && isset( $request['query']['token'] ) ) {
         $provided = trim( (string) $request['query']['token'] );
     }
 

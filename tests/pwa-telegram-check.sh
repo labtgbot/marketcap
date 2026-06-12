@@ -84,6 +84,12 @@ assert_contains service-worker.js 'CACHE_VERSION' 'versioned service worker cach
 assert_contains service-worker.js 'offline\.html' 'offline navigation fallback'
 assert_contains service-worker.js 'site\.webmanifest' 'manifest pre-cache'
 assert_contains service-worker.js '/api/' 'API requests excluded from service worker cache'
+assert_contains service-worker.js 'response\.ok' 'successful response cache guard'
+assert_contains service-worker.js 'cache-control' 'Cache-Control cacheability guard'
+assert_contains service-worker.js 'no-store' 'no-store cache exclusion'
+assert_contains service-worker.js 'private' 'private response cache exclusion'
+assert_contains service-worker.js '/admin' 'admin route cache exclusion'
+assert_contains service-worker.js '/install' 'installer route cache exclusion'
 
 assert_contains views/app-head.php 'telegram-web-app\.js' 'conditional Telegram WebApp SDK loading'
 assert_contains views/app-head.php 'apple-mobile-web-app-capable' 'Apple install metadata'
@@ -106,6 +112,76 @@ assert_contains dev/js/src/vm.js 'pwaInstallAvailable' 'Vue install prompt state
 assert_contains dev/js/src/vm.js 'promptPwaInstall' 'Vue install prompt method'
 assert_contains tests/browser-smoke.js 'pwa-mobile-web\.png' 'mobile web Playwright screenshot'
 assert_contains tests/browser-smoke.js 'pwa-telegram-webview\.png' 'Telegram-like Playwright screenshot'
+
+if ! node <<'JS'
+const fs = require('fs');
+const vm = require('vm');
+
+const listeners = {};
+const sandbox = {
+    self: {
+        location: {origin: 'https://marketcap.example.test'},
+        addEventListener: (name, fn) => {
+            listeners[name] = fn;
+        },
+        skipWaiting: () => Promise.resolve(),
+        clients: {claim: () => Promise.resolve()},
+    },
+    caches: {
+        open: () => Promise.resolve({addAll: () => Promise.resolve(), put: () => Promise.resolve()}),
+        keys: () => Promise.resolve([]),
+        delete: () => Promise.resolve(true),
+        match: () => Promise.resolve(null),
+    },
+    fetch: () => Promise.resolve(response(true, 'public, max-age=60')),
+    URL,
+    Promise,
+};
+
+function response(ok, cacheControl) {
+    return {
+        ok,
+        headers: {
+            get: name => String(name).toLowerCase() === 'cache-control' ? cacheControl : '',
+        },
+        clone() {
+            return response(ok, cacheControl);
+        },
+    };
+}
+
+vm.runInNewContext(fs.readFileSync('service-worker.js', 'utf8'), sandbox);
+
+if (typeof sandbox.isRuntimeCacheableResponse !== 'function') {
+    throw new Error('service worker does not expose isRuntimeCacheableResponse');
+}
+if (typeof sandbox.isSensitiveRuntimePath !== 'function') {
+    throw new Error('service worker does not expose isSensitiveRuntimePath');
+}
+if (!sandbox.isRuntimeCacheableResponse(response(true, 'public, max-age=60'))) {
+    throw new Error('cacheable public success response was rejected');
+}
+if (sandbox.isRuntimeCacheableResponse(response(false, 'public, max-age=60'))) {
+    throw new Error('non-OK response was accepted for runtime cache');
+}
+if (sandbox.isRuntimeCacheableResponse(response(true, 'no-store'))) {
+    throw new Error('no-store response was accepted for runtime cache');
+}
+if (sandbox.isRuntimeCacheableResponse(response(true, 'private, max-age=60'))) {
+    throw new Error('private response was accepted for runtime cache');
+}
+for (const pathname of ['/api/search', '/admin', '/admin/settings', '/install', '/install/index.php']) {
+    if (!sandbox.isSensitiveRuntimePath(pathname)) {
+        throw new Error(`${pathname} was not treated as sensitive`);
+    }
+}
+if (sandbox.isSensitiveRuntimePath('/currency/bitcoin')) {
+    throw new Error('public currency route was treated as sensitive');
+}
+JS
+then
+    fail 'Service worker runtime cache policy does not reject unsafe responses or sensitive routes'
+fi
 
 if [ "$failures" -gt 0 ]; then
     exit 1

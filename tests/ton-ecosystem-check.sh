@@ -694,6 +694,43 @@ if ( ! in_array( 'the-open-network', $market_ids, TRUE ) ) {
 @unlink( $store_path );
 PHP
 
+php_check 'TON curation authorization should reject query tokens outside local profile' \
+    env -i PATH="$PATH" php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$config = [
+    'ton_ecosystem' => [
+        'curation_token' => 'ton-curation-secret',
+    ],
+];
+
+$query_request = [
+    'headers' => [],
+    'query'   => [ 'token' => 'ton-curation-secret' ],
+];
+if ( tonbankcard_api_ton_curation_allowed( $query_request, [ 'profile' => 'production' ], $config ) ) {
+    fwrite( STDERR, "TON curation accepted a query token outside local profile\n" );
+    exit( 1 );
+}
+
+$header_request = [
+    'headers' => [ 'x-tonbankcard-ton-curation-token' => 'ton-curation-secret' ],
+    'query'   => [ 'token' => 'wrong-query-token' ],
+];
+if ( ! tonbankcard_api_ton_curation_allowed( $header_request, [ 'profile' => 'production' ], $config ) ) {
+    fwrite( STDERR, "TON curation rejected a valid header token\n" );
+    exit( 1 );
+}
+
+if ( ! tonbankcard_api_ton_curation_allowed( $query_request, [ 'profile' => 'local' ], $config ) ) {
+    fwrite( STDERR, "TON curation did not preserve local query-token ergonomics\n" );
+    exit( 1 );
+}
+PHP
+
 if [ "$failures" -gt 0 ]; then
     exit 1
 fi

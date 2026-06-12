@@ -133,7 +133,7 @@ function tonbankcard_api_search_refresh_allowed( array $request, array $runtime,
     $provided = '';
     if ( isset( $request['headers']['x-tonbankcard-search-refresh-token'] ) ) {
         $provided = trim( (string) $request['headers']['x-tonbankcard-search-refresh-token'] );
-    } elseif ( isset( $request['query']['token'] ) ) {
+    } elseif ( isset( $runtime['profile'] ) && 'local' === $runtime['profile'] && isset( $request['query']['token'] ) ) {
         $provided = trim( (string) $request['query']['token'] );
     }
 

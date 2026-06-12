@@ -447,6 +447,43 @@ if ( FALSE !== strpos( $second['body'], 'redis-secret-token' ) ) {
 }
 PHP
 
+php_check 'search refresh authorization should reject query tokens outside local profile' \
+    env -i PATH="$PATH" php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$config = [
+    'search' => [
+        'refresh_token' => 'search-refresh-secret',
+    ],
+];
+
+$query_request = [
+    'headers' => [],
+    'query'   => [ 'token' => 'search-refresh-secret' ],
+];
+if ( tonbankcard_api_search_refresh_allowed( $query_request, [ 'profile' => 'production' ], $config ) ) {
+    fwrite( STDERR, "Search refresh accepted a query token outside local profile\n" );
+    exit( 1 );
+}
+
+$header_request = [
+    'headers' => [ 'x-tonbankcard-search-refresh-token' => 'search-refresh-secret' ],
+    'query'   => [ 'token' => 'wrong-query-token' ],
+];
+if ( ! tonbankcard_api_search_refresh_allowed( $header_request, [ 'profile' => 'production' ], $config ) ) {
+    fwrite( STDERR, "Search refresh rejected a valid header token\n" );
+    exit( 1 );
+}
+
+if ( ! tonbankcard_api_search_refresh_allowed( $query_request, [ 'profile' => 'local' ], $config ) ) {
+    fwrite( STDERR, "Search refresh did not preserve local query-token ergonomics\n" );
+    exit( 1 );
+}
+PHP
+
 if [ "$failures" -gt 0 ]; then
     exit 1
 fi

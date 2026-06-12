@@ -33,6 +33,16 @@ Initial routes:
 Unknown routes return `404` with a JSON error envelope. Unsupported methods
 return `405` with an `Allow` header.
 
+## Request Body Limits
+
+The API router enforces a global request body limit before route handlers,
+rate-limit checks, auth checks, or JSON validation run. `Content-Length` values
+above `TONBANKCARD_API_MAX_REQUEST_BODY_BYTES` are rejected with `413
+payload_too_large`, and requests without a trustworthy `Content-Length` are
+read only up to the same stream cap. The default limit is `1048576` bytes.
+Route-specific limits, such as the stricter AI prompt body limit, can still
+apply after this global guard.
+
 ## JSON Envelope
 
 Successful responses use one shape:
