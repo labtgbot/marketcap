@@ -551,12 +551,12 @@ function tonbankcard_api_rate_limit_identity( array $request ) {
         $headers[ strtolower( (string) $name ) ] = is_array( $value ) ? implode( ',', $value ) : (string) $value;
     }
     $path = isset( $request['path'] ) ? (string) $request['path'] : '/';
+    $ip = function_exists( 'tonbankcard_api_request_ip' ) ? tonbankcard_api_request_ip( [ 'headers' => $headers ] ) : null;
 
     if ( '/api/admin' === $path || 0 === strpos( $path, '/api/admin/' ) || ! empty( $headers['x-tonbankcard-admin'] ) ) {
-        $source = ! empty( $headers['authorization'] ) ? $headers['authorization'] : ( ! empty( $headers['x-tonbankcard-admin'] ) ? $headers['x-tonbankcard-admin'] : 'admin' );
         return [
             'policy' => 'admin_action',
-            'key'    => hash( 'sha256', 'admin|' . $source ),
+            'key'    => tonbankcard_api_rate_limit_preauth_key( 'admin', $path, $ip ),
         ];
     }
 
@@ -564,19 +564,36 @@ function tonbankcard_api_rate_limit_identity( array $request ) {
         ? tonbankcard_api_session_token_from_request( [ 'headers' => $headers ] )
         : null;
     if ( null !== $session_token || ! empty( $headers['x-tonbankcard-session'] ) || ! empty( $headers['x-telegram-init-data'] ) ) {
-        $source = null !== $session_token ? $session_token : ( ! empty( $headers['x-tonbankcard-session'] ) ? $headers['x-tonbankcard-session'] : $headers['x-telegram-init-data'] );
         return [
             'policy' => 'telegram_session',
-            'key'    => hash( 'sha256', 'telegram|' . $source ),
+            'key'    => tonbankcard_api_rate_limit_preauth_key( 'telegram', $path, $ip ),
         ];
     }
-
-    $ip = function_exists( 'tonbankcard_api_request_ip' ) ? tonbankcard_api_request_ip( [ 'headers' => $headers ] ) : null;
 
     return [
         'policy' => 'anonymous_web',
         'key'    => hash( 'sha256', 'anonymous|' . ( null === $ip ? 'unknown' : $ip ) ),
     ];
+}
+
+/**
+ * Builds a stable pre-auth rate-limit key without trusting supplied credentials.
+ *
+ * @param string $scope
+ * @param string $path
+ * @param string|null $ip
+ * @return string
+ */
+function tonbankcard_api_rate_limit_preauth_key( string $scope, string $path, $ip ) {
+    $path_only = parse_url( $path, PHP_URL_PATH );
+    if ( FALSE === $path_only || null === $path_only || '' === $path_only ) {
+        $path_only = '/';
+    }
+    if ( '/' !== $path_only ) {
+        $path_only = rtrim( $path_only, '/' );
+    }
+
+    return hash( 'sha256', $scope . '|preauth|' . $path_only . '|' . ( null === $ip ? 'unknown' : $ip ) );
 }
 
 /**

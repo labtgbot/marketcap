@@ -895,6 +895,59 @@ foreach ( [ 'groq-secret-value-that-must-not-return', 'coingecko-secret-value-th
 @unlink( $store_path );
 PHP
 
+php_check 'Admin .env persistence should escape newlines without creating extra variables' \
+    env -i PATH="$PATH" \
+        TEST_ENV_FILE="$PWD/.env" \
+        php <<'PHP'
+<?php
+$env_path = (string) getenv( 'TEST_ENV_FILE' );
+$previous_env = is_file( $env_path ) ? file_get_contents( $env_path ) : null;
+file_put_contents( $env_path, "GROQ_MODEL_ID=old-model\n" );
+register_shutdown_function(
+    function () use ( $env_path, $previous_env ) {
+        if ( null === $previous_env ) {
+            @unlink( $env_path );
+            return;
+        }
+        file_put_contents( $env_path, $previous_env );
+    }
+);
+
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+putenv( 'TONBANKCARD_ADMIN_TOKEN' );
+unset( $_ENV['TONBANKCARD_ADMIN_TOKEN'], $_SERVER['TONBANKCARD_ADMIN_TOKEN'] );
+
+$malicious = "llama\nTONBANKCARD_ADMIN_TOKEN=attacker-token";
+$saved = tonbankcard_api_admin_save_env_updates( [ 'GROQ_MODEL_ID' => $malicious ] );
+if ( empty( $saved['ok'] ) ) {
+    fwrite( STDERR, "Admin env update failed unexpectedly\n" );
+    exit( 1 );
+}
+
+$env = (string) file_get_contents( $env_path );
+if ( preg_match( '/^TONBANKCARD_ADMIN_TOKEN=attacker-token$/m', $env ) ) {
+    fwrite( STDERR, "Admin env update created a new variable through newline injection\n" );
+    exit( 1 );
+}
+if ( FALSE === strpos( $env, 'GROQ_MODEL_ID="llama\\nTONBANKCARD_ADMIN_TOKEN=attacker-token"' ) ) {
+    fwrite( STDERR, "Admin env update did not persist a newline-escaped value\n" );
+    exit( 1 );
+}
+if ( FALSE !== strpos( (string) getenv( 'GROQ_MODEL_ID' ), "\n" ) ) {
+    fwrite( STDERR, "Admin env update left a raw newline in the live environment value\n" );
+    exit( 1 );
+}
+
+tonbankcard_load_env_file( $env_path );
+if ( 'attacker-token' === getenv( 'TONBANKCARD_ADMIN_TOKEN' ) ) {
+    fwrite( STDERR, "Reloading .env materialized an injected admin token\n" );
+    exit( 1 );
+}
+PHP
+
 if [ "$failures" -gt 0 ]; then
     exit 1
 fi

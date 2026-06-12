@@ -76,15 +76,25 @@ function tonbankcard_api_request_from_globals() {
     if ( FALSE !== $query_string && null !== $query_string && '' !== $query_string ) {
         parse_str( $query_string, $query );
     }
-    $body = file_get_contents( 'php://input' );
+    $headers = tonbankcard_api_headers_from_globals();
+    $body = tonbankcard_api_read_request_body(
+        'php://input',
+        $headers,
+        isset( $GLOBALS['api'] ) && is_array( $GLOBALS['api'] ) ? $GLOBALS['api'] : []
+    );
 
-    return [
+    $request = [
         'method'  => isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET',
         'path'    => $path,
         'query'   => $query,
-        'headers' => tonbankcard_api_headers_from_globals(),
-        'body'    => FALSE === $body ? '' : $body,
+        'headers' => $headers,
+        'body'    => ! empty( $body['ok'] ) ? $body['body'] : '',
     ];
+    if ( empty( $body['ok'] ) ) {
+        $request['body_error'] = isset( $body['error'] ) ? (string) $body['error'] : 'body_read_failed';
+    }
+
+    return $request;
 }
 
 /**
@@ -122,6 +132,110 @@ function tonbankcard_api_headers_from_globals() {
 }
 
 /**
+ * Returns the configured global request body limit in bytes.
+ *
+ * @param array $config
+ * @return int
+ */
+function tonbankcard_api_max_request_body_bytes( array $config ) {
+    if ( isset( $config['limits'] ) && is_array( $config['limits'] ) && isset( $config['limits']['max_request_body_bytes'] ) ) {
+        return max( 1, (int) $config['limits']['max_request_body_bytes'] );
+    }
+
+    return 1048576;
+}
+
+/**
+ * Parses a safe Content-Length value.
+ *
+ * @param array $headers
+ * @return int|null
+ */
+function tonbankcard_api_request_content_length( array $headers ) {
+    if ( ! isset( $headers['content-length'] ) ) {
+        return null;
+    }
+
+    $value = trim( (string) $headers['content-length'] );
+    if ( ! preg_match( '/^\d+$/', $value ) ) {
+        return null;
+    }
+
+    return (int) $value;
+}
+
+/**
+ * Reads a request body without exceeding the global body limit.
+ *
+ * @param resource|string $stream
+ * @param array $headers
+ * @param array $config
+ * @return array
+ */
+function tonbankcard_api_read_request_body( $stream, array $headers, array $config ) {
+    $limit = tonbankcard_api_max_request_body_bytes( $config );
+    $content_length = tonbankcard_api_request_content_length( $headers );
+    if ( null !== $content_length && $content_length > $limit ) {
+        return [
+            'ok'    => FALSE,
+            'body'  => '',
+            'error' => 'payload_too_large',
+        ];
+    }
+
+    $opened = FALSE;
+    if ( is_resource( $stream ) ) {
+        $handle = $stream;
+    } else {
+        $handle = @fopen( (string) $stream, 'rb' );
+        $opened = is_resource( $handle );
+    }
+
+    if ( ! is_resource( $handle ) ) {
+        return [
+            'ok'    => TRUE,
+            'body'  => '',
+            'error' => null,
+        ];
+    }
+
+    $body = '';
+    while ( ! feof( $handle ) ) {
+        $remaining = $limit - strlen( $body ) + 1;
+        if ( $remaining <= 0 ) {
+            break;
+        }
+
+        $chunk = fread( $handle, min( 8192, $remaining ) );
+        if ( FALSE === $chunk || '' === $chunk ) {
+            break;
+        }
+
+        $body .= $chunk;
+        if ( strlen( $body ) > $limit ) {
+            if ( $opened ) {
+                fclose( $handle );
+            }
+            return [
+                'ok'    => FALSE,
+                'body'  => '',
+                'error' => 'payload_too_large',
+            ];
+        }
+    }
+
+    if ( $opened ) {
+        fclose( $handle );
+    }
+
+    return [
+        'ok'    => TRUE,
+        'body'  => $body,
+        'error' => null,
+    ];
+}
+
+/**
  * Handles a normalized API request and returns a serializable response.
  *
  * @param array $request
@@ -140,6 +254,25 @@ function tonbankcard_api_handle( array $request, array $invalid_configs = [], ar
     $headers    = tonbankcard_api_base_headers( $request, $config, $request_id, $runtime );
 
     try {
+        $body_limit_error = tonbankcard_api_request_body_limit_error( $request, $config );
+        if ( null !== $body_limit_error ) {
+            return tonbankcard_api_finalize_response(
+                tonbankcard_api_error_response(
+                    413,
+                    'payload_too_large',
+                    'Request body is too large.',
+                    [ 'max_request_body_bytes' => tonbankcard_api_max_request_body_bytes( $config ) ],
+                    $request_id,
+                    $headers
+                ),
+                $request,
+                $runtime,
+                $config,
+                $request_id,
+                $started_at
+            );
+        }
+
         if ( 'OPTIONS' === $request['method'] ) {
             return tonbankcard_api_finalize_response(
                 [
@@ -860,6 +993,7 @@ function tonbankcard_api_normalize_request( array $request ) {
         'query'   => $query,
         'headers' => $headers,
         'body'    => isset( $request['body'] ) ? (string) $request['body'] : '',
+        'body_error' => isset( $request['body_error'] ) ? (string) $request['body_error'] : '',
     ];
 }
 
@@ -964,6 +1098,33 @@ function tonbankcard_api_cors_headers( array $request, array $config ) {
     }
 
     return $headers;
+}
+
+/**
+ * Returns the body limit error for a normalized request, if any.
+ *
+ * @param array $request
+ * @param array $config
+ * @return string|null
+ */
+function tonbankcard_api_request_body_limit_error( array $request, array $config ) {
+    if ( ! empty( $request['body_error'] ) ) {
+        return (string) $request['body_error'];
+    }
+
+    $limit = tonbankcard_api_max_request_body_bytes( $config );
+    $headers = isset( $request['headers'] ) && is_array( $request['headers'] ) ? $request['headers'] : [];
+    $content_length = tonbankcard_api_request_content_length( $headers );
+    if ( null !== $content_length && $content_length > $limit ) {
+        return 'payload_too_large';
+    }
+
+    $body = isset( $request['body'] ) ? (string) $request['body'] : '';
+    if ( strlen( $body ) > $limit ) {
+        return 'payload_too_large';
+    }
+
+    return null;
 }
 
 /**

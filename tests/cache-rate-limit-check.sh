@@ -439,6 +439,83 @@ if ( 1 !== count( $rate_limit_keys ) ) {
 }
 PHP
 
+php_check 'auth-adjacent rate limits should not mint buckets from rotating invalid credentials' \
+    env -i PATH="$PATH" php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$admin_a = tonbankcard_api_rate_limit_identity(
+    [
+        'path'    => '/api/admin/settings',
+        'headers' => [
+            'authorization'   => 'Bearer invalid-admin-token-a',
+            'x-forwarded-for' => '203.0.113.50',
+        ],
+    ]
+);
+$admin_b = tonbankcard_api_rate_limit_identity(
+    [
+        'path'    => '/api/admin/settings',
+        'headers' => [
+            'authorization'   => 'Bearer invalid-admin-token-b',
+            'x-forwarded-for' => '203.0.113.50',
+        ],
+    ]
+);
+$admin_other_ip = tonbankcard_api_rate_limit_identity(
+    [
+        'path'    => '/api/admin/settings',
+        'headers' => [
+            'authorization'   => 'Bearer invalid-admin-token-b',
+            'x-forwarded-for' => '203.0.113.51',
+        ],
+    ]
+);
+
+if ( 'admin_action' !== $admin_a['policy'] || 'admin_action' !== $admin_b['policy'] ) {
+    fwrite( STDERR, "Expected admin credentials to use admin_action policy\n" );
+    exit( 1 );
+}
+if ( $admin_a['key'] !== $admin_b['key'] ) {
+    fwrite( STDERR, "Rotating invalid admin credentials created separate rate-limit buckets\n" );
+    exit( 1 );
+}
+if ( $admin_a['key'] === $admin_other_ip['key'] ) {
+    fwrite( STDERR, "Admin pre-auth rate-limit bucket did not include the request IP\n" );
+    exit( 1 );
+}
+
+$session_a = tonbankcard_api_rate_limit_identity(
+    [
+        'path'    => '/api/watchlist',
+        'headers' => [
+            'x-tonbankcard-session' => 'invalid-session-token-a',
+            'x-forwarded-for'       => '203.0.113.60',
+        ],
+    ]
+);
+$session_b = tonbankcard_api_rate_limit_identity(
+    [
+        'path'    => '/api/watchlist',
+        'headers' => [
+            'x-tonbankcard-session' => 'invalid-session-token-b',
+            'x-forwarded-for'       => '203.0.113.60',
+        ],
+    ]
+);
+
+if ( 'telegram_session' !== $session_a['policy'] || 'telegram_session' !== $session_b['policy'] ) {
+    fwrite( STDERR, "Expected session credentials to use telegram_session policy\n" );
+    exit( 1 );
+}
+if ( $session_a['key'] !== $session_b['key'] ) {
+    fwrite( STDERR, "Rotating invalid session credentials created separate rate-limit buckets\n" );
+    exit( 1 );
+}
+PHP
+
 php_check 'rate limiter should fall back to bounded in-process enforcement when Redis is unavailable' \
     env -i PATH="$PATH" \
         UPSTASH_REDIS_REST_URL='https://redis.example' \

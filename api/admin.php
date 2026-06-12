@@ -2464,9 +2464,10 @@ function tonbankcard_api_admin_save_env_updates( array $updates ) {
     @chmod( $path, 0600 );
 
     foreach ( $filtered as $key => $value ) {
-        putenv( $key . '=' . $value );
-        $_ENV[ $key ] = $value;
-        $_SERVER[ $key ] = $value;
+        $runtime_value = tonbankcard_api_admin_env_runtime_value( $value );
+        putenv( $key . '=' . $runtime_value );
+        $_ENV[ $key ] = $runtime_value;
+        $_SERVER[ $key ] = $runtime_value;
     }
 
     return [ 'ok' => TRUE ];
@@ -2528,7 +2529,17 @@ function tonbankcard_api_admin_format_env_value( string $value ) {
         return $value;
     }
 
-    return '"' . str_replace( [ '\\', '"' ], [ '\\\\', '\\"' ], $value ) . '"';
+    return '"' . str_replace( [ '\\', "\r", "\n", '"' ], [ '\\\\', '\\r', '\\n', '\\"' ], $value ) . '"';
+}
+
+/**
+ * Mirrors the newline-safe value that will be observed after reloading .env.
+ *
+ * @param string $value
+ * @return string
+ */
+function tonbankcard_api_admin_env_runtime_value( string $value ) {
+    return str_replace( [ "\r", "\n" ], [ '\\r', '\\n' ], $value );
 }
 
 /**

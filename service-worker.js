@@ -4,6 +4,15 @@ const CACHE_VERSION = 'tonbankcard-pwa-v1';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const OFFLINE_URL = '/offline.html';
+const SENSITIVE_RUNTIME_PATHS = [
+    '/api',
+    '/api/',
+    '/admin',
+    '/install',
+    '/database',
+    '/dev',
+    '/tests',
+];
 const SHELL_ASSETS = [
     '/',
     OFFLINE_URL,
@@ -41,7 +50,7 @@ self.addEventListener('fetch', event => {
     if (request.method !== 'GET') return;
 
     const url = new URL(request.url);
-    if (url.origin !== self.location.origin || url.pathname === '/api' || url.pathname.indexOf('/api/') === 0) return;
+    if (url.origin !== self.location.origin || isSensitiveRuntimePath(url.pathname)) return;
 
     if (request.mode === 'navigate') {
         event.respondWith(networkFirstNavigation(request));
@@ -57,22 +66,41 @@ function isStaticAsset(pathname) {
     return /\.(?:css|js|png|jpg|jpeg|gif|svg|ico|webmanifest|woff2?|ttf|eot)$/i.test(pathname);
 }
 
+function isSensitiveRuntimePath(pathname) {
+    const normalized = pathname === '/' ? '/' : pathname.replace(/\/+$/, '');
+    return SENSITIVE_RUNTIME_PATHS.some(path => (
+        normalized === path.replace(/\/+$/, '') ||
+        normalized.indexOf(`${path.replace(/\/+$/, '')}/`) === 0
+    ));
+}
+
+function isRuntimeCacheableResponse(response) {
+    if (!response || !response.ok) return false;
+
+    const cacheControl = (response.headers.get('cache-control') || '').toLowerCase();
+    return !/(^|,\s*)(no-store|no-cache|private)(\s|,|=|$)/.test(cacheControl);
+}
+
 function networkFirstNavigation(request) {
     return fetch(request)
         .then(response => {
-            const copy = response.clone();
-            caches.open(RUNTIME_CACHE).then(cache => cache.put(request, copy));
+            if (isRuntimeCacheableResponse(response)) {
+                const copy = response.clone();
+                caches.open(RUNTIME_CACHE).then(cache => cache.put(request, copy));
+            }
             return response;
         })
-        .catch(() => caches.match(OFFLINE_URL).then(response => response || caches.match('/')));
+        .catch(() => caches.match(request).then(cached => cached || caches.match(OFFLINE_URL).then(response => response || caches.match('/'))));
 }
 
 function staleWhileRevalidate(request) {
     return caches.match(request).then(cached => {
         const refresh = fetch(request)
             .then(response => {
-                const copy = response.clone();
-                caches.open(RUNTIME_CACHE).then(cache => cache.put(request, copy));
+                if (isRuntimeCacheableResponse(response)) {
+                    const copy = response.clone();
+                    caches.open(RUNTIME_CACHE).then(cache => cache.put(request, copy));
+                }
                 return response;
             })
             .catch(() => cached);

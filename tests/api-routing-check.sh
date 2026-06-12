@@ -50,6 +50,7 @@ assert_contains "$doc" '/api/ready' 'the readiness endpoint'
 assert_contains "$doc" 'request_id' 'the request id contract'
 assert_contains "$doc" 'CORS' 'the CORS policy'
 assert_contains "$doc" 'sessions, rate limits, validation, and audit logging' 'the middleware hooks'
+assert_contains "$doc" 'request body limit' 'the global request body limit'
 assert_contains "$doc" 'secrets stay server-side' 'server-side secret handling'
 assert_contains "$doc" 'tests/api-routing-check\.sh' 'the API test convention'
 
@@ -57,6 +58,7 @@ assert_contains package.json '"test:api"' 'the API routing npm script'
 assert_contains package.json 'test:api' 'the aggregate API routing check'
 assert_contains README.md 'docs/v2-api-routing-layer\.md' 'the API routing documentation link'
 assert_contains dev/php/router.php '/api/' 'the local API route front-controller behavior'
+assert_contains config/api.php 'TONBANKCARD_API_MAX_REQUEST_BODY_BYTES' 'the configurable API body limit'
 
 php_check 'API health response should use the standard success envelope' \
     env -i PATH="$PATH" php <<'PHP'
@@ -238,6 +240,67 @@ if ( 415 !== $response['status'] ) {
 $payload = json_decode( $response['body'], TRUE );
 if ( 'unsupported_media_type' !== $payload['error']['code'] ) {
     fwrite( STDERR, 'Expected unsupported_media_type error code, got ' . $payload['error']['code'] . "\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'API router should reject oversized bodies before JSON validation' \
+    env -i PATH="$PATH" php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$test_api = $api;
+$test_api['limits']['max_request_body_bytes'] = 16;
+
+$response = tonbankcard_api_handle(
+    [
+        'method'  => 'POST',
+        'path'    => '/api/health',
+        'headers' => [
+            'content-type'   => 'application/json',
+            'content-length' => '17',
+        ],
+        'body'    => '',
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $test_api
+);
+if ( 413 !== $response['status'] ) {
+    fwrite( STDERR, 'Expected 413 content-length guard response, got ' . $response['status'] . "\n" );
+    exit( 1 );
+}
+$payload = json_decode( $response['body'], TRUE );
+if ( 'payload_too_large' !== $payload['error']['code'] ) {
+    fwrite( STDERR, 'Expected payload_too_large error code, got ' . $payload['error']['code'] . "\n" );
+    exit( 1 );
+}
+
+$stream = fopen( 'php://temp', 'r+' );
+fwrite( $stream, str_repeat( 'A', 17 ) );
+rewind( $stream );
+$read = tonbankcard_api_read_request_body( $stream, [], $test_api );
+if ( ! is_array( $read ) || ! empty( $read['ok'] ) || 'payload_too_large' !== $read['error'] || '' !== $read['body'] ) {
+    fwrite( STDERR, "Expected stream fallback cap to reject oversized body without returning bytes\n" );
+    exit( 1 );
+}
+fclose( $stream );
+
+$small = tonbankcard_api_handle(
+    [
+        'method'  => 'GET',
+        'path'    => '/api/health',
+        'headers' => [ 'content-type' => 'application/json' ],
+        'body'    => '{}',
+    ],
+    [],
+    $GLOBALS['runtime_config'],
+    $test_api
+);
+if ( 200 !== $small['status'] ) {
+    fwrite( STDERR, 'Expected normal-sized JSON request to keep existing behavior, got ' . $small['status'] . "\n" );
     exit( 1 );
 }
 PHP
