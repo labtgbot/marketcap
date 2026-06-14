@@ -411,7 +411,9 @@ function tonbankcard_api_ai_provider_rate_limit_identity_key( array $request ) {
         return hash( 'sha256', 'session|' . $session_token );
     }
 
-    $ip = function_exists( 'tonbankcard_api_request_ip' ) ? tonbankcard_api_request_ip( [ 'headers' => $headers ] ) : null;
+    $identity_request = $request;
+    $identity_request['headers'] = $headers;
+    $ip = function_exists( 'tonbankcard_api_request_ip' ) ? tonbankcard_api_request_ip( $identity_request ) : null;
     return hash( 'sha256', 'anonymous|' . ( null === $ip ? 'unknown' : $ip ) );
 }
 
@@ -1608,9 +1610,29 @@ function tonbankcard_api_ai_metadata_json( $metadata ) {
  * @return string
  */
 function tonbankcard_api_ai_clean_text( string $text, int $max_length ) {
+    $max_length = max( 0, $max_length );
     $text = preg_replace( '/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $text );
     $text = preg_replace( '/\s+/', ' ', trim( (string) $text ) );
-    if ( strlen( $text ) > $max_length ) {
+    if ( 0 === $max_length ) {
+        return '';
+    }
+
+    if ( function_exists( 'mb_strlen' ) && function_exists( 'mb_substr' ) ) {
+        if ( function_exists( 'mb_check_encoding' ) && ! mb_check_encoding( $text, 'UTF-8' ) && function_exists( 'mb_convert_encoding' ) ) {
+            $text = mb_convert_encoding( $text, 'UTF-8', 'UTF-8' );
+        }
+        if ( mb_strlen( $text, 'UTF-8' ) > $max_length ) {
+            $text = mb_substr( $text, 0, $max_length, 'UTF-8' );
+        }
+
+        return $text;
+    }
+
+    if ( preg_match_all( '/./us', $text, $matches ) && isset( $matches[0] ) && is_array( $matches[0] ) ) {
+        if ( count( $matches[0] ) > $max_length ) {
+            $text = implode( '', array_slice( $matches[0], 0, $max_length ) );
+        }
+    } elseif ( strlen( $text ) > $max_length ) {
         $text = substr( $text, 0, $max_length );
     }
 

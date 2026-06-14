@@ -106,6 +106,23 @@ if ( FALSE === $providers || FALSE === $metrica || FALSE === $operations || ! ( 
 }
 PHP
 
+php_check 'Admin persistence should write JSON before mutating .env and lock .env read-modify-write' \
+    php <<'PHP'
+<?php
+$source = file_get_contents( 'api/admin.php' );
+$json_write = strpos( $source, 'file_put_contents( $tmp, $json' );
+$env_save = strpos( $source, 'tonbankcard_api_admin_save_env_updates( $env_updates )' );
+$env_lock = strpos( $source, 'flock( $lock, LOCK_EX )' );
+if ( FALSE === $json_write || FALSE === $env_save || ! ( $json_write < $env_save ) ) {
+    fwrite( STDERR, "Admin state should persist the JSON store before applying .env updates\n" );
+    exit( 1 );
+}
+if ( FALSE === $env_lock ) {
+    fwrite( STDERR, "Admin .env persistence should lock the whole read-modify-write sequence\n" );
+    exit( 1 );
+}
+PHP
+
 php_check 'Admin API should require admin auth, enforce read-only support, audit writes, merge runtime flags, and redact secrets' \
     env -i PATH="$PATH" \
         TONBANKCARD_ADMIN_STORE="$(mktemp -d "${TMPDIR:-/tmp}/tonbankcard-admin-store.XXXXXX")/admin.json" \

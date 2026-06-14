@@ -574,6 +574,11 @@ function tonbankcard_api_alerts_evaluate_rule( array $rule, array $market, array
         return tonbankcard_api_alerts_skip_event( 'condition_not_met', $rule, $market, $now, $metric );
     }
 
+    $fingerprint = tonbankcard_api_alerts_fingerprint( $rule, $market, $metric, $threshold );
+    if ( ! empty( $rule['last_delivery_fingerprint'] ) && hash_equals( (string) $rule['last_delivery_fingerprint'], $fingerprint ) ) {
+        return tonbankcard_api_alerts_skip_event( 'duplicate_fingerprint', $rule, $market, $now, $metric );
+    }
+
     return [
         'triggered'     => TRUE,
         'reason'        => 'condition_met',
@@ -581,7 +586,7 @@ function tonbankcard_api_alerts_evaluate_rule( array $rule, array $market, array
         'metric_value'  => $metric,
         'operator'      => $operator,
         'threshold'     => $threshold,
-        'fingerprint'   => tonbankcard_api_alerts_fingerprint( $rule, $market, $metric, $threshold ),
+        'fingerprint'   => $fingerprint,
         'market'        => tonbankcard_api_alerts_event_market_snapshot( $market ),
     ];
 }
@@ -686,7 +691,8 @@ function tonbankcard_api_alerts_evaluate_response( array $request, array $runtim
 
     $payload = tonbankcard_api_json_body( $request );
     $limit = isset( $payload['limit'] ) && is_numeric( $payload['limit'] ) ? max( 1, min( 200, (int) $payload['limit'] ) ) : 50;
-    $rules = tonbankcard_api_alerts_due_rules( $pdo, $limit );
+    $retry_stats = tonbankcard_api_alerts_retry_deliveries( $pdo, $settings, $request_id, min( 50, $limit ) );
+    $rules = tonbankcard_api_alerts_due_rules( $pdo, $limit, max( 60, (int) $settings['evaluation_interval_seconds'] ) );
     $markets = tonbankcard_api_alerts_market_rows( $rules, $runtime, $config );
 
     $stats = [
@@ -695,6 +701,7 @@ function tonbankcard_api_alerts_evaluate_response( array $request, array $runtim
         'delivered' => 0,
         'skipped'   => 0,
         'failed'    => 0,
+        'retried'   => $retry_stats['attempted'],
     ];
     $results = [];
 
@@ -739,14 +746,15 @@ function tonbankcard_api_alerts_evaluate_response( array $request, array $runtim
             isset( $send['message_id'] ) ? $send['message_id'] : null,
             isset( $send['error_code'] ) ? $send['error_code'] : null
         );
-        tonbankcard_api_alerts_mark_evaluated( $pdo, $rule, $settings, $event['fingerprint'], tonbankcard_api_mysql_datetime( time() ) );
-
         if ( 'sent' === $delivery_status ) {
             $stats['delivered']++;
+            tonbankcard_api_alerts_mark_evaluated( $pdo, $rule, $settings, $event['fingerprint'], tonbankcard_api_mysql_datetime( time() ) );
         } elseif ( 'failed' === $delivery_status ) {
             $stats['failed']++;
+            tonbankcard_api_alerts_mark_evaluated( $pdo, $rule, $settings, null, null );
         } else {
             $stats['skipped']++;
+            tonbankcard_api_alerts_mark_evaluated( $pdo, $rule, $settings, null, null );
         }
 
         $results[] = [
@@ -1027,26 +1035,379 @@ function tonbankcard_api_alerts_rule_params( array $rule ) {
 }
 
 /**
- * Returns rules due for evaluation.
+ * Retries queued Telegram deliveries before evaluating new alert work.
+ *
+ * @param PDO $pdo
+ * @param array $settings
+ * @param string $request_id
+ * @param int $limit
+ * @return array
+ */
+function tonbankcard_api_alerts_retry_deliveries( PDO $pdo, array $settings, string $request_id, int $limit = 50 ) {
+    $stats = [
+        'attempted' => 0,
+        'sent'      => 0,
+        'queued'    => 0,
+        'failed'    => 0,
+    ];
+
+    $rows = tonbankcard_api_alerts_claim_retry_deliveries( $pdo, $limit );
+    foreach ( $rows as $row ) {
+        $stats['attempted']++;
+        $delivery = tonbankcard_api_alerts_retry_delivery_payload( $row, $settings );
+        $send = tonbankcard_api_alerts_send_telegram( $row, $delivery, $settings );
+        $status = ! empty( $send['ok'] ) ? 'sent' : ( empty( $send['retryable'] ) ? 'failed' : 'queued' );
+        tonbankcard_api_alerts_update_retry_delivery(
+            $pdo,
+            $row,
+            $status,
+            $request_id,
+            isset( $send['message_id'] ) ? $send['message_id'] : null,
+            isset( $send['error_code'] ) ? $send['error_code'] : null
+        );
+
+        if ( 'sent' === $status ) {
+            $stats['sent']++;
+            tonbankcard_api_alerts_mark_evaluated( $pdo, $row, $settings, $delivery['fingerprint'], tonbankcard_api_mysql_datetime( time() ) );
+        } elseif ( 'failed' === $status ) {
+            $stats['failed']++;
+        } else {
+            $stats['queued']++;
+        }
+    }
+
+    return $stats;
+}
+
+/**
+ * Creates a short unique claim token for leased worker rows.
+ *
+ * @param string $prefix
+ * @return string
+ */
+function tonbankcard_api_alerts_claim_token( string $prefix ) {
+    try {
+        return substr( preg_replace( '/[^A-Za-z0-9_-]/', '', $prefix ), 0, 16 ) . '_' . bin2hex( random_bytes( 16 ) );
+    } catch ( Throwable $exception ) {
+        return substr( preg_replace( '/[^A-Za-z0-9_-]/', '', $prefix ), 0, 16 ) . '_' . str_replace( '.', '', uniqid( '', TRUE ) );
+    }
+}
+
+/**
+ * Claims queued deliveries for retry without letting concurrent workers pick the same rows.
  *
  * @param PDO $pdo
  * @param int $limit
  * @return array
  */
-function tonbankcard_api_alerts_due_rules( PDO $pdo, int $limit ) {
-    $select = $pdo->prepare(
-        "SELECT alert_rules.*, users.telegram_user_id
-         FROM alert_rules
-         INNER JOIN users ON users.id = alert_rules.user_id
-         WHERE alert_rules.status = 'active'
-           AND alert_rules.deleted_at IS NULL
-           AND (alert_rules.next_evaluation_at IS NULL OR alert_rules.next_evaluation_at <= UTC_TIMESTAMP(6))
-         ORDER BY alert_rules.next_evaluation_at IS NULL DESC, alert_rules.next_evaluation_at ASC, alert_rules.id ASC
-         LIMIT :limit"
+function tonbankcard_api_alerts_claim_retry_deliveries( PDO $pdo, int $limit ) {
+    $limit = max( 1, min( 200, $limit ) );
+    $claim_token = tonbankcard_api_alerts_claim_token( 'retry' );
+    try {
+        $pdo->beginTransaction();
+        $select = $pdo->prepare(
+            "SELECT
+                alert_deliveries.id AS retry_delivery_id,
+                alert_deliveries.deep_link_url AS retry_deep_link_url,
+                alert_deliveries.delivery_fingerprint AS retry_delivery_fingerprint,
+                alert_deliveries.attempt_count AS retry_attempt_count,
+                alert_rules.*,
+                users.telegram_user_id
+             FROM alert_deliveries
+             INNER JOIN alert_rules ON alert_rules.id = alert_deliveries.alert_rule_id
+             INNER JOIN users ON users.id = alert_deliveries.user_id
+             WHERE alert_deliveries.delivery_status = 'queued'
+               AND alert_deliveries.next_retry_at IS NOT NULL
+               AND alert_deliveries.next_retry_at <= UTC_TIMESTAMP(6)
+               AND alert_deliveries.attempt_count < 5
+               AND alert_rules.status = 'active'
+               AND alert_rules.deleted_at IS NULL
+             ORDER BY alert_deliveries.next_retry_at ASC, alert_deliveries.id ASC
+             LIMIT :limit
+             FOR UPDATE SKIP LOCKED"
+        );
+        $select->bindValue( ':limit', $limit, PDO::PARAM_INT );
+        $select->execute();
+        $rows = $select->fetchAll();
+
+        $ids = [];
+        foreach ( $rows as $row ) {
+            if ( isset( $row['retry_delivery_id'] ) ) {
+                $ids[] = (int) $row['retry_delivery_id'];
+            }
+        }
+        if ( ! empty( $ids ) ) {
+            $placeholders = implode( ',', array_fill( 0, count( $ids ), '?' ) );
+            $lease = $pdo->prepare(
+                "UPDATE alert_deliveries
+                 SET retry_claim_token = ?,
+                     next_retry_at = DATE_ADD(UTC_TIMESTAMP(6), INTERVAL 60 SECOND)
+                 WHERE id IN ($placeholders)"
+            );
+            $lease->bindValue( 1, $claim_token );
+            foreach ( $ids as $index => $id ) {
+                $lease->bindValue( $index + 2, $id, PDO::PARAM_INT );
+            }
+            $lease->execute();
+        }
+
+        $pdo->commit();
+        return $rows;
+    } catch ( Throwable $exception ) {
+        if ( $pdo->inTransaction() ) {
+            $pdo->rollBack();
+        }
+    }
+
+    return tonbankcard_api_alerts_claim_retry_deliveries_token( $pdo, $limit, $claim_token );
+}
+
+/**
+ * Claims queued deliveries with a token-only fallback for MySQL 5.7 and older MariaDB variants.
+ *
+ * @param PDO $pdo
+ * @param int $limit
+ * @param string $claim_token
+ * @return array
+ */
+function tonbankcard_api_alerts_claim_retry_deliveries_token( PDO $pdo, int $limit, string $claim_token ) {
+    $limit = max( 1, min( 200, $limit ) );
+    try {
+        $pdo->beginTransaction();
+        $update = $pdo->prepare(
+            "UPDATE alert_deliveries
+             SET retry_claim_token = :claim_token,
+                 next_retry_at = DATE_ADD(UTC_TIMESTAMP(6), INTERVAL 60 SECOND)
+             WHERE delivery_status = 'queued'
+               AND next_retry_at IS NOT NULL
+               AND next_retry_at <= UTC_TIMESTAMP(6)
+               AND attempt_count < 5
+               AND id IN (
+                 SELECT retry_due.id
+                 FROM (
+                     SELECT alert_deliveries.id
+                     FROM alert_deliveries
+                     INNER JOIN alert_rules ON alert_rules.id = alert_deliveries.alert_rule_id
+                     WHERE alert_deliveries.delivery_status = 'queued'
+                       AND alert_deliveries.next_retry_at IS NOT NULL
+                       AND alert_deliveries.next_retry_at <= UTC_TIMESTAMP(6)
+                       AND alert_deliveries.attempt_count < 5
+                       AND alert_rules.status = 'active'
+                       AND alert_rules.deleted_at IS NULL
+                     ORDER BY alert_deliveries.next_retry_at ASC, alert_deliveries.id ASC
+                     LIMIT " . (int) $limit . "
+                 ) AS retry_due
+             )"
+        );
+        $update->execute( [ ':claim_token' => $claim_token ] );
+        if ( $update->rowCount() < 1 ) {
+            $pdo->commit();
+            return [];
+        }
+
+        $select = $pdo->prepare(
+            "SELECT
+                alert_deliveries.id AS retry_delivery_id,
+                alert_deliveries.deep_link_url AS retry_deep_link_url,
+                alert_deliveries.delivery_fingerprint AS retry_delivery_fingerprint,
+                alert_deliveries.attempt_count AS retry_attempt_count,
+                alert_rules.*,
+                users.telegram_user_id
+             FROM alert_deliveries
+             INNER JOIN alert_rules ON alert_rules.id = alert_deliveries.alert_rule_id
+             INNER JOIN users ON users.id = alert_deliveries.user_id
+             WHERE alert_deliveries.retry_claim_token = :claim_token
+             ORDER BY alert_deliveries.next_retry_at ASC, alert_deliveries.id ASC"
+        );
+        $select->execute( [ ':claim_token' => $claim_token ] );
+        $rows = $select->fetchAll();
+
+        $pdo->commit();
+        return is_array( $rows ) ? $rows : [];
+    } catch ( Throwable $exception ) {
+        if ( $pdo->inTransaction() ) {
+            $pdo->rollBack();
+        }
+
+        return [];
+    }
+}
+
+/**
+ * Rebuilds a delivery payload from the persisted retry row.
+ *
+ * @param array $row
+ * @param array $settings
+ * @return array
+ */
+function tonbankcard_api_alerts_retry_delivery_payload( array $row, array $settings ) {
+    $fingerprint = ! empty( $row['retry_delivery_fingerprint'] )
+        ? (string) $row['retry_delivery_fingerprint']
+        : hash( 'sha256', 'retry|' . ( isset( $row['id'] ) ? (string) $row['id'] : 'alert' ) );
+    $event = [
+        'fingerprint'   => $fingerprint,
+        'metric_value'  => isset( $row['threshold_value'] ) ? (float) $row['threshold_value'] : 0.0,
+        'evaluated_at'  => gmdate( 'c' ),
+    ];
+    $delivery = tonbankcard_api_alerts_delivery_payload( $row, $event, $settings );
+    if ( ! empty( $row['retry_deep_link_url'] ) ) {
+        $delivery['links']['telegram_deep_link'] = (string) $row['retry_deep_link_url'];
+    }
+    $delivery['text'] = preg_replace( '/^Market alert:/', 'Market alert retry:', $delivery['text'] );
+
+    return $delivery;
+}
+
+/**
+ * Updates a queued delivery after a retry attempt.
+ *
+ * @param PDO $pdo
+ * @param array $row
+ * @param string $status
+ * @param string $request_id
+ * @param int|null $telegram_message_id
+ * @param string|null $error_code
+ * @return void
+ */
+function tonbankcard_api_alerts_update_retry_delivery( PDO $pdo, array $row, string $status, string $request_id, $telegram_message_id = null, $error_code = null ) {
+    $update = $pdo->prepare(
+        "UPDATE alert_deliveries
+         SET delivery_status = :delivery_status,
+             telegram_message_id = :telegram_message_id,
+             error_code = :error_code,
+             request_id = :request_id,
+             retry_claim_token = NULL,
+             attempt_count = attempt_count + 1,
+             attempted_at = UTC_TIMESTAMP(6),
+             delivered_at = :delivered_at,
+             next_retry_at = :next_retry_at
+         WHERE id = :id"
     );
-    $select->bindValue( ':limit', $limit, PDO::PARAM_INT );
-    $select->execute();
-    return $select->fetchAll();
+    $update->execute(
+        [
+            ':delivery_status'     => $status,
+            ':telegram_message_id' => $telegram_message_id,
+            ':error_code'          => $error_code,
+            ':request_id'          => substr( $request_id, 0, 36 ),
+            ':delivered_at'        => 'sent' === $status ? tonbankcard_api_mysql_datetime( time() ) : null,
+            ':next_retry_at'       => 'queued' === $status ? tonbankcard_api_mysql_datetime( time() + 300 ) : null,
+            ':id'                  => isset( $row['retry_delivery_id'] ) ? (int) $row['retry_delivery_id'] : 0,
+        ]
+    );
+}
+
+/**
+ * Returns rules due for evaluation.
+ *
+ * @param PDO $pdo
+ * @param int $limit
+ * @param int $lease_seconds
+ * @return array
+ */
+function tonbankcard_api_alerts_due_rules( PDO $pdo, int $limit, int $lease_seconds = 60 ) {
+    $limit = max( 1, min( 200, $limit ) );
+    $lease_seconds = max( 30, min( 3600, $lease_seconds ) );
+    $claim_token = tonbankcard_api_alerts_claim_token( 'evaluate' );
+    try {
+        $pdo->beginTransaction();
+        $select = $pdo->prepare(
+            "SELECT alert_rules.*, users.telegram_user_id
+             FROM alert_rules
+             INNER JOIN users ON users.id = alert_rules.user_id
+             WHERE alert_rules.status = 'active'
+               AND alert_rules.deleted_at IS NULL
+               AND (alert_rules.next_evaluation_at IS NULL OR alert_rules.next_evaluation_at <= UTC_TIMESTAMP(6))
+             ORDER BY alert_rules.next_evaluation_at IS NULL DESC, alert_rules.next_evaluation_at ASC, alert_rules.id ASC
+             LIMIT :limit
+             FOR UPDATE SKIP LOCKED"
+        );
+        $select->bindValue( ':limit', $limit, PDO::PARAM_INT );
+        $select->execute();
+        $rules = $select->fetchAll();
+
+        $ids = [];
+        foreach ( $rules as $rule ) {
+            if ( isset( $rule['id'] ) ) {
+                $ids[] = (int) $rule['id'];
+            }
+        }
+        if ( ! empty( $ids ) ) {
+            $placeholders = implode( ',', array_fill( 0, count( $ids ), '?' ) );
+            $lease = $pdo->prepare(
+                "UPDATE alert_rules
+                 SET evaluation_claim_token = ?,
+                     next_evaluation_at = DATE_ADD(UTC_TIMESTAMP(6), INTERVAL " . (int) $lease_seconds . " SECOND),
+                     updated_at = UTC_TIMESTAMP(6)
+                 WHERE id IN ($placeholders)"
+            );
+            $lease->bindValue( 1, $claim_token );
+            foreach ( $ids as $index => $id ) {
+                $lease->bindValue( $index + 2, $id, PDO::PARAM_INT );
+            }
+            $lease->execute();
+        }
+
+        $pdo->commit();
+        return $rules;
+    } catch ( Throwable $exception ) {
+        if ( $pdo->inTransaction() ) {
+            $pdo->rollBack();
+        }
+    }
+
+    return tonbankcard_api_alerts_due_rules_token( $pdo, $limit, $lease_seconds, $claim_token );
+}
+
+/**
+ * Claims due rules with a token-only fallback for engines without SKIP LOCKED.
+ *
+ * @param PDO $pdo
+ * @param int $limit
+ * @param int $lease_seconds
+ * @param string $claim_token
+ * @return array
+ */
+function tonbankcard_api_alerts_due_rules_token( PDO $pdo, int $limit, int $lease_seconds, string $claim_token ) {
+    $limit = max( 1, min( 200, $limit ) );
+    $lease_seconds = max( 30, min( 3600, $lease_seconds ) );
+    try {
+        $pdo->beginTransaction();
+        $update = $pdo->prepare(
+            "UPDATE alert_rules
+             SET evaluation_claim_token = :claim_token,
+                 next_evaluation_at = DATE_ADD(UTC_TIMESTAMP(6), INTERVAL " . (int) $lease_seconds . " SECOND),
+                 updated_at = UTC_TIMESTAMP(6)
+             WHERE status = 'active'
+               AND deleted_at IS NULL
+               AND (next_evaluation_at IS NULL OR next_evaluation_at <= UTC_TIMESTAMP(6))
+             ORDER BY next_evaluation_at IS NULL DESC, next_evaluation_at ASC, id ASC
+             LIMIT " . (int) $limit
+        );
+        $update->execute( [ ':claim_token' => $claim_token ] );
+        if ( $update->rowCount() < 1 ) {
+            $pdo->commit();
+            return [];
+        }
+
+        $select = $pdo->prepare(
+            "SELECT alert_rules.*, users.telegram_user_id
+             FROM alert_rules
+             INNER JOIN users ON users.id = alert_rules.user_id
+             WHERE alert_rules.evaluation_claim_token = :claim_token
+             ORDER BY alert_rules.next_evaluation_at ASC, alert_rules.id ASC"
+        );
+        $select->execute( [ ':claim_token' => $claim_token ] );
+        $rules = $select->fetchAll();
+
+        $pdo->commit();
+        return is_array( $rules ) ? $rules : [];
+    } catch ( Throwable $exception ) {
+        if ( $pdo->inTransaction() ) {
+            $pdo->rollBack();
+        }
+
+        return [];
+    }
 }
 
 /**
@@ -1133,7 +1494,7 @@ function tonbankcard_api_alerts_record_delivery( PDO $pdo, array $rule, array $d
             ':deep_link_url'        => $delivery['links']['telegram_deep_link'],
             ':delivery_fingerprint' => $delivery['fingerprint'],
             ':delivered_at'         => 'sent' === $status ? tonbankcard_api_mysql_datetime( time() ) : null,
-            ':next_retry_at'        => 'queued' === $status || 'failed' === $status ? tonbankcard_api_mysql_datetime( time() + 300 ) : null,
+            ':next_retry_at'        => 'queued' === $status ? tonbankcard_api_mysql_datetime( time() + 300 ) : null,
         ]
     );
 }
@@ -1154,6 +1515,7 @@ function tonbankcard_api_alerts_mark_evaluated( PDO $pdo, array $rule, array $se
          SET last_evaluated_at = UTC_TIMESTAMP(6),
              last_triggered_at = COALESCE(:triggered_at, last_triggered_at),
              last_delivery_fingerprint = COALESCE(:fingerprint, last_delivery_fingerprint),
+             evaluation_claim_token = NULL,
              next_evaluation_at = DATE_ADD(UTC_TIMESTAMP(6), INTERVAL :interval_seconds SECOND),
              updated_at = UTC_TIMESTAMP(6)
          WHERE id = :id"
@@ -1186,7 +1548,7 @@ function tonbankcard_api_alerts_daily_cap_reached( PDO $pdo, array $rule ) {
         "SELECT COUNT(*) AS count
          FROM alert_deliveries
          WHERE alert_rule_id = :alert_rule_id
-           AND delivery_status IN ('queued', 'sent')
+           AND delivery_status = 'sent'
            AND attempted_at >= DATE_SUB(UTC_TIMESTAMP(6), INTERVAL 1 DAY)"
     );
     $select->execute( [ ':alert_rule_id' => (int) $rule['id'] ] );

@@ -119,6 +119,7 @@ $response = tonbankcard_api_handle(
     [
         'method'  => 'POST',
         'path'    => '/api/telegram/session',
+        'remote_addr' => '127.0.0.1',
         'headers' => [
             'content-type' => 'application/json',
             'user-agent'   => 'TelegramSessionTest/1.0',

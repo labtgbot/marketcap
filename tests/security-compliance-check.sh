@@ -83,7 +83,7 @@ assert_contains .htaccess 'Referrer-Policy' 'static asset referrer policy header
 assert_contains .htaccess 'Permissions-Policy' 'static asset permissions policy header'
 assert_contains .htaccess 'X-Frame-Options' 'static asset clickjacking fallback header'
 assert_contains .htaccess 'BLOCK SENSITIVE SOURCE AND INTERNAL FILES' 'sensitive source request protection section'
-assert_contains .htaccess 'install\|database\|docs\|tests\|dev' 'sensitive directory request deny-list'
+assert_contains .htaccess 'install\|database\|docs\|tests\|experiments\|dev' 'sensitive directory request deny-list'
 assert_contains .htaccess 'zip\|sql\|md' 'sensitive file extension request deny-list'
 assert_contains functions.php 'Content-Security-Policy' 'the public CSP header helper'
 assert_contains api/router.php 'X-TONBANKCARD-CSRF' 'the CSRF request header'

@@ -71,6 +71,28 @@ assert_contains package.json '"test:ai-provider"' 'the AI provider npm script'
 assert_contains package.json 'test:ai-provider' 'the aggregate AI provider check'
 assert_contains README.md 'docs/v2-ai-provider-foundation\.md' 'the AI provider documentation link'
 
+php_check 'AI text sanitizer should truncate UTF-8 text without corrupting multibyte characters' \
+    env -i PATH="$PATH" php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$clean = tonbankcard_api_ai_clean_text( 'Привет рынок TON', 7 );
+if ( function_exists( 'mb_check_encoding' ) && ! mb_check_encoding( $clean, 'UTF-8' ) ) {
+    fwrite( STDERR, "AI clean text returned invalid UTF-8 after truncation\n" );
+    exit( 1 );
+}
+if ( function_exists( 'mb_strlen' ) && mb_strlen( $clean, 'UTF-8' ) > 7 ) {
+    fwrite( STDERR, "AI clean text exceeded the configured character limit\n" );
+    exit( 1 );
+}
+if ( FALSE !== strpos( $clean, "\xEF\xBF\xBD" ) ) {
+    fwrite( STDERR, "AI clean text introduced replacement characters\n" );
+    exit( 1 );
+}
+PHP
+
 php_check 'runtime config should expose configurable Groq provider fields without a code change' \
     env -i PATH="$PATH" \
         TONBANKCARD_FEATURE_AI=true \
@@ -175,6 +197,7 @@ $test_api['ai']['transport'] = function ( $request ) use ( &$provider_calls ) {
 $base_request = [
     'method'  => 'POST',
     'path'    => '/api/ai/insight',
+    'remote_addr' => '198.51.100.44',
     'headers' => [
         'content-type'            => 'application/json',
         'x-forwarded-for'         => '198.51.100.44',
@@ -206,6 +229,7 @@ $second = tonbankcard_api_handle(
     array_merge(
         $base_request,
         [
+            'remote_addr' => '198.51.100.44',
             'headers' => [
                 'content-type'            => 'application/json',
                 'x-forwarded-for'         => '198.51.100.44',

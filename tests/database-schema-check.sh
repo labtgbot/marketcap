@@ -5,6 +5,8 @@ failures=0
 doc=docs/v2-database-schema-and-migrations.md
 up_migration=database/migrations/0001_v2_core_schema.up.sql
 down_migration=database/migrations/0001_v2_core_schema.down.sql
+stage9_up_migration=database/migrations/0011_stage9_reliability_hardening.up.sql
+stage9_down_migration=database/migrations/0011_stage9_reliability_hardening.down.sql
 runner=database/migrate.php
 
 fail() {
@@ -42,6 +44,8 @@ assert_contains() {
 assert_file "$doc"
 assert_file "$up_migration"
 assert_file "$down_migration"
+assert_file "$stage9_up_migration"
+assert_file "$stage9_down_migration"
 assert_file "$runner"
 assert_executable "$runner"
 
@@ -58,6 +62,7 @@ assert_contains "$doc" 'AI insight cache metadata' 'AI insight cache metadata'
 assert_contains "$doc" 'provider settings' 'provider settings'
 assert_contains "$doc" 'admin users' 'admin users'
 assert_contains "$doc" 'premium entitlements' 'premium entitlements'
+assert_contains "$doc" '0011_stage9_reliability_hardening' 'Stage 9 reliability hardening migration'
 assert_contains "$doc" '^## Query Paths and Indexes$' 'query paths and indexes'
 assert_contains "$doc" 'watchlists by user' 'watchlist query path'
 assert_contains "$doc" 'active alerts by coin' 'alert query path'
@@ -102,6 +107,12 @@ assert_contains "$up_migration" 'KEY `idx_admin_audit_logs_subject' 'admin audit
 assert_contains "$up_migration" 'secret_ref' 'secret references instead of stored provider secrets'
 assert_contains "$up_migration" 'telegram_init_data_hash' 'hashed Telegram initData metadata'
 assert_contains "$up_migration" 'cache_key_hash' 'hashed AI cache keys'
+assert_contains "$stage9_up_migration" 'UNIQUE KEY `uniq_premium_payment_events_charge_event`' 'unique premium charge event key'
+assert_contains "$stage9_up_migration" 'evaluation_claim_token' 'alert rule evaluation claim token'
+assert_contains "$stage9_up_migration" 'retry_claim_token' 'alert retry claim token'
+assert_contains "$stage9_up_migration" 'idx_alert_rules_evaluation_claim' 'alert rule evaluation claim index'
+assert_contains "$stage9_up_migration" 'idx_alert_deliveries_claim' 'alert retry claim index'
+assert_contains "$stage9_up_migration" 'idx_alert_deliveries_retry' 'queued alert retry index'
 
 for table in \
     premium_entitlements \

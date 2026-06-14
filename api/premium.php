@@ -1073,42 +1073,46 @@ function tonbankcard_api_premium_successful_payment_response( array $message, ar
         $database_error = null;
         $pdo = tonbankcard_api_session_database_connection( $runtime, $database_error );
         if ( null === $pdo ) {
-            return [
-                'ok'      => FALSE,
-                'status'  => 503,
-                'code'    => 'premium_storage_unavailable',
-                'message' => 'Premium payment fulfillment requires the configured MySQL session store.',
-                'details' => [ 'storage' => 'mysql' ],
-            ];
+            return tonbankcard_api_premium_payment_storage_error( [ 'storage' => 'mysql' ] );
         }
 
-        // Replay protection: a given telegram_payment_charge_id is redeemable
-        // only once. A captured-and-replayed legitimate payment must not extend
-        // or re-grant the entitlement a second time.
-        if ( tonbankcard_api_premium_payment_replayed( $payload, $payment, $runtime, $config, $pdo ) ) {
-            return tonbankcard_api_premium_payment_replay_ack( $message, $telegram_user_id );
-        }
+        try {
+            $pdo->beginTransaction();
+            $user_id = tonbankcard_api_premium_ensure_telegram_user( $pdo, $telegram_user_id, isset( $from['language_code'] ) ? (string) $from['language_code'] : null, ! empty( $from['is_premium'] ) );
+            if ( (int) $parsed['user_id'] > 0 ) {
+                $user_id = (int) $parsed['user_id'];
+            }
 
-        $user_id = tonbankcard_api_premium_ensure_telegram_user( $pdo, $telegram_user_id, isset( $from['language_code'] ) ? (string) $from['language_code'] : null, ! empty( $from['is_premium'] ) );
-        if ( (int) $parsed['user_id'] > 0 ) {
-            $user_id = (int) $parsed['user_id'];
-        }
+            if ( tonbankcard_api_premium_payment_replayed( $payload, $payment, $runtime, $config, $pdo ) ) {
+                $pdo->rollBack();
+                return tonbankcard_api_premium_payment_replay_ack( $message, $telegram_user_id );
+            }
 
-        $entitlement = tonbankcard_api_premium_grant_entitlement( $pdo, $user_id, $plan, $payment, $settings );
-        tonbankcard_api_premium_record_event(
-            $pdo,
-            [
-                'user_id'                          => $user_id,
-                'entitlement_id'                   => isset( $entitlement['id'] ) ? (int) $entitlement['id'] : null,
-                'event_type'                       => ! empty( $entitlement['renewed'] ) ? 'subscription_renewed' : 'payment_succeeded',
-                'plan_code'                        => $plan['code'],
-                'invoice_payload_hash'             => hash( 'sha256', $payload ),
-                'telegram_payment_charge_id_hash'  => tonbankcard_api_premium_hash_nullable( isset( $payment['telegram_payment_charge_id'] ) ? $payment['telegram_payment_charge_id'] : null ),
-                'provider_payment_charge_id_hash'  => tonbankcard_api_premium_hash_nullable( isset( $payment['provider_payment_charge_id'] ) ? $payment['provider_payment_charge_id'] : null ),
-                'amount_stars'                     => (int) $payment['total_amount'],
-                'currency'                         => 'XTR',
-            ]
-        );
+            $reservation = tonbankcard_api_premium_reserve_payment_event( $pdo, $user_id, $plan, $payload, $payment );
+            if ( ! empty( $reservation['replayed'] ) ) {
+                $pdo->rollBack();
+                return tonbankcard_api_premium_payment_replay_ack( $message, $telegram_user_id );
+            }
+            if ( empty( $reservation['ok'] ) ) {
+                $pdo->rollBack();
+                return tonbankcard_api_premium_payment_storage_error( isset( $reservation['details'] ) ? $reservation['details'] : [] );
+            }
+
+            $entitlement = tonbankcard_api_premium_grant_entitlement( $pdo, $user_id, $plan, $payment, $settings );
+            tonbankcard_api_premium_complete_payment_event(
+                $pdo,
+                (int) $reservation['id'],
+                isset( $entitlement['id'] ) ? (int) $entitlement['id'] : null,
+                ! empty( $entitlement['renewed'] ) ? 'subscription_renewed' : 'payment_succeeded'
+            );
+            $pdo->commit();
+        } catch ( Throwable $exception ) {
+            if ( $pdo->inTransaction() ) {
+                $pdo->rollBack();
+            }
+
+            return tonbankcard_api_premium_payment_storage_error( [ 'error' => 'premium_payment_transaction_failed' ] );
+        }
     }
 
     $chat = isset( $message['chat'] ) && is_array( $message['chat'] ) ? $message['chat'] : [];
@@ -1199,6 +1203,103 @@ function tonbankcard_api_premium_payment_replay_ack( array $message, int $telegr
             'disable_web_page_preview' => TRUE,
         ],
     ];
+}
+
+/**
+ * Returns a storage error for failed premium fulfillment.
+ *
+ * @param array $details
+ * @return array
+ */
+function tonbankcard_api_premium_payment_storage_error( array $details = [] ) {
+    return [
+        'ok'      => FALSE,
+        'status'  => 503,
+        'code'    => 'premium_storage_unavailable',
+        'message' => 'Premium payment fulfillment requires the configured MySQL session store.',
+        'details' => empty( $details ) ? [ 'storage' => 'mysql' ] : $details,
+    ];
+}
+
+/**
+ * Atomically reserves a Telegram Stars charge before granting premium.
+ *
+ * @param PDO $pdo
+ * @param int $user_id
+ * @param array $plan
+ * @param string $payload
+ * @param array $payment
+ * @return array
+ */
+function tonbankcard_api_premium_reserve_payment_event( PDO $pdo, int $user_id, array $plan, string $payload, array $payment ) {
+    $telegram_charge_hash = tonbankcard_api_premium_hash_nullable( isset( $payment['telegram_payment_charge_id'] ) ? $payment['telegram_payment_charge_id'] : null );
+    if ( null === $telegram_charge_hash ) {
+        return [ 'ok' => FALSE, 'details' => [ 'field' => 'telegram_payment_charge_id' ] ];
+    }
+
+    try {
+        $insert = $pdo->prepare(
+            "INSERT INTO premium_payment_events
+                (user_id, entitlement_id, provider, event_type, plan_code, invoice_payload_hash,
+                 telegram_payment_charge_id_hash, provider_payment_charge_id_hash, amount_stars,
+                 currency, event_at, metadata_json, created_at)
+             VALUES
+                (:user_id, NULL, 'telegram_stars', 'payment_succeeded', :plan_code, :invoice_payload_hash,
+                 :telegram_payment_charge_id_hash, :provider_payment_charge_id_hash, :amount_stars,
+                 'XTR', UTC_TIMESTAMP(6), :metadata_json, UTC_TIMESTAMP(6))"
+        );
+        $insert->execute(
+            [
+                ':user_id'                         => $user_id,
+                ':plan_code'                       => isset( $plan['code'] ) ? $plan['code'] : null,
+                ':invoice_payload_hash'            => hash( 'sha256', $payload ),
+                ':telegram_payment_charge_id_hash' => $telegram_charge_hash,
+                ':provider_payment_charge_id_hash' => tonbankcard_api_premium_hash_nullable( isset( $payment['provider_payment_charge_id'] ) ? $payment['provider_payment_charge_id'] : null ),
+                ':amount_stars'                    => isset( $payment['total_amount'] ) ? (int) $payment['total_amount'] : null,
+                ':metadata_json'                   => json_encode( [ 'state' => 'reserved' ] ),
+            ]
+        );
+
+        return [ 'ok' => TRUE, 'id' => (int) $pdo->lastInsertId() ];
+    } catch ( PDOException $exception ) {
+        if ( '23000' === $exception->getCode() ) {
+            return [ 'ok' => TRUE, 'replayed' => TRUE ];
+        }
+
+        return [ 'ok' => FALSE, 'details' => [ 'error' => 'premium_payment_event_reserve_failed' ] ];
+    } catch ( Throwable $exception ) {
+        return [ 'ok' => FALSE, 'details' => [ 'error' => 'premium_payment_event_reserve_failed' ] ];
+    }
+}
+
+/**
+ * Completes the reserved payment event after entitlement fulfillment.
+ *
+ * @param PDO $pdo
+ * @param int $event_id
+ * @param int|null $entitlement_id
+ * @param string $fulfilled_event_type
+ * @return void
+ */
+function tonbankcard_api_premium_complete_payment_event( PDO $pdo, int $event_id, $entitlement_id, string $fulfilled_event_type ) {
+    $update = $pdo->prepare(
+        "UPDATE premium_payment_events
+         SET entitlement_id = :entitlement_id,
+             metadata_json = :metadata_json
+         WHERE id = :id"
+    );
+    $update->execute(
+        [
+            ':entitlement_id' => $entitlement_id,
+            ':metadata_json'  => json_encode(
+                [
+                    'state'                => 'fulfilled',
+                    'fulfilled_event_type' => $fulfilled_event_type,
+                ]
+            ),
+            ':id'             => $event_id,
+        ]
+    );
 }
 
 /**
