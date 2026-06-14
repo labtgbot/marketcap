@@ -39,6 +39,11 @@ Gamification achievement storage added for issue #34 lives in:
 - `database/migrations/0009_gamification_achievements.up.sql`
 - `database/migrations/0009_gamification_achievements.down.sql`
 
+Stage 9 reliability hardening added for issue #240 lives in:
+
+- `database/migrations/0011_stage9_reliability_hardening.up.sql`
+- `database/migrations/0011_stage9_reliability_hardening.down.sql`
+
 ## Data Minimization
 
 - Store raw Telegram identity only where the application needs it for trusted
@@ -104,7 +109,7 @@ and the issue #10 analytics/privacy baseline:
 | Find watchlist entries by coin for future fanout or aggregate counts. | `idx_watchlist_entries_coin` |
 | List a user's alert rules by status. | `idx_alert_rules_user_status` |
 | Evaluate active alerts by coin and next evaluation time. | `idx_alert_rules_active_coin` |
-| Pull queued alert work by next evaluation. | `idx_alert_rules_next_evaluation` |
+| Pull queued alert work by next evaluation. | `idx_alert_rules_next_evaluation`; `idx_alert_rules_evaluation_claim` from `0011_stage9_reliability_hardening` tracks per-worker claim tokens for engines without `SKIP LOCKED`. |
 | Inspect alert delivery history by rule, user, or retry fingerprint. | `idx_alert_deliveries_rule_time`, `idx_alert_deliveries_user_time`, `idx_alert_deliveries_fingerprint` |
 | Report referrals by campaign. | `idx_referral_attributions_campaign` |
 | Report inviter attribution. | `idx_referral_attributions_inviter` |
@@ -121,7 +126,8 @@ and the issue #10 analytics/privacy baseline:
 | Review audit logs by subject. | `idx_admin_audit_logs_subject` |
 | Check premium entitlement state by user. | `idx_premium_entitlements_user_status` |
 | Match premium refunds to the last Stars charge hash. | `idx_premium_entitlements_charge` from `0010_premium_payment_state` |
-| Review premium payment audit events by user, event type, charge, or invoice payload. | `idx_premium_payment_events_user_time`, `idx_premium_payment_events_event_time`, `idx_premium_payment_events_charge`, `idx_premium_payment_events_invoice` from `0010_premium_payment_state` |
+| Review premium payment audit events by user, event type, charge, or invoice payload. | `idx_premium_payment_events_user_time`, `idx_premium_payment_events_event_time`, `idx_premium_payment_events_charge`, `idx_premium_payment_events_invoice` from `0010_premium_payment_state`; `uniq_premium_payment_events_charge_event` from `0011_stage9_reliability_hardening` makes successful Stars charge claims idempotent before entitlement grants. |
+| Retry queued alert deliveries without scanning the full delivery log. | `idx_alert_deliveries_retry` from `0011_stage9_reliability_hardening` covers queued retry status, due time, and attempt count; `idx_alert_deliveries_claim` tracks retry claim tokens for compatible fallback leasing. |
 
 ## Migration Runner Conventions
 

@@ -22,6 +22,8 @@ Feature toggles:
 | --- | --- | --- |
 | `TONBANKCARD_CACHE_ENABLED` | Enabled when Upstash is configured. | Enables shared market data cache reads, writes, stale fallback, and duplicate request coalescing. |
 | `TONBANKCARD_RATE_LIMIT_ENABLED` | Enabled outside local profiles when Upstash is configured. | Enables Redis-backed API request limits. |
+| `TONBANKCARD_TRUSTED_PROXY_HOPS` | `0` | Number of trusted reverse-proxy hops allowed to contribute `X-Forwarded-For` identity. |
+| `TONBANKCARD_TRUSTED_PROXIES` | Empty. | Optional comma-separated proxy IP allow-list for deployments that prefer explicit proxy addresses. |
 
 Redis timeout defaults to 2 seconds. Cache failures remain fail-open for page
 rendering so API routes can serve uncached provider responses unless the
@@ -85,10 +87,14 @@ The limiter classifies requests without storing raw identifiers in Redis keys:
 | `telegram_session` | Hashed `tonbankcard_session`, `X-TONBANKCARD-Session`, or `X-Telegram-Init-Data`. | 240 requests per 60 seconds. |
 | `admin_action` | Admin path or admin/auth header. | 30 requests per 60 seconds. |
 
-Blocked requests return `429 rate_limited` with a clear message, `Retry-After`,
-`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, and
-`X-RateLimit-Policy`. Redis errors increment an unavailable counter when
-possible and fall back to per-process enforcement with bounded memory use.
+By default the hashed IP address comes from `REMOTE_ADDR`; `X-Forwarded-For` and
+`X-Real-IP` are ignored until trusted proxy hops or proxy IPs are configured.
+This prevents clients from minting new rate-limit buckets by spoofing forwarded
+headers. Blocked requests return `429 rate_limited` with a clear message,
+`Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`,
+`X-RateLimit-Reset`, and `X-RateLimit-Policy`. Redis errors increment an
+unavailable counter when possible and fall back to per-process enforcement with
+bounded memory use.
 
 ## Metrics
 
@@ -116,5 +122,6 @@ npm run test:cache-rate-limit
 
 The check verifies configuration, documentation, cache miss/hit behavior,
 stale upstream fallback, secret redaction, rate-limit identity classes,
-User-Agent rotation resistance, Redis-outage fallback enforcement, clear 429
+User-Agent rotation resistance, spoofed `X-Forwarded-For` resistance,
+Redis-outage fallback enforcement, TTL reassertion for Redis buckets, clear 429
 responses, metrics counters, and duplicate market request coalescing.

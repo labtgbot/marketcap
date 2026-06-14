@@ -146,6 +146,11 @@ $event = tonbankcard_api_alerts_evaluate_rule($rule, ['current_price' => 5.25], 
 assert_true($event['triggered'] === true, 'Price-cross alert should trigger above threshold.');
 $blocked = tonbankcard_api_alerts_evaluate_rule($rule, ['current_price' => 5.25], $settings, strtotime('2026-05-01 09:30:00 UTC'));
 assert_true($blocked['triggered'] === false && $blocked['reason'] === 'frequency_cap', 'Frequency cap should suppress repeated alerts.');
+$duplicateRule = $rule;
+$duplicateRule['last_triggered_at'] = null;
+$duplicateRule['last_delivery_fingerprint'] = $event['fingerprint'];
+$duplicate = tonbankcard_api_alerts_evaluate_rule($duplicateRule, ['current_price' => 5.25], $settings, strtotime('2026-05-01 11:02:00 UTC'));
+assert_true($duplicate['triggered'] === false && $duplicate['reason'] === 'duplicate_fingerprint', 'Last delivery fingerprint should suppress duplicate alert content.');
 
 $quiet = $rule;
 $quiet['quiet_start'] = '22:00:00';
@@ -186,6 +191,14 @@ $authorized = tonbankcard_api_handle($valid_request, [], $worker_runtime, $worke
 $authorized_body = json_decode($authorized['body'], true);
 $authorized_code = $authorized_body['error']['code'] ?? '';
 assert_true($authorized_code !== 'alerts_worker_token_unset' && $authorized_code !== 'alerts_worker_token_required', 'Valid worker token must pass authentication.');
+
+$alertsSource = file_get_contents('api/alerts.php');
+assert_true(FALSE !== strpos($alertsSource, 'function tonbankcard_api_alerts_retry_deliveries'), 'Alert worker should include a queued-delivery retry consumer.');
+assert_true(FALSE !== strpos($alertsSource, 'FOR UPDATE SKIP LOCKED'), 'Alert worker should claim due rules or retries atomically.');
+assert_true(FALSE !== strpos($alertsSource, 'evaluation_claim_token'), 'Alert worker should include a token fallback for due-rule claims.');
+assert_true(FALSE !== strpos($alertsSource, 'retry_claim_token'), 'Alert worker should include a token fallback for queued retry claims.');
+assert_true(FALSE !== strpos($alertsSource, "delivery_status = 'queued'"), 'Alert retry consumer should select queued deliveries.');
+assert_true(FALSE !== strpos($alertsSource, "delivery_status = 'sent'"), 'Daily delivery caps should count sent deliveries only.');
 PHP
 
 echo "Smart alerts check passed."

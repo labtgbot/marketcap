@@ -84,6 +84,7 @@ assert_forbidden_or_missing '/docs/v2-security-privacy-compliance.md' 'internal 
 assert_forbidden_or_missing '/docs/screenshots/admin-panel.png' 'internal documentation screenshot'
 assert_forbidden_or_missing '/README.md' 'repository markdown file'
 assert_forbidden_or_missing '/tests/security-compliance-check.sh' 'test harness source'
+assert_forbidden_or_missing '/experiments/repro-issue-104.php' 'experiment harness source'
 assert_forbidden_or_missing '/dev/php/router.php' 'development router source'
 assert_forbidden_or_missing '/install/index.php' 'hosting installer entrypoint'
 

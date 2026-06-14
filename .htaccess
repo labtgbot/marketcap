@@ -25,7 +25,7 @@
 ### BLOCK SENSITIVE SOURCE AND INTERNAL FILES
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteRule ^(?:install|database|docs|tests|dev)(?:/|$) - [F,L,NC]
+    RewriteRule ^(?:install|database|docs|tests|experiments|dev)(?:/|$) - [F,L,NC]
     RewriteRule \.(?:zip|sql|md)$ - [F,L,NC]
 </IfModule>
 

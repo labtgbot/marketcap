@@ -84,11 +84,12 @@ function tonbankcard_api_request_from_globals() {
     );
 
     $request = [
-        'method'  => isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET',
-        'path'    => $path,
-        'query'   => $query,
-        'headers' => $headers,
-        'body'    => ! empty( $body['ok'] ) ? $body['body'] : '',
+        'method'      => isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET',
+        'path'        => $path,
+        'query'       => $query,
+        'headers'     => $headers,
+        'remote_addr' => isset( $_SERVER['REMOTE_ADDR'] ) ? (string) $_SERVER['REMOTE_ADDR'] : null,
+        'body'        => ! empty( $body['ok'] ) ? $body['body'] : '',
     ];
     if ( empty( $body['ok'] ) ) {
         $request['body_error'] = isset( $body['error'] ) ? (string) $body['error'] : 'body_read_failed';
@@ -988,11 +989,12 @@ function tonbankcard_api_normalize_request( array $request ) {
     }
 
     return [
-        'method'  => strtoupper( isset( $request['method'] ) ? (string) $request['method'] : 'GET' ),
-        'path'    => $path_only,
-        'query'   => $query,
-        'headers' => $headers,
-        'body'    => isset( $request['body'] ) ? (string) $request['body'] : '',
+        'method'      => strtoupper( isset( $request['method'] ) ? (string) $request['method'] : 'GET' ),
+        'path'        => $path_only,
+        'query'       => $query,
+        'headers'     => $headers,
+        'remote_addr' => isset( $request['remote_addr'] ) ? (string) $request['remote_addr'] : ( isset( $request['server']['remote_addr'] ) ? (string) $request['server']['remote_addr'] : null ),
+        'body'        => isset( $request['body'] ) ? (string) $request['body'] : '',
         'body_error' => isset( $request['body_error'] ) ? (string) $request['body_error'] : '',
     ];
 }
@@ -2172,18 +2174,112 @@ function tonbankcard_api_optional_hash( $value ) {
 }
 
 /**
- * Returns the best-effort request IP address.
+ * Returns the request IP address without trusting forwarded headers by default.
  *
  * @param array $request
+ * @param array $config
  * @return string|null
  */
-function tonbankcard_api_request_ip( array $request ) {
-    if ( ! empty( $request['headers']['x-forwarded-for'] ) ) {
-        $parts = explode( ',', $request['headers']['x-forwarded-for'] );
-        return trim( $parts[0] );
+function tonbankcard_api_request_ip( array $request, array $config = [] ) {
+    $headers = [];
+    foreach ( isset( $request['headers'] ) && is_array( $request['headers'] ) ? $request['headers'] : [] as $name => $value ) {
+        $headers[ strtolower( (string) $name ) ] = is_array( $value ) ? implode( ',', $value ) : (string) $value;
     }
 
-    return isset( $request['headers']['x-real-ip'] ) ? trim( $request['headers']['x-real-ip'] ) : null;
+    $remote_addr = tonbankcard_api_normalize_ip(
+        isset( $request['remote_addr'] )
+            ? $request['remote_addr']
+            : ( isset( $request['server']['remote_addr'] ) ? $request['server']['remote_addr'] : null )
+    );
+    $rate_limit = isset( $config['rate_limit'] ) && is_array( $config['rate_limit'] ) ? $config['rate_limit'] : [];
+    $trusted_hops = isset( $rate_limit['trusted_proxy_hops'] ) ? max( 0, (int) $rate_limit['trusted_proxy_hops'] ) : 0;
+    $trusted_proxies = tonbankcard_api_normalize_ip_list( isset( $rate_limit['trusted_proxies'] ) ? $rate_limit['trusted_proxies'] : [] );
+    $remote_is_trusted = null !== $remote_addr && in_array( $remote_addr, $trusted_proxies, TRUE );
+
+    if ( null !== $remote_addr && ( $trusted_hops > 0 || $remote_is_trusted ) ) {
+        $forwarded_chain = tonbankcard_api_forwarded_ip_chain( isset( $headers['x-forwarded-for'] ) ? $headers['x-forwarded-for'] : '' );
+        if ( ! empty( $forwarded_chain ) ) {
+            if ( $remote_addr === $forwarded_chain[ count( $forwarded_chain ) - 1 ] ) {
+                array_pop( $forwarded_chain );
+            }
+
+            if ( empty( $forwarded_chain ) ) {
+                return $remote_addr;
+            }
+
+            if ( $trusted_hops > 0 ) {
+                $candidate_index = count( $forwarded_chain ) - $trusted_hops;
+                if ( $candidate_index >= 0 && isset( $forwarded_chain[ $candidate_index ] ) ) {
+                    return $forwarded_chain[ $candidate_index ];
+                }
+            }
+
+            if ( $remote_is_trusted ) {
+                return $forwarded_chain[ count( $forwarded_chain ) - 1 ];
+            }
+        }
+
+        if ( ! empty( $headers['x-real-ip'] ) ) {
+            $real_ip = tonbankcard_api_normalize_ip( $headers['x-real-ip'] );
+            if ( null !== $real_ip ) {
+                return $real_ip;
+            }
+        }
+    }
+
+    return $remote_addr;
+}
+
+/**
+ * Normalizes one IP address.
+ *
+ * @param mixed $value
+ * @return string|null
+ */
+function tonbankcard_api_normalize_ip( $value ) {
+    $ip = trim( (string) $value );
+    if ( '' === $ip ) {
+        return null;
+    }
+
+    return FALSE === filter_var( $ip, FILTER_VALIDATE_IP ) ? null : $ip;
+}
+
+/**
+ * Normalizes a trusted proxy list.
+ *
+ * @param mixed $value
+ * @return array
+ */
+function tonbankcard_api_normalize_ip_list( $value ) {
+    $items = is_array( $value ) ? $value : explode( ',', (string) $value );
+    $ips = [];
+    foreach ( $items as $item ) {
+        $ip = tonbankcard_api_normalize_ip( $item );
+        if ( null !== $ip && ! in_array( $ip, $ips, TRUE ) ) {
+            $ips[] = $ip;
+        }
+    }
+
+    return $ips;
+}
+
+/**
+ * Parses an X-Forwarded-For chain into valid IP addresses.
+ *
+ * @param string $header
+ * @return array
+ */
+function tonbankcard_api_forwarded_ip_chain( string $header ) {
+    $ips = [];
+    foreach ( explode( ',', $header ) as $part ) {
+        $ip = tonbankcard_api_normalize_ip( $part );
+        if ( null !== $ip ) {
+            $ips[] = $ip;
+        }
+    }
+
+    return $ips;
 }
 
 /**

@@ -534,8 +534,10 @@ function tonbankcard_api_rate_limit_settings( array $config ) {
     }
 
     return [
-        'enabled'  => ! empty( $rate_limit['enabled'] ),
-        'policies' => $default_policies,
+        'enabled'            => ! empty( $rate_limit['enabled'] ),
+        'trusted_proxy_hops' => isset( $rate_limit['trusted_proxy_hops'] ) ? max( 0, (int) $rate_limit['trusted_proxy_hops'] ) : 0,
+        'trusted_proxies'    => isset( $rate_limit['trusted_proxies'] ) ? $rate_limit['trusted_proxies'] : [],
+        'policies'           => $default_policies,
     ];
 }
 
@@ -543,15 +545,18 @@ function tonbankcard_api_rate_limit_settings( array $config ) {
  * Classifies a request for rate limiting without exposing raw identifiers.
  *
  * @param array $request
+ * @param array $config
  * @return array
  */
-function tonbankcard_api_rate_limit_identity( array $request ) {
+function tonbankcard_api_rate_limit_identity( array $request, array $config = [] ) {
     $headers = [];
     foreach ( isset( $request['headers'] ) && is_array( $request['headers'] ) ? $request['headers'] : [] as $name => $value ) {
         $headers[ strtolower( (string) $name ) ] = is_array( $value ) ? implode( ',', $value ) : (string) $value;
     }
     $path = isset( $request['path'] ) ? (string) $request['path'] : '/';
-    $ip = function_exists( 'tonbankcard_api_request_ip' ) ? tonbankcard_api_request_ip( [ 'headers' => $headers ] ) : null;
+    $identity_request = $request;
+    $identity_request['headers'] = $headers;
+    $ip = function_exists( 'tonbankcard_api_request_ip' ) ? tonbankcard_api_request_ip( $identity_request, $config ) : null;
 
     if ( '/api/admin' === $path || 0 === strpos( $path, '/api/admin/' ) || ! empty( $headers['x-tonbankcard-admin'] ) ) {
         return [
@@ -713,7 +718,7 @@ function tonbankcard_api_rate_limit_check( array $request, array $runtime, array
         return [ 'allowed' => TRUE, 'headers' => [] ];
     }
 
-    $identity = tonbankcard_api_rate_limit_identity( $request );
+    $identity = tonbankcard_api_rate_limit_identity( $request, $config );
     $policy_name = $identity['policy'];
     $policy = isset( $settings['policies'][ $policy_name ] ) ? $settings['policies'][ $policy_name ] : $settings['policies']['anonymous_web'];
     $window_seconds = isset( $policy['window_seconds'] ) ? max( 1, (int) $policy['window_seconds'] ) : 60;
@@ -739,7 +744,20 @@ function tonbankcard_api_rate_limit_check( array $request, array $runtime, array
     }
 
     $ttl_response = tonbankcard_api_redis_command( $runtime, $config, [ 'TTL', $key ] );
-    $retry_after = ! empty( $ttl_response['ok'] ) && (int) $ttl_response['result'] > 0 ? (int) $ttl_response['result'] : $window_seconds;
+    $ttl = ! empty( $ttl_response['ok'] ) ? (int) $ttl_response['result'] : -2;
+    if ( $ttl <= 0 ) {
+        $expire = tonbankcard_api_redis_command( $runtime, $config, [ 'EXPIRE', $key, $window_seconds ] );
+        if ( empty( $expire['ok'] ) || (int) $expire['result'] < 1 ) {
+            tonbankcard_api_redis_command( $runtime, $config, [ 'DEL', $key ] );
+            tonbankcard_api_metric_increment( $runtime, $config, 'rate_limit.unavailable' );
+            return tonbankcard_api_rate_limit_fallback_check( $policy_name, $identity['key'], $window_seconds, $max_requests );
+        }
+
+        $ttl_response = tonbankcard_api_redis_command( $runtime, $config, [ 'TTL', $key ] );
+        $ttl = ! empty( $ttl_response['ok'] ) ? (int) $ttl_response['result'] : $window_seconds;
+    }
+
+    $retry_after = $ttl > 0 ? $ttl : $window_seconds;
     $decision = tonbankcard_api_rate_limit_decision( $policy_name, $max_requests, $window_seconds, $count, $retry_after );
 
     if ( empty( $decision['allowed'] ) ) {

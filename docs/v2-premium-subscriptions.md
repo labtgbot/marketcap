@@ -68,7 +68,9 @@ own. Fulfillment requires all of the following:
   once**. A duplicate delivery or a captured-and-replayed payment is
   acknowledged idempotently and never grants or extends the entitlement a
   second time. A genuine renewal carries a new charge id and is still
-  fulfilled.
+  fulfilled. The database path reserves the charge event inside the same
+  transaction before granting premium, so a failed audit write cannot leave an
+  untracked entitlement behind.
 
 These checks complement the webhook secret enforced in `api/telegram-bot.php`
 (`TONBANKCARD_BOT_WEBHOOK_SECRET`), which fails closed when unset.
@@ -106,6 +108,8 @@ Migration `0010_premium_payment_state` extends `premium_entitlements` with the
 server-held latest Stars charge id, hashed charge references, cancellation
 timestamps, and refund timestamps. It also adds `premium_payment_events` for
 coarse invoice, checkout, renewal, cancellation, and refund audit events.
+Migration `0011_stage9_reliability_hardening` adds the unique charge/event key
+used by the transactional successful-payment claim.
 
 ## Verification
 

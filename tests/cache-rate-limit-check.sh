@@ -65,6 +65,8 @@ assert_contains config/api.php "'redis'" 'Redis configuration'
 assert_contains config/api.php 'anonymous_web' 'anonymous web rate limit configuration'
 assert_contains .env.example '^TONBANKCARD_CACHE_ENABLED=' 'cache feature toggle'
 assert_contains .env.example '^TONBANKCARD_RATE_LIMIT_ENABLED=' 'rate-limit feature toggle'
+assert_contains .env.example '^TONBANKCARD_TRUSTED_PROXY_HOPS=0' 'trusted proxy hop default'
+assert_contains config/api.php 'TONBANKCARD_TRUSTED_PROXY_HOPS' 'trusted proxy hop configuration'
 
 php_check 'market cache should serve miss then hit without leaking Upstash secrets and expose metrics' \
     env -i PATH="$PATH" \
@@ -121,6 +123,7 @@ $test_api['market_data']['transport'] = function ( $request ) use ( &$provider_c
 $request = [
     'method'  => 'GET',
     'path'    => '/api/market/coins/markets?vs_currency=usd',
+    'remote_addr' => '203.0.113.10',
     'headers' => [ 'x-request-id' => 'cache-test', 'x-forwarded-for' => '203.0.113.10' ],
     'body'    => '',
 ];
@@ -308,6 +311,7 @@ $test_api['redis']['transport'] = function ( $command ) use ( &$store ) {
 $anonymous_request = [
     'method'  => 'GET',
     'path'    => '/api',
+    'remote_addr' => '203.0.113.20',
     'headers' => [
         'x-forwarded-for' => '203.0.113.20',
         'user-agent'      => 'RateLimitTest',
@@ -363,6 +367,7 @@ $metrics = tonbankcard_api_handle(
     [
         'method'  => 'GET',
         'path'    => '/api/metrics',
+        'remote_addr' => '203.0.113.21',
         'headers' => [ 'x-forwarded-for' => '203.0.113.21' ],
         'body'    => '',
     ],
@@ -415,6 +420,7 @@ $test_api['redis']['transport'] = function ( $command ) use ( &$store, &$rate_li
 $request = [
     'method'  => 'GET',
     'path'    => '/api',
+    'remote_addr' => '203.0.113.30',
     'headers' => [
         'x-forwarded-for' => '203.0.113.30',
         'user-agent'      => 'RotatingUA/1',
@@ -449,6 +455,7 @@ require __DIR__ . '/api/router.php';
 $admin_a = tonbankcard_api_rate_limit_identity(
     [
         'path'    => '/api/admin/settings',
+        'remote_addr' => '203.0.113.50',
         'headers' => [
             'authorization'   => 'Bearer invalid-admin-token-a',
             'x-forwarded-for' => '203.0.113.50',
@@ -458,6 +465,7 @@ $admin_a = tonbankcard_api_rate_limit_identity(
 $admin_b = tonbankcard_api_rate_limit_identity(
     [
         'path'    => '/api/admin/settings',
+        'remote_addr' => '203.0.113.50',
         'headers' => [
             'authorization'   => 'Bearer invalid-admin-token-b',
             'x-forwarded-for' => '203.0.113.50',
@@ -467,6 +475,7 @@ $admin_b = tonbankcard_api_rate_limit_identity(
 $admin_other_ip = tonbankcard_api_rate_limit_identity(
     [
         'path'    => '/api/admin/settings',
+        'remote_addr' => '203.0.113.51',
         'headers' => [
             'authorization'   => 'Bearer invalid-admin-token-b',
             'x-forwarded-for' => '203.0.113.51',
@@ -490,6 +499,7 @@ if ( $admin_a['key'] === $admin_other_ip['key'] ) {
 $session_a = tonbankcard_api_rate_limit_identity(
     [
         'path'    => '/api/watchlist',
+        'remote_addr' => '203.0.113.60',
         'headers' => [
             'x-tonbankcard-session' => 'invalid-session-token-a',
             'x-forwarded-for'       => '203.0.113.60',
@@ -499,6 +509,7 @@ $session_a = tonbankcard_api_rate_limit_identity(
 $session_b = tonbankcard_api_rate_limit_identity(
     [
         'path'    => '/api/watchlist',
+        'remote_addr' => '203.0.113.60',
         'headers' => [
             'x-tonbankcard-session' => 'invalid-session-token-b',
             'x-forwarded-for'       => '203.0.113.60',
@@ -512,6 +523,62 @@ if ( 'telegram_session' !== $session_a['policy'] || 'telegram_session' !== $sess
 }
 if ( $session_a['key'] !== $session_b['key'] ) {
     fwrite( STDERR, "Rotating invalid session credentials created separate rate-limit buckets\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'rate limiter should ignore spoofed X-Forwarded-For unless trusted proxies are configured' \
+    env -i PATH="$PATH" php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$spoof_a = tonbankcard_api_rate_limit_identity(
+    [
+        'path'    => '/api',
+        'remote_addr' => '198.51.100.10',
+        'headers' => [
+            'x-forwarded-for' => '203.0.113.200',
+            'user-agent'      => 'SpoofedXFF/1',
+        ],
+    ],
+    [ 'rate_limit' => [] ]
+);
+$spoof_b = tonbankcard_api_rate_limit_identity(
+    [
+        'path'    => '/api',
+        'remote_addr' => '198.51.100.10',
+        'headers' => [
+            'x-forwarded-for' => '203.0.113.201',
+            'user-agent'      => 'SpoofedXFF/2',
+        ],
+    ],
+    [ 'rate_limit' => [] ]
+);
+if ( $spoof_a['key'] !== $spoof_b['key'] ) {
+    fwrite( STDERR, "Spoofed X-Forwarded-For changed the default anonymous rate-limit bucket\n" );
+    exit( 1 );
+}
+
+$trusted_a = tonbankcard_api_rate_limit_identity(
+    [
+        'path'    => '/api',
+        'remote_addr' => '198.51.100.10',
+        'headers' => [ 'x-forwarded-for' => '203.0.113.200, 198.51.100.10' ],
+    ],
+    [ 'rate_limit' => [ 'trusted_proxy_hops' => 1 ] ]
+);
+$trusted_b = tonbankcard_api_rate_limit_identity(
+    [
+        'path'    => '/api',
+        'remote_addr' => '198.51.100.10',
+        'headers' => [ 'x-forwarded-for' => '203.0.113.201, 198.51.100.10' ],
+    ],
+    [ 'rate_limit' => [ 'trusted_proxy_hops' => 1 ] ]
+);
+if ( $trusted_a['key'] === $trusted_b['key'] ) {
+    fwrite( STDERR, "Trusted proxy configuration did not use the client IP from X-Forwarded-For\n" );
     exit( 1 );
 }
 PHP
@@ -538,6 +605,7 @@ $test_api['redis']['transport'] = function ( $command ) {
 $request = [
     'method'  => 'GET',
     'path'    => '/api',
+    'remote_addr' => '203.0.113.40',
     'headers' => [
         'x-forwarded-for' => '203.0.113.40',
         'user-agent'      => 'RedisOutage',
@@ -557,6 +625,67 @@ if ( 429 !== $second['status'] ) {
 }
 if ( ! isset( $second['headers']['Retry-After'] ) || ! isset( $second['headers']['X-RateLimit-Limit'] ) || '1' !== $second['headers']['X-RateLimit-Limit'] ) {
     fwrite( STDERR, "Fallback rate-limit response is missing standard headers\n" );
+    exit( 1 );
+}
+PHP
+
+php_check 'Redis rate-limit keys should reassert TTL when the first EXPIRE is lost' \
+    env -i PATH="$PATH" \
+        UPSTASH_REDIS_REST_URL='https://redis.example' \
+        UPSTASH_REDIS_REST_TOKEN='redis-secret-token' \
+        TONBANKCARD_CACHE_ENABLED=false \
+        TONBANKCARD_RATE_LIMIT_ENABLED=true \
+        php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$store = [];
+$ttl = [];
+$expire_calls = 0;
+$test_api = $api;
+$test_api['rate_limit']['policies']['anonymous_web']['max_requests'] = 2;
+$test_api['rate_limit']['policies']['anonymous_web']['window_seconds'] = 60;
+$test_api['redis']['transport'] = function ( $command ) use ( &$store, &$ttl, &$expire_calls ) {
+    $op = strtoupper( (string) $command[0] );
+    $key = isset( $command[1] ) ? (string) $command[1] : '';
+    if ( 'INCR' === $op ) {
+        $store[ $key ] = (string) ( (int) ( isset( $store[ $key ] ) ? $store[ $key ] : 0 ) + 1 );
+        return [ 'ok' => TRUE, 'result' => (int) $store[ $key ] ];
+    }
+    if ( 'EXPIRE' === $op ) {
+        $expire_calls++;
+        if ( 1 === $expire_calls ) {
+            return [ 'ok' => FALSE, 'error' => 'lost_expire' ];
+        }
+        $ttl[ $key ] = (int) $command[2];
+        return [ 'ok' => TRUE, 'result' => 1 ];
+    }
+    if ( 'TTL' === $op ) {
+        return [ 'ok' => TRUE, 'result' => isset( $ttl[ $key ] ) ? $ttl[ $key ] : -1 ];
+    }
+    return [ 'ok' => TRUE, 'result' => null ];
+};
+
+$request = [
+    'method'  => 'GET',
+    'path'    => '/api',
+    'remote_addr' => '203.0.113.70',
+    'headers' => [ 'user-agent' => 'ExpireRetryTest' ],
+    'body'    => '',
+];
+$response = tonbankcard_api_handle( $request, [], $GLOBALS['runtime_config'], $test_api );
+if ( 200 !== $response['status'] ) {
+    fwrite( STDERR, 'Expected request to pass after TTL reassertion, got ' . $response['status'] . "\n" );
+    exit( 1 );
+}
+if ( $expire_calls < 2 ) {
+    fwrite( STDERR, 'Expected Redis EXPIRE to be retried when TTL was missing, got ' . $expire_calls . "\n" );
+    exit( 1 );
+}
+if ( empty( $ttl ) || min( $ttl ) <= 0 ) {
+    fwrite( STDERR, "Expected rate-limit Redis key to have a positive TTL after reassertion\n" );
     exit( 1 );
 }
 PHP

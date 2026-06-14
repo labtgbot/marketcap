@@ -110,8 +110,17 @@ $api = [
         ],
     ],
     'rate_limit' => [
-        'enabled'  => tonbankcard_env_bool( 'TONBANKCARD_RATE_LIMIT_ENABLED', $api_upstash_configured && 'local' !== $api_profile ),
-        'policies' => [
+        'enabled'            => tonbankcard_env_bool( 'TONBANKCARD_RATE_LIMIT_ENABLED', $api_upstash_configured && 'local' !== $api_profile ),
+        'trusted_proxy_hops' => tonbankcard_env_int( 'TONBANKCARD_TRUSTED_PROXY_HOPS', 0, 0, 10 ),
+        'trusted_proxies'    => array_values(
+            array_filter(
+                array_map(
+                    'trim',
+                    explode( ',', (string) tonbankcard_env( 'TONBANKCARD_TRUSTED_PROXIES', '' ) )
+                )
+            )
+        ),
+        'policies'           => [
             'anonymous_web'    => [
                 'window_seconds' => 60,
                 'max_requests'   => 120,

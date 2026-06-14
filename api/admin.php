@@ -2348,11 +2348,6 @@ function tonbankcard_api_admin_save_state( array $state, array $runtime, array $
         'audit_log'     => tonbankcard_api_admin_redact_value( $state['audit_log'] ),
     ];
 
-    $env_saved = tonbankcard_api_admin_save_env_updates( $env_updates );
-    if ( empty( $env_saved['ok'] ) ) {
-        return $env_saved;
-    }
-
     $dir = dirname( $path );
     if ( ! is_dir( $dir ) && ! mkdir( $dir, 0775, TRUE ) && ! is_dir( $dir ) ) {
         return [
@@ -2387,6 +2382,11 @@ function tonbankcard_api_admin_save_state( array $state, array $runtime, array $
     }
     @chmod( $path, 0600 );
 
+    $env_saved = tonbankcard_api_admin_save_env_updates( $env_updates );
+    if ( empty( $env_saved['ok'] ) ) {
+        return $env_saved;
+    }
+
     return [ 'ok' => TRUE ];
 }
 
@@ -2413,31 +2413,6 @@ function tonbankcard_api_admin_save_env_updates( array $updates ) {
     }
 
     $path = GECKO_CLIENT_DIR . '/.env';
-    $lines = is_file( $path ) ? file( $path, FILE_IGNORE_NEW_LINES ) : [];
-    if ( ! is_array( $lines ) ) {
-        $lines = [];
-    }
-
-    $seen = [];
-    foreach ( $lines as $index => $line ) {
-        if ( preg_match( '/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/', $line, $matches ) ) {
-            $key = $matches[1];
-            if ( array_key_exists( $key, $filtered ) ) {
-                $lines[ $index ] = $key . '=' . tonbankcard_api_admin_format_env_value( $filtered[ $key ] );
-                $seen[ $key ] = TRUE;
-            }
-        }
-    }
-
-    if ( empty( $lines ) ) {
-        $lines[] = '# Updated by the TONBANKCARD admin panel.';
-    }
-    foreach ( $filtered as $key => $value ) {
-        if ( empty( $seen[ $key ] ) ) {
-            $lines[] = $key . '=' . tonbankcard_api_admin_format_env_value( $value );
-        }
-    }
-
     $dir = dirname( $path );
     if ( ! is_dir( $dir ) || ! is_writable( $dir ) ) {
         return [
@@ -2448,12 +2423,13 @@ function tonbankcard_api_admin_save_env_updates( array $updates ) {
         ];
     }
 
-    $env = implode( "\n", $lines ) . "\n";
-    $tmp = $path . '.tmp.' . getmypid();
-    if ( FALSE === file_put_contents( $tmp, $env, LOCK_EX ) || ! rename( $tmp, $path ) ) {
-        if ( is_file( $tmp ) ) {
-            @unlink( $tmp );
+    $lock_path = $path . '.lock';
+    $lock = fopen( $lock_path, 'c' );
+    if ( FALSE === $lock || ! flock( $lock, LOCK_EX ) ) {
+        if ( is_resource( $lock ) ) {
+            fclose( $lock );
         }
+
         return [
             'ok'      => FALSE,
             'status'  => 500,
@@ -2461,7 +2437,52 @@ function tonbankcard_api_admin_save_env_updates( array $updates ) {
             'message' => 'The .env file could not be written from the admin panel.',
         ];
     }
-    @chmod( $path, 0600 );
+
+    try {
+        $lines = is_file( $path ) ? file( $path, FILE_IGNORE_NEW_LINES ) : [];
+        if ( ! is_array( $lines ) ) {
+            $lines = [];
+        }
+
+        $seen = [];
+        foreach ( $lines as $index => $line ) {
+            if ( preg_match( '/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/', $line, $matches ) ) {
+                $key = $matches[1];
+                if ( array_key_exists( $key, $filtered ) ) {
+                    $lines[ $index ] = $key . '=' . tonbankcard_api_admin_format_env_value( $filtered[ $key ] );
+                    $seen[ $key ] = TRUE;
+                }
+            }
+        }
+
+        if ( empty( $lines ) ) {
+            $lines[] = '# Updated by the TONBANKCARD admin panel.';
+        }
+        foreach ( $filtered as $key => $value ) {
+            if ( empty( $seen[ $key ] ) ) {
+                $lines[] = $key . '=' . tonbankcard_api_admin_format_env_value( $value );
+            }
+        }
+
+        $env = implode( "\n", $lines ) . "\n";
+        $tmp = $path . '.tmp.' . getmypid();
+        if ( FALSE === file_put_contents( $tmp, $env, LOCK_EX ) || ! rename( $tmp, $path ) ) {
+            if ( is_file( $tmp ) ) {
+                @unlink( $tmp );
+            }
+
+            return [
+                'ok'      => FALSE,
+                'status'  => 500,
+                'code'    => 'admin_env_write_failed',
+                'message' => 'The .env file could not be written from the admin panel.',
+            ];
+        }
+        @chmod( $path, 0600 );
+    } finally {
+        flock( $lock, LOCK_UN );
+        fclose( $lock );
+    }
 
     foreach ( $filtered as $key => $value ) {
         $runtime_value = tonbankcard_api_admin_env_runtime_value( $value );

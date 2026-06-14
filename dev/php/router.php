@@ -29,7 +29,7 @@ function tonbankcard_dev_path_is_denied( $path ) {
         return FALSE;
     }
 
-    if ( preg_match( '#^(install|database|docs|tests|dev)(/|$)#i', $relative_path ) ) {
+    if ( preg_match( '#^(install|database|docs|tests|experiments|dev)(/|$)#i', $relative_path ) ) {
         return TRUE;
     }
 

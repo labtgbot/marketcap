@@ -30,7 +30,7 @@ The alerts API uses the shared JSON envelope from `/api/*` and trusted Telegram 
 - `POST /api/alerts/{id}/test` queues a test delivery payload and returns the exact Mini App link.
 - `POST /api/alerts/evaluate` is the scheduled worker entry point.
 
-`/api/alerts/evaluate` requires `X-TONBANKCARD-Alert-Worker-Token` to match the configured `TONBANKCARD_ALERT_WORKER_TOKEN`. The endpoint fails closed: when the token is unset it returns `503 alerts_worker_token_unset`, and a missing or wrong token returns `401 alerts_worker_token_required` (compared with `hash_equals`). Once authenticated, the worker selects due active rules, fetches market rows through the server-owned CoinGecko gateway, evaluates conditions, applies quiet hours and frequency caps, records alert delivery attempts, and schedules the next evaluation timestamp.
+`/api/alerts/evaluate` requires `X-TONBANKCARD-Alert-Worker-Token` to match the configured `TONBANKCARD_ALERT_WORKER_TOKEN`. The endpoint fails closed: when the token is unset it returns `503 alerts_worker_token_unset`, and a missing or wrong token returns `401 alerts_worker_token_required` (compared with `hash_equals`). Once authenticated, the worker first claims queued retry deliveries, then claims due active rules with row locks or per-run claim tokens, fetches market rows through the server-owned CoinGecko gateway, evaluates conditions, applies quiet hours and frequency caps, records alert delivery attempts, and schedules the next evaluation timestamp.
 
 ## Delivery
 
@@ -46,7 +46,7 @@ The Mini App routes are:
 - `/app/alerts` for the Mini App list.
 - `/app/alert/{id}` for alert detail context.
 
-If Telegram bot delivery is unavailable, the worker records a retryable queued delivery with the same `deep_link_url` and `delivery_fingerprint` so later retries remain idempotent and observable.
+If Telegram bot delivery is unavailable, the worker records a retryable queued delivery with the same `deep_link_url` and `delivery_fingerprint` so later retries remain idempotent and observable. Frequency caps, daily delivery caps, and `last_delivery_fingerprint` advance only after Telegram accepts the message; queued and failed attempts stay retry/audit state rather than counted deliveries.
 
 ## Limits
 
@@ -70,4 +70,4 @@ node dev/js/tools/build.js
 
 ## Testing
 
-Regression coverage lives in `tests/alerts-check.sh`. It verifies route wiring, schema migration fields, API evaluator helpers, Telegram `startapp` delivery links, quiet hours, frequency caps, package scripts, docs, and frontend route assets.
+Regression coverage lives in `tests/alerts-check.sh`. It verifies route wiring, schema migration fields, API evaluator helpers, Telegram `startapp` delivery links, quiet hours, frequency caps, duplicate fingerprint suppression, queued retry worker code, package scripts, docs, and frontend route assets.

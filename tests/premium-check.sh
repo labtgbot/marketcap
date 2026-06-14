@@ -52,14 +52,22 @@ assert_contains api/premium.php "status = 'revoked'"
 
 assert_file database/migrations/0010_premium_payment_state.up.sql
 assert_file database/migrations/0010_premium_payment_state.down.sql
+assert_file database/migrations/0011_stage9_reliability_hardening.up.sql
+assert_file database/migrations/0011_stage9_reliability_hardening.down.sql
 assert_contains database/migrations/0010_premium_payment_state.up.sql "premium_payment_events"
 assert_contains database/migrations/0010_premium_payment_state.up.sql "last_telegram_payment_charge_id"
 assert_contains database/migrations/0010_premium_payment_state.up.sql "last_telegram_payment_charge_id_hash"
 assert_contains database/migrations/0010_premium_payment_state.up.sql "cancel_at_period_end"
 assert_contains database/migrations/0010_premium_payment_state.up.sql "refunded_at"
 assert_contains database/migrations/0010_premium_payment_state.up.sql "subscription_period_seconds"
+assert_contains database/migrations/0011_stage9_reliability_hardening.up.sql "UNIQUE KEY \`uniq_premium_payment_events_charge_event\`"
 assert_contains docs/v2-database-schema-and-migrations.md "premium_payment_events"
 assert_contains docs/v2-database-schema-and-migrations.md "0010_premium_payment_state"
+assert_contains docs/v2-database-schema-and-migrations.md "0011_stage9_reliability_hardening"
+assert_contains api/premium.php "tonbankcard_api_premium_reserve_payment_event"
+assert_contains api/premium.php "beginTransaction()"
+assert_contains api/premium.php "commit()"
+assert_contains api/premium.php "rollBack()"
 
 assert_contains config/api.php "TONBANKCARD_PREMIUM_MONTHLY_STARS"
 assert_contains config/api.php "TONBANKCARD_PREMIUM_SUBSCRIPTION_PERIOD_SECONDS"
