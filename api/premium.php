@@ -885,7 +885,11 @@ function tonbankcard_api_premium_invoice_payload( string $plan_code, int $user_i
     }
 
     $nonce = bin2hex( random_bytes( 8 ) );
-    $base = implode( ':', [ $plan_code, $user_id, $telegram_user_id, $nonce ] );
+    $amount = isset( $settings['plans'][ $plan_code ]['price_stars'] ) ? (int) $settings['plans'][ $plan_code ]['price_stars'] : 0;
+    if ( $amount < 1 ) {
+        return null;
+    }
+    $base = implode( ':', [ $plan_code, $user_id, $telegram_user_id, $amount, $nonce ] );
     $signature = substr( hash_hmac( 'sha256', $base, $secret ), 0, 24 );
 
     return 'tbcpm:' . $base . ':' . $signature;
@@ -899,7 +903,7 @@ function tonbankcard_api_premium_invoice_payload( string $plan_code, int $user_i
  * @return array|null
  */
 function tonbankcard_api_premium_parse_invoice_payload( string $payload, array $settings ) {
-    if ( ! preg_match( '/^tbcpm:([a-z0-9_-]{1,80}):([0-9]{1,20}):([0-9]{1,20}):([a-f0-9]{16}):([a-f0-9]{24})$/', $payload, $matches ) ) {
+    if ( ! preg_match( '/^tbcpm:([a-z0-9_-]{1,80}):([0-9]{1,20}):([0-9]{1,20}):([0-9]{1,8}):([a-f0-9]{16}):([a-f0-9]{24})$/', $payload, $matches ) ) {
         return null;
     }
 
@@ -913,9 +917,9 @@ function tonbankcard_api_premium_parse_invoice_payload( string $payload, array $
         return null;
     }
 
-    $base = implode( ':', [ $matches[1], $matches[2], $matches[3], $matches[4] ] );
+    $base = implode( ':', [ $matches[1], $matches[2], $matches[3], $matches[4], $matches[5] ] );
     $expected = substr( hash_hmac( 'sha256', $base, $secret ), 0, 24 );
-    if ( ! hash_equals( $expected, $matches[5] ) ) {
+    if ( ! hash_equals( $expected, $matches[6] ) ) {
         return null;
     }
 
@@ -923,7 +927,8 @@ function tonbankcard_api_premium_parse_invoice_payload( string $payload, array $
         'plan_code'        => $plan_code,
         'user_id'          => (int) $matches[2],
         'telegram_user_id' => (int) $matches[3],
-        'nonce'            => $matches[4],
+        'amount_stars'     => (int) $matches[4],
+        'nonce'            => $matches[5],
     ];
 }
 
@@ -978,7 +983,7 @@ function tonbankcard_api_premium_pre_checkout_response( array $pre_checkout_quer
         $approved = FALSE;
         $error_message = 'Premium checkout must use Telegram Stars.';
     }
-    if ( $approved && (int) $pre_checkout_query['total_amount'] !== (int) $plan['price_stars'] ) {
+    if ( $approved && (int) $pre_checkout_query['total_amount'] !== (int) $parsed['amount_stars'] ) {
         $approved = FALSE;
         $error_message = 'Premium checkout amount does not match the selected plan.';
     }
@@ -998,7 +1003,7 @@ function tonbankcard_api_premium_pre_checkout_response( array $pre_checkout_quer
                     'event_type'           => 'pre_checkout_approved',
                     'plan_code'            => $parsed['plan_code'],
                     'invoice_payload_hash' => hash( 'sha256', $payload ),
-                    'amount_stars'         => (int) $plan['price_stars'],
+                    'amount_stars'         => (int) $parsed['amount_stars'],
                     'currency'             => 'XTR',
                 ]
             );
@@ -1039,7 +1044,7 @@ function tonbankcard_api_premium_successful_payment_response( array $message, ar
     }
 
     $plan = $settings['plans'][ $parsed['plan_code'] ];
-    if ( (int) $payment['total_amount'] !== (int) $plan['price_stars'] ) {
+    if ( (int) $payment['total_amount'] !== (int) $parsed['amount_stars'] ) {
         return tonbankcard_api_telegram_bot_update_error( 'Premium payment amount does not match the selected plan.', [ 'field' => 'message.successful_payment.total_amount' ] );
     }
 

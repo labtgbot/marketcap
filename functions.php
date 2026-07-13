@@ -513,30 +513,36 @@ function tonbankcard_subject_template( string $template, string $subject ) {
 }
 
 /**
- * Returns the V2 public route matching a path.
+ * Returns the V2 route matching a path across public and restricted groups.
  *
  * @param string|null $path
  * @return array|null
  */
 function tonbankcard_public_route_for_path( $path = null ) {
-    $routes = isset( $GLOBALS['routes_v2']['public'] ) && is_array( $GLOBALS['routes_v2']['public'] )
-        ? $GLOBALS['routes_v2']['public']
+    $route_groups = isset( $GLOBALS['routes_v2'] ) && is_array( $GLOBALS['routes_v2'] )
+        ? $GLOBALS['routes_v2']
         : [];
     $path = null === $path ? tonbankcard_current_path() : tonbankcard_normalize_path( (string) $path );
 
-    foreach ( $routes as $name => $route ) {
-        if ( empty( $route['path'] ) || ! is_string( $route['path'] ) ) {
+    foreach ( $route_groups as $group => $routes ) {
+        if ( ! is_array( $routes ) ) {
             continue;
         }
+        foreach ( $routes as $name => $route ) {
+            if ( empty( $route['path'] ) || ! is_string( $route['path'] ) ) {
+                continue;
+            }
 
-        $params = tonbankcard_match_route_pattern( $route['path'], $path );
-        if ( null === $params ) {
-            continue;
+            $params = tonbankcard_match_route_pattern( $route['path'], $path );
+            if ( null === $params ) {
+                continue;
+            }
+
+            $route['name']   = $name;
+            $route['group']  = $group;
+            $route['params'] = $params;
+            return $route;
         }
-
-        $route['name']   = $name;
-        $route['params'] = $params;
-        return $route;
     }
 
     return null;
@@ -580,6 +586,11 @@ function tonbankcard_public_route_meta( $path = null ) {
     $canonical_path = ! empty( $route['canonical_path'] ) ? $route['canonical_path'] : $path;
     $canonical_path = tonbankcard_fill_route_path( $canonical_path, $params );
     $canonical_url  = site_url( ltrim( $canonical_path, '/' ) );
+    $active_language = tonbankcard_active_language();
+    $default_language = tonbankcard_normalize_language( '' );
+    if ( $active_language !== $default_language ) {
+        $canonical_url = tonbankcard_seo_localized_url( $canonical_url, $active_language );
+    }
     $full_title     = $title === $site['title'] ? $site['title'] : $title . ' - ' . $site['title'];
 
     return [
@@ -1001,9 +1012,8 @@ function tonbankcard_sitemap_bundled_universe() {
 /**
  * Attempts to enumerate live identifiers from the market gateway.
  *
- * Guarded behind the TONBANKCARD_SITEMAP_LIVE_SOURCES flag and skipped on the
- * `local` profile so the test harness and offline self-hosters stay
- * deterministic. Any failure degrades to an empty list and is logged through
+ * Guarded behind the TONBANKCARD_SITEMAP_LIVE_SOURCES flag. Any failure
+ * degrades to an empty list and is logged through
  * the observability layer, so the sitemap still renders with the bundled
  * universe.
  *
@@ -1014,9 +1024,6 @@ function tonbankcard_sitemap_bundled_universe() {
  */
 function tonbankcard_sitemap_live_ids( string $upstream_path, array $query, string $id_key = 'id' ) {
     if ( ! function_exists( 'tonbankcard_api_market_fetch' ) || ! function_exists( 'tonbankcard_api_market_provider_config' ) ) {
-        return [];
-    }
-    if ( defined( 'TONBANKCARD_PROFILE' ) && 'local' === TONBANKCARD_PROFILE ) {
         return [];
     }
     if ( ! function_exists( 'tonbankcard_env_bool' ) || ! tonbankcard_env_bool( 'TONBANKCARD_SITEMAP_LIVE_SOURCES', FALSE ) ) {
@@ -1601,7 +1608,7 @@ function tonbankcard_public_robots_txt() {
         [
             'User-agent: *',
             'Allow: /',
-            'Disallow: /admin/',
+            'Disallow: /admin',
             'Disallow: /api/',
             'Disallow: /database/',
             'Disallow: /dev/',

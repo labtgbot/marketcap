@@ -573,6 +573,9 @@ function tonbankcard_api_search_prepare_entry( array $entry ) {
             $entry[ $field ] = (bool) $entry[ $field ];
         }
     }
+    $search_fields = tonbankcard_api_search_entry_fields( $entry );
+    $entry['_search_blob'] = tonbankcard_api_search_normalize_text( implode( ' ', $search_fields ) );
+    $entry['_search_tokens'] = tonbankcard_api_search_tokens( $entry['_search_blob'] );
 
     return $entry;
 }
@@ -743,7 +746,7 @@ function tonbankcard_api_search_trending_exchange_entry( array $exchange, int $r
  */
 function tonbankcard_api_search_results( array $entries, string $query, int $limit, string $surface, string $tag = '' ) {
     $normalized_query = tonbankcard_api_search_normalize_text( $query );
-    $tokens = tonbankcard_api_search_tokens( $query );
+    $tokens = array_slice( tonbankcard_api_search_tokens( $query ), 0, 8 );
     $scored = [];
 
     foreach ( $entries as $entry ) {
@@ -751,6 +754,9 @@ function tonbankcard_api_search_results( array $entries, string $query, int $lim
             continue;
         }
         if ( '' !== $tag && ! tonbankcard_api_search_entry_matches_tag( $entry, $tag ) ) {
+            continue;
+        }
+        if ( '' !== $normalized_query && ! tonbankcard_api_search_is_candidate( $entry, $normalized_query, $tokens ) ) {
             continue;
         }
         $score = tonbankcard_api_search_score_entry( $entry, $normalized_query, $tokens );
@@ -784,6 +790,31 @@ function tonbankcard_api_search_results( array $entries, string $query, int $lim
     }
 
     return $results;
+}
+
+/**
+ * Cheaply narrows fuzzy scoring to entries sharing a prefix/substring with at
+ * least one query token. This prevents full-index Levenshtein scans.
+ */
+function tonbankcard_api_search_is_candidate( array $entry, string $normalized_query, array $query_tokens ) {
+    $blob = isset( $entry['_search_blob'] ) ? (string) $entry['_search_blob'] : tonbankcard_api_search_normalize_text( implode( ' ', tonbankcard_api_search_entry_fields( $entry ) ) );
+    if ( FALSE !== strpos( $blob, $normalized_query ) ) {
+        return TRUE;
+    }
+    $entry_tokens = isset( $entry['_search_tokens'] ) && is_array( $entry['_search_tokens'] ) ? $entry['_search_tokens'] : tonbankcard_api_search_tokens( $blob );
+    foreach ( $query_tokens as $query_token ) {
+        $prefix_length = min( 3, strlen( $query_token ) );
+        if ( $prefix_length < 2 ) {
+            continue;
+        }
+        $prefix = substr( $query_token, 0, $prefix_length );
+        foreach ( $entry_tokens as $entry_token ) {
+            if ( 0 === strpos( $entry_token, $prefix ) || 0 === strpos( $query_token, substr( $entry_token, 0, min( 3, strlen( $entry_token ) ) ) ) ) {
+                return TRUE;
+            }
+        }
+    }
+    return FALSE;
 }
 
 /**
@@ -1005,8 +1036,8 @@ function tonbankcard_api_search_score_entry( array $entry, string $normalized_qu
 
     $score = 0;
     $fields = tonbankcard_api_search_entry_fields( $entry );
-    $haystack = tonbankcard_api_search_normalize_text( implode( ' ', $fields ) );
-    $entry_tokens = tonbankcard_api_search_tokens( implode( ' ', $fields ) );
+    $haystack = isset( $entry['_search_blob'] ) ? (string) $entry['_search_blob'] : tonbankcard_api_search_normalize_text( implode( ' ', $fields ) );
+    $entry_tokens = isset( $entry['_search_tokens'] ) && is_array( $entry['_search_tokens'] ) ? $entry['_search_tokens'] : tonbankcard_api_search_tokens( $haystack );
     $symbol = tonbankcard_api_search_normalize_text( isset( $entry['symbol'] ) ? $entry['symbol'] : '' );
     $title = tonbankcard_api_search_normalize_text( isset( $entry['title'] ) ? $entry['title'] : '' );
     $id = tonbankcard_api_search_normalize_text( isset( $entry['id'] ) ? $entry['id'] : '' );

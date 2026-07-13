@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Stage 6 — launch-readiness and SEO-completeness audit follow-ups
 (`docs/readiness-analysis-2026.md`).
 
+### Fixed
+
+- Closed the post-audit findings from #253: localized canonical/Open Graph
+  metadata, complete sitemap and safer admin robots directives; keyboard skip
+  navigation and localized control names; bounded alert delivery, market-query,
+  search, TON metadata, observability, and Stars payment handling; and robust
+  locale-number, service-worker, and generated-bundle behavior (#254–#270).
+
 ### Security
 
 - Telegram bot webhook now fails closed: when no webhook secret is configured

@@ -11,9 +11,9 @@
  * making any external request.
  */
 
-putenv( 'TONBANKCARD_PROFILE=production' );
+putenv( 'TONBANKCARD_PROFILE=local' );
 putenv( 'TONBANKCARD_SITEMAP_LIVE_SOURCES=true' );
-$_ENV['TONBANKCARD_PROFILE']               = 'production';
+$_ENV['TONBANKCARD_PROFILE']               = 'local';
 $_ENV['TONBANKCARD_SITEMAP_LIVE_SOURCES']  = 'true';
 
 require __DIR__ . '/../constants.php';
@@ -65,6 +65,7 @@ $coin_ids     = tonbankcard_sitemap_coin_ids();
 $exchange_ids = tonbankcard_sitemap_exchange_ids();
 
 tbc_sitemap_assert( in_array( 'coins/list', $captured_paths, TRUE ), 'live coin source uses the coins/list endpoint (full universe)' );
+tbc_sitemap_assert( 'local' === TONBANKCARD_PROFILE, 'explicit live-source flag is honored on the default local profile' );
 tbc_sitemap_assert( count( $coin_ids ) > 250, 'coin universe exceeds the old 250-per-page cap (got ' . count( $coin_ids ) . ')' );
 tbc_sitemap_assert( in_array( 'live-coin-0', $coin_ids, TRUE ) && in_array( 'live-coin-1199', $coin_ids, TRUE ), 'first and last live coins are enumerated' );
 tbc_sitemap_assert( in_array( 'toncoin', $coin_ids, TRUE ), 'bundled fallback ids remain present' );

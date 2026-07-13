@@ -696,12 +696,12 @@ function tonbankcard_api_ton_lookup_jetton( array $query, string $request_id, ar
     }
 
     $meta        = isset( $data['metadata'] ) && is_array( $data['metadata'] ) ? $data['metadata'] : [];
-    $name        = trim( (string) ( isset( $meta['name'] ) ? $meta['name'] : ( isset( $data['name'] ) ? $data['name'] : '' ) ) );
-    $symbol      = strtoupper( trim( (string) ( isset( $meta['symbol'] ) ? $meta['symbol'] : ( isset( $data['symbol'] ) ? $data['symbol'] : '' ) ) ) );
+    $name        = tonbankcard_api_ton_clean_metadata_text( isset( $meta['name'] ) ? $meta['name'] : ( isset( $data['name'] ) ? $data['name'] : '' ), 120 );
+    $symbol      = strtoupper( tonbankcard_api_ton_clean_metadata_text( isset( $meta['symbol'] ) ? $meta['symbol'] : ( isset( $data['symbol'] ) ? $data['symbol'] : '' ), 32 ) );
     $decimals    = isset( $data['decimals'] ) ? (int) $data['decimals'] : ( isset( $meta['decimals'] ) ? (int) $meta['decimals'] : 9 );
-    $description = trim( (string) ( isset( $meta['description'] ) ? $meta['description'] : '' ) );
-    $image       = trim( (string) ( isset( $meta['image'] ) ? $meta['image'] : ( isset( $meta['image_data'] ) ? $meta['image_data'] : '' ) ) );
-    $total_supply = isset( $data['total_supply'] ) ? (string) $data['total_supply'] : '';
+    $description = tonbankcard_api_ton_clean_metadata_text( isset( $meta['description'] ) ? $meta['description'] : '', 500 );
+    $image       = tonbankcard_api_ton_safe_metadata_url( isset( $meta['image'] ) ? $meta['image'] : ( isset( $meta['image_data'] ) ? $meta['image_data'] : '' ) );
+    $total_supply = tonbankcard_api_ton_clean_metadata_text( isset( $data['total_supply'] ) ? $data['total_supply'] : '', 96 );
     $admin_addr  = isset( $data['admin'] ) && is_array( $data['admin'] ) && isset( $data['admin']['address'] )
         ? trim( (string) $data['admin']['address'] ) : '';
 
@@ -735,6 +735,23 @@ function tonbankcard_api_ton_lookup_jetton( array $query, string $request_id, ar
         $request_id,
         $headers
     );
+}
+
+function tonbankcard_api_ton_clean_metadata_text( $value, int $limit ) {
+    $value = strip_tags( (string) $value );
+    $value = preg_replace( '/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $value );
+    $value = trim( preg_replace( '/\s+/u', ' ', (string) $value ) );
+    return function_exists( 'mb_substr' )
+        ? mb_substr( $value, 0, max( 0, $limit ), 'UTF-8' )
+        : substr( $value, 0, max( 0, $limit ) );
+}
+
+function tonbankcard_api_ton_safe_metadata_url( $value ) {
+    $value = trim( (string) $value );
+    if ( strlen( $value ) > 2048 || ! preg_match( '#^https?://#i', $value ) || FALSE === filter_var( $value, FILTER_VALIDATE_URL ) ) {
+        return '';
+    }
+    return $value;
 }
 
 /**

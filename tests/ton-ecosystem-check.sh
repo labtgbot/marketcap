@@ -110,6 +110,8 @@ assert_contains dev/js/src/routes/ton.js 'duplicateByCoinId' 'TON catalog editor
 
 # Issue #113: TON blockchain jetton lookup via TON API
 assert_contains api/ton.php 'tonbankcard_api_ton_lookup_jetton' 'TON API exposes the jetton lookup handler'
+assert_contains api/ton.php 'tonbankcard_api_ton_clean_metadata_text' 'TON lookup bounds untrusted metadata text'
+assert_contains api/ton.php 'tonbankcard_api_ton_safe_metadata_url' 'TON lookup allows only safe metadata image URLs'
 assert_contains api/ton.php "'/api/ton/lookup'" 'TON API registers the /api/ton/lookup route'
 assert_contains dev/js/src/routes/ton.js 'lookupTonJetton' 'TON catalog editor exposes jetton lookup from TON blockchain'
 assert_contains templates/routes/ton.php 'editorLookupContract' 'TON catalog editor template exposes the contract address lookup field'

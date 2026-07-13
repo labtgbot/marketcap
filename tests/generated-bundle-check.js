@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const UglifyJS = require('uglify-js');
 
 const root = path.resolve(__dirname, '..');
 const logDir = path.join(root, 'test-logs');
@@ -96,9 +97,15 @@ try {
         fail(`Missing generated minified bundle: ${minPath}`);
     } else {
         const minified = readText(minPath);
+        const expectedMinified = UglifyJS.minify(expectedApp);
         log(`${minPath} sha256: ${sha256(minified)}`);
         if (minified.trim() === '') {
             fail(`${minPath} is empty.`);
+        }
+        if (expectedMinified.error) {
+            fail(`Could not minify source bundle for comparison: ${expectedMinified.error.message}`);
+        } else if (minified !== expectedMinified.code) {
+            fail(`${minPath} is out of date with ${sourceListPath}.`);
         }
         try {
             new Function(minified);

@@ -76,6 +76,30 @@ assert_contains dev/js/src/coingecko.js 'gatewayBaseUrl' 'browser gateway base U
 assert_not_contains dev/js/src/coingecko.js 'https://api\.coingecko\.com/api/v3/' 'direct CoinGecko API base URL'
 assert_not_contains dev/js/src/components/search-bar.js 'localstorage\.one' 'direct browser search data source'
 
+php_check 'unknown query parameters must not change the upstream request or cache identity' \
+    php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+
+$route = tonbankcard_api_market_route_for_path( 'coins/markets' );
+$first = tonbankcard_api_market_sanitize_query( [ 'vs_currency' => 'usd', '_' => '1', 'junk' => 'a' ], $route );
+$second = tonbankcard_api_market_sanitize_query( [ 'vs_currency' => 'usd', '_' => '2', 'junk' => 'b' ], $route );
+if ( [ 'vs_currency' => 'usd' ] !== $first || $first !== $second ) {
+    fwrite( STDERR, 'Unknown market parameters were not removed consistently.' . PHP_EOL );
+    exit( 1 );
+}
+$provider = tonbankcard_api_market_provider_config( [], $api );
+$runtime = [ 'redis' => [ 'enabled' => false ] ];
+$one = tonbankcard_api_market_cache_context( $route, $first, $provider, $runtime, $api, 'allowlist-1' );
+$two = tonbankcard_api_market_cache_context( $route, $second, $provider, $runtime, $api, 'allowlist-2' );
+if ( $one['key'] !== $two['key'] || $one['lock_key'] !== $two['lock_key'] ) {
+    fwrite( STDERR, 'Equivalent market requests did not share cache/coalescing keys.' . PHP_EOL );
+    exit( 1 );
+}
+PHP
+
 php_check 'market gateway should work by default without a CoinGecko API key' \
     env -i PATH="$PATH" \
         COINGECKO_API_PLAN=demo \

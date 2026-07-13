@@ -313,7 +313,7 @@ NODE
 
 assert_contains "$robots_txt" '^User-agent: \*$' 'robots user agent directive'
 assert_contains "$robots_txt" '^Allow: /$' 'robots allow directive'
-assert_contains "$robots_txt" '^Disallow: /admin/$' 'robots admin disallow directive'
+assert_contains "$robots_txt" '^Disallow: /admin$' 'robots admin disallow directive covering the dashboard and descendants'
 assert_contains "$robots_txt" '^Clean-param: utm_source&utm_medium&utm_campaign&utm_term&utm_content&yclid&gclid&fbclid /$' 'Yandex tracking parameter cleanup directive'
 assert_contains "$robots_txt" '^Sitemap: http://127\.0\.0\.1:8891/sitemap\.xml$' 'sitemap pointer in robots.txt'
 

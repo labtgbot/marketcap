@@ -74,7 +74,7 @@ $component_cookies_dialog['button_policy_text'] = __( 'Cookies Policy' );
         <v-card-title class="text-h5">
             <?php echo esc_html( $component_cookies_dialog['title'] ); ?>
             <v-spacer></v-spacer>
-            <v-btn icon @click="close">
+            <v-btn icon @click="close" aria-label="<?php echo esc_attr( __( 'Close' ) ); ?>">
                 <v-icon>mdi-close</v-icon>
             </v-btn>
         </v-card-title>

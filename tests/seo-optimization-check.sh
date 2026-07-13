@@ -122,6 +122,9 @@ derivatives_html="$log_dir/seo-derivatives.html"
 finance_html="$log_dir/seo-finance-platforms.html"
 watchlist_html="$log_dir/seo-watchlist.html"
 settings_html="$log_dir/seo-settings.html"
+admin_html="$log_dir/seo-admin.html"
+admin_section_html="$log_dir/seo-admin-section.html"
+coin_ru_html="$log_dir/seo-coin-ru.html"
 
 fetch_path "/robots.txt" "$robots_txt"
 fetch_path "/sitemap.xml" "$sitemap_xml"
@@ -132,6 +135,9 @@ fetch_path "/derivatives" "$derivatives_html"
 fetch_path "/finance-platforms" "$finance_html"
 fetch_path "/watchlist" "$watchlist_html"
 fetch_path "/settings" "$settings_html"
+fetch_path "/admin" "$admin_html"
+fetch_path "/admin/providers" "$admin_section_html"
+fetch_path "/coins/bitcoin?lang=ru" "$coin_ru_html"
 
 assert_status_ok "/robots.txt"
 assert_status_ok "/sitemap.xml"
@@ -144,7 +150,7 @@ assert_status_ok "/settings"
 
 assert_contains "$robots_txt" '^User-agent: \*$' 'robots user agent rule'
 assert_contains "$robots_txt" '^Disallow: /api/$' 'API crawl disallow rule'
-assert_contains "$robots_txt" '^Disallow: /admin/$' 'admin crawl disallow rule'
+assert_contains "$robots_txt" '^Disallow: /admin$' 'admin crawl disallow rule covering the dashboard and descendants'
 assert_contains "$robots_txt" '^Clean-param: utm_source&utm_medium&utm_campaign&utm_term&utm_content&yclid&gclid&fbclid /$' 'Yandex tracking parameter cleanup rule'
 assert_contains "$robots_txt" "^Sitemap: $base_url/sitemap_index\\.xml$" 'sitemap index discovery URL'
 assert_contains "$robots_txt" "^Sitemap: $base_url/sitemap\\.xml$" 'combined sitemap discovery URL'
@@ -191,6 +197,11 @@ assert_contains "$finance_html" '<title>Crypto Finance Platforms - TONBANKCARD C
 assert_contains "$watchlist_html" '<title>Crypto Watchlist - TONBANKCARD Crypto Tracker' 'watchlist route title'
 assert_contains "$watchlist_html" '<link rel="canonical" href="http://127\.0\.0\.1:8893/watchlist"' 'watchlist canonical URL'
 assert_contains "$settings_html" '<meta name="robots" content="noindex,nofollow"' 'settings noindex policy'
+assert_contains "$admin_html" '<meta name="robots" content="noindex,nofollow"' 'admin dashboard noindex policy'
+assert_contains "$admin_section_html" '<meta name="robots" content="noindex,nofollow"' 'admin section noindex policy'
+assert_contains "$coin_ru_html" '<link rel="canonical" href="http://127\.0\.0\.1:8893/coins/bitcoin\?lang=ru"' 'self-canonical Russian coin URL'
+assert_contains "$coin_ru_html" '<meta property="og:locale" content="ru_RU"' 'active Russian Open Graph locale'
+assert_contains "$coin_ru_html" '<meta property="og:locale:alternate" content="en_US"' 'English alternate Open Graph locale'
 
 if [ "$failures" -gt 0 ]; then
     log "SEO optimization check failed. See $log_file and $server_log"

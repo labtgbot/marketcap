@@ -70,8 +70,8 @@ if ( ! function_exists( 'tonbankcard_observability_error_monitoring_settings' ) 
         $timeout_ms = isset( $merged['timeout_ms'] ) ? (int) $merged['timeout_ms'] : 2000;
         if ( $timeout_ms < 100 ) {
             $timeout_ms = 100;
-        } elseif ( $timeout_ms > 15000 ) {
-            $timeout_ms = 15000;
+        } elseif ( $timeout_ms > 500 ) {
+            $timeout_ms = 500;
         }
 
         return [

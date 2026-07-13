@@ -1667,3 +1667,21 @@ v-app {
         grid-template-columns: 1fr;
     }
 }
+.tbc-skip-link {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    z-index: 10000;
+    padding: 10px 16px;
+    border-radius: 4px;
+    background: #fff;
+    color: #111;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
+    transform: translateY(-150%);
+}
+
+.tbc-skip-link:focus {
+    transform: translateY(0);
+    outline: 3px solid #111;
+    outline-offset: 2px;
+}

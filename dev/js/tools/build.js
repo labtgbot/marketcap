@@ -88,42 +88,21 @@ function collectFiles() {
  */
 let output = collectFiles()
 
-// Writes app file
-fs.writeFile(appFilePath, output, appFileErr => {
-    if (appFileErr) {
-        console.error(appFileErr)
-        return
-    }
-
+try {
+    fs.writeFileSync(appFilePath, output)
     console.log('--------------------')
     console.log('APP:', appFilePath);
 
-    // Writes app minified file
-    try {
-        // tries to minify code
-        const UglifyJS = require('uglify-js')
-        const minified = UglifyJS.minify(output, uglifyOptions)
-        if (minified.error) throw new Error(minified.error)
-
-        fs.writeFile(appMinFilePath, minified.code, appMinFileErr => {
-            if (appMinFileErr) {
-                console.error(appMinFileErr)
-                return
-            }
-
-            console.log('--------------------')
-            console.log('APP MINIFIED:', appMinFilePath);
-            console.log('--------------------')
-        })
-    } catch (uglifyErr) {
-        console.log('--------------------')
-        console.log('APP MINIFIED: FAILED')
-        console.log('Fix it running:')
-        console.log('npm install uglify-js')
-        console.log('--------------------')
-    }
-})
-
+    const minified = UglifyJS.minify(output, uglifyOptions)
+    if (minified.error) throw minified.error
+    fs.writeFileSync(appMinFilePath, minified.code)
+    console.log('--------------------')
+    console.log('APP MINIFIED:', appMinFilePath)
+    console.log('--------------------')
+} catch (err) {
+    console.error('BUILD FAILED:', err)
+    process.exit(1)
+}
 
 
 

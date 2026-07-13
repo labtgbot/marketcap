@@ -754,7 +754,7 @@ function tonbankcard_api_alerts_evaluate_response( array $request, array $runtim
             tonbankcard_api_alerts_mark_evaluated( $pdo, $rule, $settings, null, null );
         } else {
             $stats['skipped']++;
-            tonbankcard_api_alerts_mark_evaluated( $pdo, $rule, $settings, null, null );
+            tonbankcard_api_alerts_mark_evaluated( $pdo, $rule, $settings, $event['fingerprint'], tonbankcard_api_mysql_datetime( time() ) );
         }
 
         $results[] = [
@@ -1054,6 +1054,11 @@ function tonbankcard_api_alerts_retry_deliveries( PDO $pdo, array $settings, str
     $rows = tonbankcard_api_alerts_claim_retry_deliveries( $pdo, $limit );
     foreach ( $rows as $row ) {
         $stats['attempted']++;
+        if ( tonbankcard_api_alerts_daily_cap_reached( $pdo, $row, isset( $row['retry_delivery_id'] ) ? (int) $row['retry_delivery_id'] : null ) ) {
+            tonbankcard_api_alerts_update_retry_delivery( $pdo, $row, 'queued', $request_id, null, 'daily_delivery_cap' );
+            $stats['queued']++;
+            continue;
+        }
         $delivery = tonbankcard_api_alerts_retry_delivery_payload( $row, $settings );
         $send = tonbankcard_api_alerts_send_telegram( $row, $delivery, $settings );
         $status = ! empty( $send['ok'] ) ? 'sent' : ( empty( $send['retryable'] ) ? 'failed' : 'queued' );
@@ -1542,16 +1547,22 @@ function tonbankcard_api_alerts_mark_evaluated( PDO $pdo, array $rule, array $se
  * @param array $rule
  * @return bool
  */
-function tonbankcard_api_alerts_daily_cap_reached( PDO $pdo, array $rule ) {
+function tonbankcard_api_alerts_daily_cap_reached( PDO $pdo, array $rule, $exclude_delivery_id = null ) {
     $limit = isset( $rule['max_deliveries_per_day'] ) ? (int) $rule['max_deliveries_per_day'] : 8;
+    $exclude_sql = null === $exclude_delivery_id ? '' : ' AND id <> :exclude_delivery_id';
     $select = $pdo->prepare(
         "SELECT COUNT(*) AS count
          FROM alert_deliveries
          WHERE alert_rule_id = :alert_rule_id
-           AND delivery_status = 'sent'
+           AND delivery_status IN ('sent', 'queued')
+           {$exclude_sql}
            AND attempted_at >= DATE_SUB(UTC_TIMESTAMP(6), INTERVAL 1 DAY)"
     );
-    $select->execute( [ ':alert_rule_id' => (int) $rule['id'] ] );
+    $select->bindValue( ':alert_rule_id', (int) $rule['id'], PDO::PARAM_INT );
+    if ( null !== $exclude_delivery_id ) {
+        $select->bindValue( ':exclude_delivery_id', (int) $exclude_delivery_id, PDO::PARAM_INT );
+    }
+    $select->execute();
     $row = $select->fetch();
     $count = is_array( $row ) && isset( $row['count'] ) ? (int) $row['count'] : 0;
     return $count >= $limit;

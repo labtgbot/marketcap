@@ -232,7 +232,7 @@ $frontend_options['derivatives']['tableFooterProps'] = [
                         ></v-select>
                     </v-col>
                     <v-col cols="auto" class="align-self-center">
-                        <v-btn text icon @click="clearFilters" :disabled="!isFiltered">
+                        <v-btn text icon @click="clearFilters" :disabled="!isFiltered" aria-label="<?php echo esc_attr( __( 'Clear filters' ) ); ?>">
                             <v-icon>mdi-filter-off</v-icon>
                         </v-btn>
                     </v-col>

@@ -173,6 +173,11 @@ $parsed = tonbankcard_api_premium_parse_invoice_payload($payload, $settings);
 assert_true(is_array($parsed), 'Signed premium invoice payload should parse.');
 assert_true($parsed['user_id'] === 42, 'Invoice payload should bind the internal user id.');
 assert_true($parsed['telegram_user_id'] === 987654321, 'Invoice payload should bind the Telegram user id.');
+assert_true($parsed['amount_stars'] === 199, 'Invoice payload should bind the creation-time Stars amount.');
+$repricedSettings = $settings;
+$repricedSettings['plans']['premium_monthly']['price_stars'] = 299;
+$repriced = tonbankcard_api_premium_parse_invoice_payload($payload, $repricedSettings);
+assert_true(is_array($repriced) && $repriced['amount_stars'] === 199, 'A later plan price change must not invalidate the signed invoice amount.');
 
 $invoice = tonbankcard_api_premium_create_invoice_link(
     $settings['plans']['premium_monthly'],

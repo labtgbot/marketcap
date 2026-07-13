@@ -57,12 +57,24 @@
             randomName: function () {
                 return 'input-' + Math.random().toString(16).substr(2);
             },
+            parseLocalizedNumber: function (value) {
+                if (_.isFinite(value)) return Number(value);
+                if (!_.isString(value)) return NaN;
+                const parts = this.formatter.formatToParts(12345.6);
+                const group = (parts.find(part => part.type === 'group') || {}).value;
+                const decimal = (parts.find(part => part.type === 'decimal') || {}).value || '.';
+                let normalized = value.trim();
+                if (group) normalized = normalized.split(group).join('');
+                normalized = normalized.replace(/[\s\u00a0\u202f]/g, '');
+                if (decimal !== '.') normalized = normalized.split(decimal).join('.');
+                return Number(normalized);
+            },
             baseUpdated: function () {
-                const value = parseFloat(this.baseModel) * this.rate;
+                const value = this.parseLocalizedNumber(this.baseModel) * this.rate;
                 this.quoteModel = _.isFinite(value) ? this.formatter.format(value) : null;
             },
             quoteUpdated: function () {
-                const value = parseFloat(this.quoteModel) / this.rate;
+                const value = this.parseLocalizedNumber(this.quoteModel) / this.rate;
                 this.baseModel = _.isFinite(value) ? this.formatter.format(value) : null;
             }
         }

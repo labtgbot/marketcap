@@ -24,7 +24,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
          * NAV ICON BUTTON
          */
         ?>
-        <v-app-bar-nav-icon @click.stop="navigationDrawerModel=!navigationDrawerModel" aria-label="Open navigation"></v-app-bar-nav-icon>
+        <v-app-bar-nav-icon @click.stop="navigationDrawerModel=!navigationDrawerModel" aria-label="<?php echo esc_attr( __( 'Open navigation' ) ); ?>"></v-app-bar-nav-icon>
         <?php
 
         /*
@@ -94,7 +94,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
         ?>
         <v-dialog v-model="vsCurrencyBarDialogModel" scrollable max-width="400px">
             <template v-slot:activator="{ on, attrs }">
-                <v-btn text rounded v-bind="attrs" v-on="on" class="d-none d-sm-inline-flex" aria-label="Select quote currency">
+                <v-btn text rounded v-bind="attrs" v-on="on" class="d-none d-sm-inline-flex" aria-label="<?php echo esc_attr( __( 'Select quote currency' ) ); ?>">
                     {{ vsCurrency.id }}
                 </v-btn>
             </template>
@@ -128,10 +128,10 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
          * THEME TOGGLE BUTTON
          */
         ?>
-        <v-btn icon @click.stop="darkTheme=!darkTheme" class="d-none d-sm-inline-flex" :aria-label="darkTheme ? 'Switch to light theme' : 'Switch to dark theme'">
+        <v-btn icon @click.stop="darkTheme=!darkTheme" class="d-none d-sm-inline-flex" :aria-label="darkTheme ? '<?php echo esc_attr( __( 'Switch to light theme' ) ); ?>' : '<?php echo esc_attr( __( 'Switch to dark theme' ) ); ?>'">
             <v-icon>{{ darkTheme ? 'mdi-white-balance-sunny' : 'mdi-brightness-2' }}</v-icon>
         </v-btn>
-        <v-btn icon v-if="pwaInstallAvailable" @click.stop="promptPwaInstall" aria-label="Install app" class="tbc-pwa-install-button">
+        <v-btn icon v-if="pwaInstallAvailable" @click.stop="promptPwaInstall" aria-label="<?php echo esc_attr( __( 'Install app' ) ); ?>" class="tbc-pwa-install-button">
             <v-icon>mdi-cellphone-arrow-down</v-icon>
         </v-btn>
 

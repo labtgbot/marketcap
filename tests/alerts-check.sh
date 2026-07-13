@@ -198,7 +198,8 @@ assert_true(FALSE !== strpos($alertsSource, 'FOR UPDATE SKIP LOCKED'), 'Alert wo
 assert_true(FALSE !== strpos($alertsSource, 'evaluation_claim_token'), 'Alert worker should include a token fallback for due-rule claims.');
 assert_true(FALSE !== strpos($alertsSource, 'retry_claim_token'), 'Alert worker should include a token fallback for queued retry claims.');
 assert_true(FALSE !== strpos($alertsSource, "delivery_status = 'queued'"), 'Alert retry consumer should select queued deliveries.');
-assert_true(FALSE !== strpos($alertsSource, "delivery_status = 'sent'"), 'Daily delivery caps should count sent deliveries only.');
+assert_true(FALSE !== strpos($alertsSource, "delivery_status IN ('sent', 'queued')"), 'Daily delivery caps should reserve capacity for sent and queued deliveries.');
+assert_true(FALSE !== strpos($alertsSource, "tonbankcard_api_alerts_daily_cap_reached( \$pdo, \$row"), 'Retry delivery should enforce the daily cap before sending.');
 PHP
 
 echo "Smart alerts check passed."
