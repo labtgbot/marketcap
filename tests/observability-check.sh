@@ -76,6 +76,24 @@ assert_contains package.json 'test:observability' 'the aggregate observability c
 assert_contains dev/js/source.json 'observability\.js' 'the generated bundle source list entry'
 assert_contains dev/js/src/coingecko.js 'instrumentAxiosInstance' 'frontend API request id and error instrumentation'
 
+php_check 'error monitoring transport timeout should be capped at 500ms' \
+    php <<'PHP'
+<?php
+require 'constants.php';
+require __DIR__ . '/api/observability.php';
+$settings = tonbankcard_observability_error_monitoring_settings([], [
+    'error_monitoring' => [
+        'enabled' => true,
+        'dsn' => 'http://127.0.0.1:9/events',
+        'timeout_ms' => 15000,
+    ],
+]);
+if ( 500 !== $settings['timeout_ms'] ) {
+    fwrite( STDERR, 'Error monitoring timeout was not capped at 500ms.' . PHP_EOL );
+    exit( 1 );
+}
+PHP
+
 php_check 'failed market requests should log API and provider records with the same request id without leaking secrets' \
     env -i PATH="$PATH" \
         TONBANKCARD_OBSERVABILITY_LOG_LEVEL=warning \

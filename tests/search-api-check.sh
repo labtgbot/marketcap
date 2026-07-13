@@ -77,6 +77,25 @@ assert_contains dev/js/src/routes/crypto-exchange.js 'changenow.io/embeds/exchan
 assert_contains dev/js/src/initial.js 'GeckoClient\.analytics' 'the frontend analytics helper'
 assert_not_contains dev/js/src/components/search-bar.js 'localstorage\.one' 'the legacy third-party search source'
 
+php_check 'search candidate filter should reject unrelated full-index rows while retaining typo matches' \
+    php <<'PHP'
+<?php
+require 'constants.php';
+require GECKO_CLIENT_CONFIG_DIR . '/api.php';
+require __DIR__ . '/api/router.php';
+$bitcoin = tonbankcard_api_search_prepare_entry([ 'id' => 'bitcoin', 'title' => 'Bitcoin', 'symbol' => 'BTC' ]);
+$unrelated = tonbankcard_api_search_prepare_entry([ 'id' => 'asset-14999', 'title' => 'Completely unrelated asset', 'symbol' => 'ZZZ' ]);
+$tokens = tonbankcard_api_search_tokens('bitcon');
+if ( ! tonbankcard_api_search_is_candidate($bitcoin, 'bitcon', $tokens) ) {
+    fwrite(STDERR, "Typo candidate was filtered out.\n");
+    exit(1);
+}
+if ( tonbankcard_api_search_is_candidate($unrelated, 'bitcon', $tokens) ) {
+    fwrite(STDERR, "Unrelated row entered fuzzy scoring.\n");
+    exit(1);
+}
+PHP
+
 php_check 'smart search should return BTC from the first-party endpoint with deep links and analytics metadata' \
     env -i PATH="$PATH" php <<'PHP'
 <?php

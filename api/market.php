@@ -95,7 +95,10 @@ function tonbankcard_api_market_handle( array $request, array $runtime, array $c
     }
 
     $provider = tonbankcard_api_market_provider_config( $runtime, $config );
-    $query    = tonbankcard_api_market_sanitize_query( isset( $request['query'] ) ? $request['query'] : [] );
+    $query    = tonbankcard_api_market_sanitize_query(
+        isset( $request['query'] ) ? $request['query'] : [],
+        $route
+    );
     $fetched_at = time();
     $cache_context = tonbankcard_api_market_cache_context( $route, $query, $provider, $runtime, $config, $request_id );
     $cached = tonbankcard_api_market_cache_read( $cache_context, $runtime, $config, $route, $provider, $request_id, $headers );
@@ -260,9 +263,10 @@ function tonbankcard_api_market_safe_segment( string $segment ) {
  * Removes client-supplied provider credentials and unsafe query keys.
  *
  * @param array $query
+ * @param array|null $route
  * @return array
  */
-function tonbankcard_api_market_sanitize_query( array $query ) {
+function tonbankcard_api_market_sanitize_query( array $query, array $route = null ) {
     $sanitized = [];
     $blocked_keys = [
         'api_key',
@@ -276,7 +280,11 @@ function tonbankcard_api_market_sanitize_query( array $query ) {
         if ( ! preg_match( '/^[A-Za-z0-9_.-]{1,80}$/', $key ) ) {
             continue;
         }
-        if ( in_array( strtolower( $key ), $blocked_keys, TRUE ) ) {
+        $normalized_key = strtolower( $key );
+        if ( in_array( $normalized_key, $blocked_keys, TRUE ) ) {
+            continue;
+        }
+        if ( null !== $route && ! in_array( $normalized_key, tonbankcard_api_market_allowed_query_keys( $route ), TRUE ) ) {
             continue;
         }
 
@@ -284,6 +292,52 @@ function tonbankcard_api_market_sanitize_query( array $query ) {
     }
 
     return $sanitized;
+}
+
+/**
+ * Returns the supported CoinGecko query parameters for one gateway route.
+ * Unknown parameters are intentionally dropped before cache-key generation and
+ * upstream dispatch so callers cannot force cache misses with junk keys.
+ *
+ * @param array $route
+ * @return array<int,string>
+ */
+function tonbankcard_api_market_allowed_query_keys( array $route ) {
+    $path = isset( $route['upstream_path'] ) ? (string) $route['upstream_path'] : '';
+    $exact = [
+        'coins/list'        => [ 'include_platform' ],
+        'coins/markets'     => [ 'vs_currency', 'ids', 'names', 'symbols', 'include_tokens', 'category', 'order', 'per_page', 'page', 'sparkline', 'price_change_percentage', 'locale', 'precision' ],
+        'exchanges'         => [ 'per_page', 'page' ],
+        'exchanges/list'    => [],
+        'search'            => [ 'query' ],
+        'search/trending'   => [],
+        'finance_platforms' => [ 'per_page', 'page' ],
+        'finance_products'  => [ 'per_page', 'page', 'start_at', 'end_at' ],
+        'derivatives'       => [ 'include_tickers' ],
+        'global'            => [],
+    ];
+    if ( isset( $exact[ $path ] ) ) {
+        return $exact[ $path ];
+    }
+    if ( preg_match( '#^coins/[^/]+/market_chart/range$#', $path ) ) {
+        return [ 'vs_currency', 'from', 'to', 'precision' ];
+    }
+    if ( preg_match( '#^coins/[^/]+/market_chart$#', $path ) ) {
+        return [ 'vs_currency', 'days', 'interval', 'precision' ];
+    }
+    if ( preg_match( '#^coins/[^/]+/tickers$#', $path ) ) {
+        return [ 'exchange_ids', 'include_exchange_logo', 'page', 'order', 'depth', 'coin_ids' ];
+    }
+    if ( preg_match( '#^coins/[^/]+$#', $path ) ) {
+        return [ 'localization', 'tickers', 'market_data', 'community_data', 'developer_data', 'sparkline', 'include_categories', 'include_max_supply_status' ];
+    }
+    if ( preg_match( '#^exchanges/[^/]+/tickers$#', $path ) ) {
+        return [ 'coin_ids', 'include_exchange_logo', 'page', 'depth', 'order' ];
+    }
+    if ( preg_match( '#^exchanges/[^/]+/volume_chart$#', $path ) ) {
+        return [ 'days' ];
+    }
+    return [];
 }
 
 /**
