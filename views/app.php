@@ -25,11 +25,12 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
 <body>
 <div id="app-wrapper">
     <v-app<?php if ( ! empty( $v2['mobile_navigation'] ) ) echo ' class="tbc-has-bottom-bar"'; ?>>
+        <a class="tbc-skip-link" href="#main-content"><?php echo esc_html( __( 'Skip to content' ) ); ?></a>
         <?php
             require_once GECKO_CLIENT_VIEWS_DIR . '/app-navigation.php';
             require_once GECKO_CLIENT_VIEWS_DIR . '/app-top-bar.php';
         ?>
-        <v-main>
+        <v-main id="main-content" tabindex="-1">
             <?php
                 /*
                  * STATS BAR COMPONENT
@@ -60,7 +61,7 @@ defined( 'GECKO_CLIENT_VERSION' ) OR exit( 'No direct script access allowed' );
                     <v-icon left>mdi-check</v-icon>
                     <?php echo esc_html( __( 'Copied' ) ); ?>
                     <template v-slot:action="{ attrs }">
-                        <v-btn icon v-bind="attrs" @click="copiedModel = false">
+                        <v-btn icon v-bind="attrs" @click="copiedModel = false" aria-label="<?php echo esc_attr( __( 'Close' ) ); ?>">
                             <v-icon>mdi-close</v-icon>
                         </v-btn>
                     </template>

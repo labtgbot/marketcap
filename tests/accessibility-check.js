@@ -56,6 +56,7 @@ const routes = [
     {path: '/premium', label: 'premium'},
     {path: '/support', label: 'support'},
     {path: '/watchlist', label: 'watchlist'},
+    {path: '/derivatives', label: 'derivatives'},
 ];
 
 // Impacts that block the build unless consciously deferred.
@@ -317,6 +318,20 @@ async function auditKeyboard(page, keyboardFailures) {
 
     const homeSeq = await tabSequence(page, 45);
     log(`\nKeyboard: home reached ${homeSeq.length} focusable stop(s) via Tab`);
+
+    if (!homeSeq[0] || !/skip to content/i.test(homeSeq[0].name)) {
+        fail('/', 'the first Tab stop was not the skip-to-content link');
+    } else {
+        // tabSequence intentionally walks the whole page. Restore focus to the
+        // first stop before activating the skip link itself.
+        await page.keyboard.press('Home');
+        await page.evaluate(() => document.querySelector('.tbc-skip-link').focus());
+        await page.keyboard.press('Enter');
+        const skipTarget = await page.evaluate(() => document.activeElement && document.activeElement.id);
+        if (skipTarget !== 'main-content') {
+            fail('/', 'activating the skip link did not focus #main-content');
+        }
+    }
 
     const reachedSearch = homeSeq.some(e =>
         (e.tag === 'input' && /search/i.test(e.name + ' ' + e.classes)) ||

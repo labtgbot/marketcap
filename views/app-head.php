@@ -53,7 +53,22 @@ $csp_nonce = tonbankcard_csp_nonce();
     <?php endforeach; ?>
     <meta property="og:type" content="<?php echo esc_attr( $public_meta['og_type'] ); ?>" />
     <meta property="og:url" content="<?php echo esc_url( $public_meta['canonical_url'] ); ?>" />
-    <meta property="og:locale" content="en_US" />
+    <?php
+        $og_locales = [
+            'en' => 'en_US',
+            'ru' => 'ru_RU',
+            'fr' => 'fr_FR',
+            'ar' => 'ar_SA',
+            'zh' => 'zh_CN',
+        ];
+        $active_og_locale = isset( $og_locales[ $site['lang'] ] ) ? $og_locales[ $site['lang'] ] : str_replace( '-', '_', $site['lang'] );
+    ?>
+    <meta property="og:locale" content="<?php echo esc_attr( $active_og_locale ); ?>" />
+    <?php foreach ( $og_locales as $language => $og_locale ) : ?>
+        <?php if ( $language !== $site['lang'] ) : ?>
+    <meta property="og:locale:alternate" content="<?php echo esc_attr( $og_locale ); ?>" />
+        <?php endif; ?>
+    <?php endforeach; ?>
 
     <?php
 

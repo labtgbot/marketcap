@@ -672,7 +672,7 @@ $frontend_options['admin']['apiBaseUrl'] = site_url( 'api/admin' );
                     <v-icon left color="primary">mdi-diamond-stone</v-icon>
                     <?php echo esc_html( __( 'Curated TON Assets' ) ); ?>
                     <v-spacer></v-spacer>
-                    <v-btn icon color="primary" :disabled="!canWrite" @click="addTonAsset">
+                    <v-btn icon color="primary" :disabled="!canWrite" @click="addTonAsset" aria-label="<?php echo esc_attr( __( 'Add TON asset' ) ); ?>">
                         <v-icon>mdi-plus-circle-outline</v-icon>
                     </v-btn>
                 </v-card-title>
@@ -697,7 +697,7 @@ $frontend_options['admin']['apiBaseUrl'] = site_url( 'api/admin' );
                                     <v-btn icon small :disabled="!canWrite || index === content.ton_assets.length - 1" @click="moveTonAssetDown(index)" title="<?php echo esc_attr( __( 'Move down' ) ); ?>">
                                         <v-icon small>mdi-arrow-down</v-icon>
                                     </v-btn>
-                                    <v-btn icon small color="secondary" :disabled="!canWrite" @click="removeTonAsset(index)">
+                                    <v-btn icon small color="secondary" :disabled="!canWrite" @click="removeTonAsset(index)" aria-label="<?php echo esc_attr( __( 'Remove asset' ) ); ?>">
                                         <v-icon>mdi-delete-outline</v-icon>
                                     </v-btn>
                                 </div>

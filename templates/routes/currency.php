@@ -292,7 +292,7 @@ foreach ( $route_currency['tabs'] as $tab ) {
                                         <v-list-item-subtitle class="font-family-monospace" v-text="contract[1]"></v-list-item-subtitle>
                                     </v-list-item-content>
                                     <v-list-item-action>
-                                        <v-btn x-small icon @click="$root.copyToClipboard(contract[1])">
+                                        <v-btn x-small icon @click="$root.copyToClipboard(contract[1])" aria-label="<?php echo esc_attr( __( 'Copy contract address' ) ); ?>">
                                             <v-icon>mdi-content-copy</v-icon>
                                         </v-btn>
                                     </v-list-item-action>
