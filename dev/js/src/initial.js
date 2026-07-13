@@ -899,7 +899,7 @@
     // uses "Intl.NumberFormat" instance to format "value"
     GeckoClient.currencyFormat = (formatter, value, unit) => {
         value = parseFloat(value);
-        if (_.isFinite(value) || formatter) return formatter.format(value) + (_.isString(unit) ? (' ' + unit) : '');
+        if (_.isFinite(value) && formatter) return formatter.format(value) + (_.isString(unit) ? (' ' + unit) : '');
         return null;
     };
 

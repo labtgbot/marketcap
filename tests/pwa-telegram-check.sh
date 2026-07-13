@@ -30,6 +30,16 @@ assert_contains() {
     fi
 }
 
+assert_not_contains() {
+    file=$1
+    pattern=$2
+    description=$3
+
+    if grep -Eq -- "$pattern" "$file"; then
+        fail "$file unexpectedly includes $description"
+    fi
+}
+
 assert_png_size() {
     file=$1
     expected_width=$2
@@ -90,6 +100,8 @@ assert_contains service-worker.js 'no-store' 'no-store cache exclusion'
 assert_contains service-worker.js 'private' 'private response cache exclusion'
 assert_contains service-worker.js '/admin' 'admin route cache exclusion'
 assert_contains service-worker.js '/install' 'installer route cache exclusion'
+assert_contains service-worker.js "searchParams\.delete\('t'\)" 'versioned asset lookup fallback to precache URL'
+assert_not_contains service-worker.js "'/assets/js/app\.js'" 'unused development bundle in production precache'
 
 assert_contains views/app-head.php 'telegram-web-app\.js' 'conditional Telegram WebApp SDK loading'
 assert_contains views/app-head.php 'apple-mobile-web-app-capable' 'Apple install metadata'

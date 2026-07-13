@@ -18,7 +18,6 @@ const SHELL_ASSETS = [
     OFFLINE_URL,
     '/site.webmanifest',
     '/assets/css/style.css',
-    '/assets/js/app.js',
     '/assets/js/app.min.js',
     '/assets/images/favicon.ico',
     '/assets/images/tonbankcard-icon-192x192.png',
@@ -95,6 +94,16 @@ function networkFirstNavigation(request) {
 
 function staleWhileRevalidate(request) {
     return caches.match(request).then(cached => {
+        if (!cached) {
+            const unversioned = new URL(request.url);
+            unversioned.searchParams.delete('t');
+            return caches.match(unversioned.toString()).then(preCached => staleWhileRevalidateWithCached(request, preCached));
+        }
+        return staleWhileRevalidateWithCached(request, cached);
+    });
+}
+
+function staleWhileRevalidateWithCached(request, cached) {
         const refresh = fetch(request)
             .then(response => {
                 if (isRuntimeCacheableResponse(response)) {
@@ -106,5 +115,4 @@ function staleWhileRevalidate(request) {
             .catch(() => cached);
 
         return cached || refresh;
-    });
 }
